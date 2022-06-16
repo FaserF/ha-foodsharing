@@ -1,0 +1,21 @@
+{
+  "config": {
+    "error": {
+      "wrong_format" : "Please lookup your correct correct coordinates."
+    },
+    "step": {
+      "user": {
+        "data": {
+          "latitude": "Latitude Coordinate"
+        },
+        "description": "Enter your latitude coordinate.",
+        "title": "Setup"
+      }
+    }
+  },
+  "options": {
+    "error": {
+      "wrong_format" : "Please lookup your correct correct coordinates."
+    }
+  }
+}

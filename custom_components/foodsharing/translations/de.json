@@ -1,0 +1,21 @@
+{
+  "config": {
+    "error": {
+      "wrong_format" : "Bitte prüfe deine richtigen Koordinaten im Internet."
+    },
+    "step": {
+      "user": {
+        "data": {
+          "latitude": "Breiten-Koordinate"
+        },
+        "description": "Tipp deinen Breitengrad ein.",
+        "title": "Setup"
+      }
+    }
+  },
+  "options": {
+    "error": {
+      "wrong_format" : "Bitte prüfe deine richtigen Koordinaten im Internet."
+    }
+  }
+}
