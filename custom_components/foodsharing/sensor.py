@@ -1,5 +1,5 @@
 """Foodsharing.de sensor platform."""
-from datetime import timedelta
+from datetime import datetime, timedelta
 import logging
 import re
 import json
@@ -10,6 +10,7 @@ import async_timeout
 from homeassistant import config_entries, core
 from homeassistant.helpers import aiohttp_client
 from homeassistant.components.sensor import PLATFORM_SCHEMA
+from homeassistant.const import ATTR_ATTRIBUTION
 import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.typing import (
@@ -20,6 +21,7 @@ from homeassistant.helpers.typing import (
 import voluptuous as vol
 
 from .const import (
+    ATTRIBUTION,
     CONF_LATITUDE,
     ATTR_ID,
     ATTR_DESCRIPTION,
@@ -71,6 +73,7 @@ class FoodsharingSensor(Entity):
         self.latitude = latitude
         self.hass = hass
         self.attrs: Dict[str, Any] = {CONF_LATITUDE: self.latitude}
+        self.updated = datetime.now()
         self._name = f"Foodsharing {latitude}"
         self._state = None
         self._available = True
@@ -83,7 +86,8 @@ class FoodsharingSensor(Entity):
     @property
     def unique_id(self) -> str:
         """Return the unique ID of the sensor."""
-        return self._name
+        #return self._name
+        return f"Foodsharing-{self.latitude}"
 
     @property
     def available(self) -> bool:
@@ -102,47 +106,78 @@ class FoodsharingSensor(Entity):
             return "Error"
 
     @property
-    def device_state_attributes(self) -> Dict[str, Any]:
+    def unit_of_measurement(self):
+        """Return unit of measurement."""
+        return "baskets"
+
+    @property
+    def extra_state_attributes(self):
+        """Return extra attributes."""
         return self.attrs
 
     async def async_update(self):
+        #_LOGGER.debug(f"HA Parameters: 'email':'{self.email}', 'password':'HIDDEN', 'lat':'{self.latitude}', 'long':'{self.longitude}', 'distance':'{self.distance}'")
         try:
             with async_timeout.timeout(30):
-                query = {'email':'{self.email}', 'password':'{self.password}', 'remember_me':'true'}
+                json_parameters = {'email':'{self.email}', 'password':'{self.password}', 'remember_me':'true'}
                 url_login = 'https://foodsharing.de/api/user/login'
-                response_login = await aiohttp_client.async_get_clientsession(self.hass).get(url_login, params=query)
+                #headers = {'Content-Type: application/json'}
+                response_login = await aiohttp_client.async_get_clientsession(self.hass).post(url_login, json=json_parameters)
 
-                if not response_login.status == 200:
-                    self._available = False
-                    _LOGGER.exception(f"Error '{response_login.status}' - Invalid login credentials!")
+                _LOGGER.debug(f"Login: '{response_login.status}' {response_login.text} - {response_login.headers}")
+
+                if response_login.status == 400:
+                    _LOGGER.info(f"Bad request. Most likely because you are already signed in and cant sign in twice. Or json credentials were missing. Continuing... - '{response_login.text}'")
+                elif response_login.status == 405:
+                    _LOGGER.exception(f"Invalid request. Please report this issue to the developer. '{response_login.text}'")
+                elif not response_login.status == 200:
+                    _LOGGER.exception(f"Error '{response_login.status}' - Invalid login credentials! - {response_login.text}")
         except:
             self._available = False
-            _LOGGER.exception(f"Unable to login, timeout error for '{self.latitude}'?")
+            _LOGGER.exception(f"Unable to login for '{self.latitude}'")
         try:
             with async_timeout.timeout(30):
                 url = 'https://foodsharing.de/api/baskets/nearby?lat={self.latitude}&lon={self.longitude}&distance={self.distance}'
+                
+                #params = {'lat': '{self.latitude}', 'lon': '{self.longitude}', 'distance': '{self.distance}'}
+                #response = await aiohttp_client.async_get_clientsession(self.hass).get(url, params=params)
+                #expect = 'https://foodsharing.de/api/baskets/nearby?lat=value1&lon=value2&distance=value3'
 
                 response = await aiohttp_client.async_get_clientsession(self.hass).get(url)
-                if response.status == 200:
-                    json_response = await response.json()
 
-                    json_data = json.loads(json_response)
+                _LOGGER.debug(f"Getting Baskets: '{response.status}' {response.text} - {response_login.headers}")
+                _LOGGER.debug(f"Fetching URL: '{url}")
+
+                if response.status == 200:
+                    raw_html = await response.text()
+                    json_data = json.loads(raw_html)
+
+                    # Doesnt work due to: TypeError: the JSON object must be str, bytes or bytearray, not dict
+                    #json_response = await response.json()
+                    #json_data = json.loads(json_response)
+
+                    _LOGGER.debug(f"JSON Response: '{json_data}")
+                    _LOGGER.debug(f"JSON first basket id: '{json_data['baskets'][0]['id']}'")
                 
                     baskets_count = len(json_data['baskets'])
 
-                    self.attrs[ATTR_ID] = json_data['baskets'][0]['id'],
-                    self.attrs[ATTR_DESCRIPTION] = json_data['baskets'][0]['description'],
-                    self.attrs[ATTR_UNTIL] = json_data['baskets'][0]['until']
+                    if baskets_count > 0:
+                        self.attrs[ATTR_ID] = json_data['baskets'][0]['id'],
+                        self.attrs[ATTR_DESCRIPTION] = json_data['baskets'][0]['description'],
+                        self.attrs[ATTR_UNTIL] = json_data['baskets'][0]['until']
 
+                    self.attrs[ATTR_ATTRIBUTION] = f"last updated {self.updated.strftime('%d %b, %Y  %H:%M:%S')} \n{ATTRIBUTION}"
                     self._state = baskets_count
                     self._available = True
                 elif response.status == 401:
                     self._available = False
-                    _LOGGER.exception(f"Unauthentificated! Cannot fetch data.")
+                    _LOGGER.exception(f"Not authentificated! Maybe wrong login credentials? Cannot fetch data.")
+                elif response.status == 405:
+                    self._available = False
+                    _LOGGER.exception(f"Invalid request. Please report this issue to the developer. - '{response.text}'")
                 else:
                     self._available = False
                     _LOGGER.exception(f"Error '{response.status}' - Cannot retrieve data for: '{self.latitude}'")
         except:
             self._available = False
             _LOGGER.exception(f"Cannot retrieve data for: '{self.latitude}'")
-                

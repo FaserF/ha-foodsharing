@@ -49,5 +49,15 @@ Go to Configuration -> Integrations and click on "add integration". Then search 
 - **email**: Your Foodsharing.de E-Mail adress
 - **password**: Your Foodsharing.de Password
 
+## Bug reporting
+Open an issue over at [github issues](https://github.com/FaserF/ha-foodsharing/issues). Please prefer sending over a log with debugging enabled.
+
+To enable debugging enter the following in your configuration.yaml
+
+```yaml
+logs:
+    custom_components.foodsharing: debug
+```
+
 ## Thanks to
 Huge thanks to [@knorr3](https://github.com/knorr3) for his help and the [coronavirus integration](https://github.com/knorr3/coronavirus_germany), where this integration structure is based on!

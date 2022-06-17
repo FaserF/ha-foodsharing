@@ -1,4 +1,5 @@
 DOMAIN = "foodsharing"
+ATTRIBUTION = "Data provided by foodsharing.de api"
 
 ATTR_ID = "ID"
 ATTR_DESCRIPTION = "Description"
