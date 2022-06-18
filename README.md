@@ -7,14 +7,13 @@ Gets foodsharing baskets from the [foodsharing.de API](https://beta.foodsharing.
 <img src="images/sensor.png" alt="Foodsharing.de Sensor" width="300px">
 
 
+
+
 This integration provides the following informations within one sensor with a refresh rate of 10 minutes until now:
 
 - How many baskets are available within your distance range
 
 - Basket ID, Description and Available until time
-
-# WARNING: NOT WORKING YET! This integration is Work-in-Progress
-Change the line **"query ="** and change the line **"url ="** in sensor.py manually to get it working already (email, password, distance, longitude).
 
 ## Installation
 ### 1. Using HACS (recommended way)

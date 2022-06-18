@@ -22,7 +22,11 @@ import voluptuous as vol
 
 from .const import (
     ATTRIBUTION,
-    CONF_LATITUDE,
+    CONF_EMAIL,
+    CONF_PASSWORD,
+    CONF_LATITUDE_FS,
+    CONF_LONGITUDE_FS,
+    CONF_DISTANCE,
     ATTR_ID,
     ATTR_DESCRIPTION,
     ATTR_UNTIL,
@@ -34,47 +38,35 @@ _LOGGER = logging.getLogger(__name__)
 # Time between updating data
 SCAN_INTERVAL = timedelta(minutes=10)
 
-COUNTY_SCHEMA = vol.Schema(
-    {
-        vol.Required(CONF_LATITUDE): cv.string,
-    }
-)
-
 async def async_setup_entry(
-    hass: core.HomeAssistant,
-    config_entry: config_entries.ConfigEntry,
-    async_add_entities,
-):
-    """Setup sensors from a config entry created in the integrations UI."""
-    config = hass.data[DOMAIN][config_entry.entry_id]
-    # Update our config to include new repos and remove those that have been removed.
-    if config_entry.options:
-        config.update(config_entry.options)
-    sensors = [FoodsharingSensor(config[CONF_LATITUDE], hass)]
-    async_add_entities(sensors, update_before_add=True)
-
-
-async def async_setup_platform(
-    hass: HomeAssistantType,
-    config: ConfigType,
-    async_add_entities: Callable,
-    discovery_info: Optional[DiscoveryInfoType] = None,
+    hass: HomeAssistantType, entry: ConfigType, async_add_entities
 ) -> None:
-    """Set up the sensor platform."""
-    sensors = [FoodsharingSensor(config[CONF_LATITUDE], hass)]
-    async_add_entities(sensors, update_before_add=True)
+    """Setup sensors from a config entry created in the integrations UI."""
+    config = hass.data[DOMAIN][entry.entry_id]
+    _LOGGER.debug("Sensor async_setup_entry")
+    async_add_entities(
+        [
+            FoodsharingSensor(config, hass)
+        ],
+        False,
+    )
 
 
 class FoodsharingSensor(Entity):
     """Collects and represents foodsharing baskets based on given coordinates"""
 
-    def __init__(self, latitude: str, hass: HomeAssistantType):
+    def __init__(self, config, hass: HomeAssistantType):
         super().__init__()
-        self.latitude = latitude
+
+        self.email = config[CONF_EMAIL]
+        self.password = config[CONF_PASSWORD]
+        self.latitude_fs = config[CONF_LATITUDE_FS]
+        self.longitude_fs = config[CONF_LONGITUDE_FS]
+        self.distance = config[CONF_DISTANCE]
         self.hass = hass
-        self.attrs: Dict[str, Any] = {CONF_LATITUDE: self.latitude}
+        self.attrs: Dict[str, Any] = {CONF_LONGITUDE_FS: self.longitude_fs}
         self.updated = datetime.now()
-        self._name = f"Foodsharing {latitude}"
+        self._name = f"Foodsharing {self.latitude_fs}"
         self._state = None
         self._available = True
 
@@ -87,7 +79,7 @@ class FoodsharingSensor(Entity):
     def unique_id(self) -> str:
         """Return the unique ID of the sensor."""
         #return self._name
-        return f"Foodsharing-{self.latitude}"
+        return f"Foodsharing-{self.latitude_fs}"
 
     @property
     def available(self) -> bool:
@@ -116,36 +108,38 @@ class FoodsharingSensor(Entity):
         return self.attrs
 
     async def async_update(self):
-        #_LOGGER.debug(f"HA Parameters: 'email':'{self.email}', 'password':'HIDDEN', 'lat':'{self.latitude}', 'long':'{self.longitude}', 'distance':'{self.distance}'")
+        #_LOGGER.debug(f"HA Parameters: 'email':'{self.email}', 'password':'HIDDEN', 'lat':'{self.latitude_fs}', 'long':'{self.longitude_fs}', 'distance':'{self.distance}'")
         try:
             with async_timeout.timeout(30):
-                json_parameters = {'email':'{self.email}', 'password':'{self.password}', 'remember_me':'true'}
+                json_parameters_string = {'email':'', 'password':'', 'remember_me':'true'}
+                #json_parameters = json.dumps(lists(json_parameters_string))
+                #editable_json_parameters=json.loads(json_parameters)
+                json_parameters_string['email'] = {self.email}
+                json_parameters_string['password'] = {self.password}
+                json_parameters = json.dumps(list(json_parameters_string))
+
                 url_login = 'https://foodsharing.de/api/user/login'
                 #headers = {'Content-Type: application/json'}
                 response_login = await aiohttp_client.async_get_clientsession(self.hass).post(url_login, json=json_parameters)
 
-                _LOGGER.debug(f"Login: '{response_login.status}' {response_login.text} - {response_login.headers}")
+                _LOGGER.debug(f"Login: '{json_parameters}' '{response_login.status}' {response_login.text} - {response_login.headers}")
 
                 if response_login.status == 400:
                     _LOGGER.info(f"Bad request. Most likely because you are already signed in and cant sign in twice. Or json credentials were missing. Continuing... - '{response_login.text}'")
                 elif response_login.status == 405:
                     _LOGGER.exception(f"Invalid request. Please report this issue to the developer. '{response_login.text}'")
                 elif not response_login.status == 200:
-                    _LOGGER.exception(f"Error '{response_login.status}' - Invalid login credentials! - {response_login.text}")
+                    _LOGGER.exception(f"Error '{response_login.status}' - Invalid login credentials for {self.email} with {self.password}!")
         except:
             self._available = False
-            _LOGGER.exception(f"Unable to login for '{self.latitude}'")
+            _LOGGER.exception(f"Unable to login for '{self.email}'")
         try:
             with async_timeout.timeout(30):
-                url = 'https://foodsharing.de/api/baskets/nearby?lat={self.latitude}&lon={self.longitude}&distance={self.distance}'
-                
-                #params = {'lat': '{self.latitude}', 'lon': '{self.longitude}', 'distance': '{self.distance}'}
-                #response = await aiohttp_client.async_get_clientsession(self.hass).get(url, params=params)
-                #expect = 'https://foodsharing.de/api/baskets/nearby?lat=value1&lon=value2&distance=value3'
+                url = f'https://foodsharing.de/api/baskets/nearby?lat={self.latitude_fs}&lon={self.longitude_fs}&distance={self.distance}'
 
                 response = await aiohttp_client.async_get_clientsession(self.hass).get(url)
 
-                _LOGGER.debug(f"Getting Baskets: '{response.status}' {response.text} - {response_login.headers}")
+                _LOGGER.debug(f"Getting Baskets: '{response.status}' {response.text} - {response.headers}")
                 _LOGGER.debug(f"Fetching URL: '{url}")
 
                 if response.status == 200:
@@ -171,13 +165,13 @@ class FoodsharingSensor(Entity):
                     self._available = True
                 elif response.status == 401:
                     self._available = False
-                    _LOGGER.exception(f"Not authentificated! Maybe wrong login credentials? Cannot fetch data.")
+                    _LOGGER.exception("Not authentificated! Maybe wrong login credentials? Cannot fetch data.")
                 elif response.status == 405:
                     self._available = False
                     _LOGGER.exception(f"Invalid request. Please report this issue to the developer. - '{response.text}'")
                 else:
                     self._available = False
-                    _LOGGER.exception(f"Error '{response.status}' - Cannot retrieve data for: '{self.latitude}'")
+                    _LOGGER.exception(f"Error '{response.status}' - Cannot retrieve data for: '{self.latitude_fs}' '{self.longitude_fs}'")
         except:
             self._available = False
-            _LOGGER.exception(f"Cannot retrieve data for: '{self.latitude}'")
+            _LOGGER.exception(f"Cannot retrieve data for: '{self.latitude_fs}' '{self.longitude_fs}'")
