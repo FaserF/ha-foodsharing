@@ -7,7 +7,7 @@ Gets foodsharing baskets from the [foodsharing.de API](https://beta.foodsharing.
 <img src="images/sensor.png" alt="Foodsharing.de Sensor" width="300px">
 
 
-This integration provides the following informations within one sensor until now:
+This integration provides the following informations within one sensor with a refresh rate of 10 minutes until now:
 
 - How many baskets are available within your distance range
 

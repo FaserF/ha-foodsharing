@@ -157,11 +157,11 @@ class FoodsharingSensor(Entity):
                     #json_data = json.loads(json_response)
 
                     _LOGGER.debug(f"JSON Response: '{json_data}")
-                    _LOGGER.debug(f"JSON first basket id: '{json_data['baskets'][0]['id']}'")
                 
                     baskets_count = len(json_data['baskets'])
 
                     if baskets_count > 0:
+                        _LOGGER.debug(f"JSON first basket id: '{json_data['baskets'][0]['id']}'")
                         self.attrs[ATTR_ID] = json_data['baskets'][0]['id'],
                         self.attrs[ATTR_DESCRIPTION] = json_data['baskets'][0]['description'],
                         self.attrs[ATTR_UNTIL] = json_data['baskets'][0]['until']
