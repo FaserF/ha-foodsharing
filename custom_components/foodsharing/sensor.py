@@ -111,12 +111,12 @@ class FoodsharingSensor(Entity):
         #_LOGGER.debug(f"HA Parameters: 'email':'{self.email}', 'password':'HIDDEN', 'lat':'{self.latitude_fs}', 'long':'{self.longitude_fs}', 'distance':'{self.distance}'")
         try:
             with async_timeout.timeout(30):
-                json_parameters_string = {'email':'', 'password':'', 'remember_me':'true'}
+                json_parameters = {'email':f'{self.email}', 'password':f'{self.password}', 'remember_me':'true'}
                 #json_parameters = json.dumps(lists(json_parameters_string))
                 #editable_json_parameters=json.loads(json_parameters)
-                json_parameters_string['email'] = {self.email}
-                json_parameters_string['password'] = {self.password}
-                json_parameters = json.dumps(list(json_parameters_string))
+               # json_parameters_string['email'] = {self.email}
+                #json_parameters_string['password'] = {self.password}
+                #json_parameters_string = json.dumps(list(json_parameters_string))
 
                 url_login = 'https://foodsharing.de/api/user/login'
                 #headers = {'Content-Type: application/json'}
