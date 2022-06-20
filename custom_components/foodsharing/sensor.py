@@ -27,9 +27,11 @@ from .const import (
     CONF_LATITUDE_FS,
     CONF_LONGITUDE_FS,
     CONF_DISTANCE,
+    ATTR_BASKETS,
     ATTR_ID,
     ATTR_DESCRIPTION,
     ATTR_UNTIL,
+    ATTR_PICTURE,
 
     DOMAIN,
 )
@@ -117,7 +119,7 @@ class FoodsharingSensor(Entity):
                 response = await aiohttp_client.async_get_clientsession(self.hass).get(url)
 
                 _LOGGER.debug(f"Getting Baskets: '{response.status}' {response.text} - {response.headers}")
-                _LOGGER.debug(f"Fetching URL: '{url}")
+                _LOGGER.debug(f"Fetching URL: '{url}'")
 
                 if response.status == 200:
                     raw_html = await response.text()
@@ -132,15 +134,30 @@ class FoodsharingSensor(Entity):
                     baskets_count = len(json_data['baskets'])
                     if baskets_count > 0:
                         #_LOGGER.debug(f"JSON first basket id: '{json_data['baskets'][0]['id']}'")
+                        baskets = []
                         count = 0
                         for id in json_data['baskets']:
-                            #self.attrs[ATTR_ID][count] = json_data['baskets'][count]['id'],
-                            #self.attrs[ATTR_DESCRIPTION][count] = json_data['baskets'][count]['description'],
-                            #self.attrs[ATTR_UNTIL][count] = json_data['baskets'][count]['until']
-                            self.attrs[ATTR_ID] = json_data['baskets'][count]['id'],
-                            self.attrs[ATTR_DESCRIPTION] = json_data['baskets'][count]['description'],
-                            self.attrs[ATTR_UNTIL] = json_data['baskets'][count]['until']
+                            #Convert Time to human readable time
+                            json_data['baskets'][count]['until'] = datetime.fromtimestamp(json_data['baskets'][count]['until']).strftime('%c')
+                            if not json_data['baskets'][count]['picture']:
+                                baskets.append(
+                                    {
+                                        ATTR_ID: json_data['baskets'][count]['id'],
+                                        ATTR_DESCRIPTION: json_data['baskets'][count]['description'],
+                                        ATTR_UNTIL: json_data['baskets'][count]['until'],
+                                        ATTR_PICTURE: f"https://foodsharing.de/images/basket/medium-{json_data['baskets'][count]['picture']}"
+                                    }
+                                )
+                            else:
+                                baskets.append(
+                                    {
+                                        ATTR_ID: json_data['baskets'][count]['id'],
+                                        ATTR_DESCRIPTION: json_data['baskets'][count]['description'],
+                                        ATTR_UNTIL: json_data['baskets'][count]['until'],
+                                    }
+                                )
                             count += 1
+                        self.attrs[ATTR_BASKETS] = baskets
 
                     self.attrs[ATTR_ATTRIBUTION] = f"last updated {self.updated.strftime('%d %b, %Y  %H:%M:%S')} \n{ATTRIBUTION}"
                     self._state = baskets_count
@@ -162,7 +179,7 @@ class FoodsharingSensor(Entity):
                                     response = await aiohttp_client.async_get_clientsession(self.hass).get(url)
 
                                     _LOGGER.debug(f"Getting Baskets: '{response.status}' {response.text} - {response.headers}")
-                                    _LOGGER.debug(f"Fetching URL: '{url}")
+                                    _LOGGER.debug(f"Fetching URL: '{url}'")
 
                                     if response.status == 200:
                                         raw_html = await response.text()
@@ -173,16 +190,31 @@ class FoodsharingSensor(Entity):
                                         baskets_count = len(json_data['baskets'])
                                         if baskets_count > 0:
                                             #_LOGGER.debug(f"JSON first basket id: '{json_data['baskets'][0]['id']}'")
+                                            baskets = []
                                             count = 0
                                             for id in json_data['baskets']:
-                                                #self.attrs[ATTR_ID][count] = json_data['baskets'][count]['id'],
-                                                #self.attrs[ATTR_DESCRIPTION][count] = json_data['baskets'][count]['description'],
-                                                #self.attrs[ATTR_UNTIL][count] = json_data['baskets'][count]['until']
-                                                self.attrs[ATTR_ID] = json_data['baskets'][count]['id'],
-                                                self.attrs[ATTR_DESCRIPTION] = json_data['baskets'][count]['description'],
-                                                self.attrs[ATTR_UNTIL] = json_data['baskets'][count]['until']
+                                                #Convert Time to human readable time
+                                                json_data['baskets'][count]['until'] = datetime.fromtimestamp(json_data['baskets'][count]['until']).strftime('%c')
+                                                if not json_data['baskets'][count]['picture']:
+                                                    baskets.append(
+                                                        {
+                                                            ATTR_ID: json_data['baskets'][count]['id'],
+                                                            ATTR_DESCRIPTION: json_data['baskets'][count]['description'],
+                                                            ATTR_UNTIL: json_data['baskets'][count]['until'],
+                                                            ATTR_PICTURE: f"https://foodsharing.de/images/basket/medium-{json_data['baskets'][count]['picture']}"
+                                                        }
+                                                    )
+                                                else:
+                                                    baskets.append(
+                                                        {
+                                                            ATTR_ID: json_data['baskets'][count]['id'],
+                                                            ATTR_DESCRIPTION: json_data['baskets'][count]['description'],
+                                                            ATTR_UNTIL: json_data['baskets'][count]['until'],
+                                                        }
+                                                    )
                                                 count += 1
-
+                                            self.attrs[ATTR_BASKETS] = baskets
+                                        
                                         self.attrs[ATTR_ATTRIBUTION] = f"last updated {self.updated.strftime('%d %b, %Y  %H:%M:%S')} \n{ATTRIBUTION}"
                                         self._state = baskets_count
                                         self._available = True

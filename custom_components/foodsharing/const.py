@@ -1,9 +1,11 @@
 DOMAIN = "foodsharing"
 ATTRIBUTION = "Data provided by foodsharing.de api"
 
-ATTR_ID = "ID"
-ATTR_DESCRIPTION = "Description"
-ATTR_UNTIL = "Available until"
+ATTR_BASKETS = "baskets"
+ATTR_ID = "id"
+ATTR_DESCRIPTION = "description"
+ATTR_UNTIL = "available until"
+ATTR_PICTURE = "picture"
 
 CONF_EMAIL = "Foodsharing.de E-Mail Adress"
 CONF_PASSWORD = "Foodsharing.de Password"

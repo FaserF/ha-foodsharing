@@ -13,7 +13,7 @@ This integration provides the following informations within one sensor with a re
 
 - How many baskets are available within your distance range
 
-- Basket ID, Description and Available until time (not in human readable time yet)
+- Basket ID, Description and Available until time (human readable) and a picture link
 
 ## Installation
 ### 1. Using HACS (recommended way)
@@ -53,10 +53,10 @@ To use a basket URL in automations you can use the following code for example:
 
 ```yaml
 message: >
-    There are {{ states.sensor.foodsharing_48_088588.state }} Foodsharing baskets available. 
-    Newest one: {{ states.sensor.foodsharing_48_088588.attributes.Description }}
+    There are {{ states.sensor.foodsharing_latitudecoordinate.state }} foodsharing baskets available. 
+    Newest one: {{ state_attr('sensor.foodsharing_latitudecoordinate', 'baskets')[-1]['description'] }} available until {{ state_attr('sensor.foodsharing_latitudecoordinate', 'baskets')[-1]['available until'] }}
 
-    Link: https://foodsharing.de/essenskoerbe/{{ states.sensor.foodsharing_48_088588.attributes.id }}
+    Link: https://foodsharing.de/essenskoerbe/{{ state_attr('sensor.foodsharing_latitudecoordinate', 'baskets')[-1]['id'] }}
 ```
 
 ## Bug reporting
