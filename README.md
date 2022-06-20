@@ -9,11 +9,11 @@ Gets foodsharing baskets from the [foodsharing.de API](https://beta.foodsharing.
 
 
 
-This integration provides the following informations within one sensor with a refresh rate of 10 minutes until now:
+This integration provides the following informations within one sensor with a refresh rate of 30 minutes until now:
 
 - How many baskets are available within your distance range
 
-- Basket ID, Description and Available until time
+- Basket ID, Description and Available until time (not in human readable time yet)
 
 ## Installation
 ### 1. Using HACS (recommended way)
@@ -47,6 +47,17 @@ Go to Configuration -> Integrations and click on "add integration". Then search 
 - **distance**: The search distance for baskets in kilometers
 - **email**: Your Foodsharing.de E-Mail adress
 - **password**: Your Foodsharing.de Password
+
+### Basket URL
+To use a basket URL in automations you can use the following code for example:
+
+```yaml
+message: >
+    There are {{ states.sensor.foodsharing_48_088588.state }} Foodsharing baskets available. 
+    Newest one: {{ states.sensor.foodsharing_48_088588.attributes.Description }}
+
+    Link: https://foodsharing.de/essenskoerbe/{{ states.sensor.foodsharing_48_088588.attributes.id }}
+```
 
 ## Bug reporting
 Open an issue over at [github issues](https://github.com/FaserF/ha-foodsharing/issues). Please prefer sending over a log with debugging enabled.

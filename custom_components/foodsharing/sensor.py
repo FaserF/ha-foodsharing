@@ -36,7 +36,8 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 # Time between updating data
-SCAN_INTERVAL = timedelta(minutes=10)
+# Unused variable??
+SCAN_INTERVAL = timedelta(minutes=30)
 
 async def async_setup_entry(
     hass: HomeAssistantType, entry: ConfigType, async_add_entities
@@ -50,7 +51,6 @@ async def async_setup_entry(
         ],
         False,
     )
-
 
 class FoodsharingSensor(Entity):
     """Collects and represents foodsharing baskets based on given coordinates"""
@@ -109,30 +109,7 @@ class FoodsharingSensor(Entity):
 
     async def async_update(self):
         #_LOGGER.debug(f"HA Parameters: 'email':'{self.email}', 'password':'HIDDEN', 'lat':'{self.latitude_fs}', 'long':'{self.longitude_fs}', 'distance':'{self.distance}'")
-        try:
-            with async_timeout.timeout(30):
-                json_parameters = {'email':f'{self.email}', 'password':f'{self.password}', 'remember_me':'true'}
-                #json_parameters = json.dumps(lists(json_parameters_string))
-                #editable_json_parameters=json.loads(json_parameters)
-               # json_parameters_string['email'] = {self.email}
-                #json_parameters_string['password'] = {self.password}
-                #json_parameters_string = json.dumps(list(json_parameters_string))
-
-                url_login = 'https://foodsharing.de/api/user/login'
-                #headers = {'Content-Type: application/json'}
-                response_login = await aiohttp_client.async_get_clientsession(self.hass).post(url_login, json=json_parameters)
-
-                _LOGGER.debug(f"Login: '{json_parameters}' '{response_login.status}' {response_login.text} - {response_login.headers}")
-
-                if response_login.status == 400:
-                    _LOGGER.info(f"Bad request. Most likely because you are already signed in and cant sign in twice. Or json credentials were missing. Continuing... - '{response_login.text}'")
-                elif response_login.status == 405:
-                    _LOGGER.exception(f"Invalid request. Please report this issue to the developer. '{response_login.text}'")
-                elif not response_login.status == 200:
-                    _LOGGER.exception(f"Error '{response_login.status}' - Invalid login credentials for {self.email} with {self.password}!")
-        except:
-            self._available = False
-            _LOGGER.exception(f"Unable to login for '{self.email}'")
+        
         try:
             with async_timeout.timeout(30):
                 url = f'https://foodsharing.de/api/baskets/nearby?lat={self.latitude_fs}&lon={self.longitude_fs}&distance={self.distance}'
@@ -153,19 +130,79 @@ class FoodsharingSensor(Entity):
                     _LOGGER.debug(f"JSON Response: '{json_data}")
                 
                     baskets_count = len(json_data['baskets'])
-
                     if baskets_count > 0:
-                        _LOGGER.debug(f"JSON first basket id: '{json_data['baskets'][0]['id']}'")
-                        self.attrs[ATTR_ID] = json_data['baskets'][0]['id'],
-                        self.attrs[ATTR_DESCRIPTION] = json_data['baskets'][0]['description'],
-                        self.attrs[ATTR_UNTIL] = json_data['baskets'][0]['until']
+                        #_LOGGER.debug(f"JSON first basket id: '{json_data['baskets'][0]['id']}'")
+                        count = 0
+                        for id in json_data['baskets']:
+                            #self.attrs[ATTR_ID][count] = json_data['baskets'][count]['id'],
+                            #self.attrs[ATTR_DESCRIPTION][count] = json_data['baskets'][count]['description'],
+                            #self.attrs[ATTR_UNTIL][count] = json_data['baskets'][count]['until']
+                            self.attrs[ATTR_ID] = json_data['baskets'][count]['id'],
+                            self.attrs[ATTR_DESCRIPTION] = json_data['baskets'][count]['description'],
+                            self.attrs[ATTR_UNTIL] = json_data['baskets'][count]['until']
+                            count += 1
 
                     self.attrs[ATTR_ATTRIBUTION] = f"last updated {self.updated.strftime('%d %b, %Y  %H:%M:%S')} \n{ATTRIBUTION}"
                     self._state = baskets_count
                     self._available = True
                 elif response.status == 401:
-                    self._available = False
-                    _LOGGER.exception("Not authentificated! Maybe wrong login credentials? Cannot fetch data.")
+                    #Unauthentificated -> Login first
+                    try:
+                        with async_timeout.timeout(30):
+                            json_parameters = {'email':f'{self.email}', 'password':f'{self.password}', 'remember_me':'true'}
+
+                            url_login = 'https://foodsharing.de/api/user/login'
+                            #headers = {'Content-Type: application/json'}
+                            response_login = await aiohttp_client.async_get_clientsession(self.hass).post(url_login, json=json_parameters)
+                            _LOGGER.debug(f"Login: '{json_parameters}' '{response_login.status}' {response_login.text} - {response_login.headers}")
+
+                            if response_login.status == 200:
+                                #FoodsharingSensor(config, hass)
+                                try:
+                                    response = await aiohttp_client.async_get_clientsession(self.hass).get(url)
+
+                                    _LOGGER.debug(f"Getting Baskets: '{response.status}' {response.text} - {response.headers}")
+                                    _LOGGER.debug(f"Fetching URL: '{url}")
+
+                                    if response.status == 200:
+                                        raw_html = await response.text()
+                                        json_data = json.loads(raw_html)
+
+                                        _LOGGER.debug(f"JSON Response: '{json_data}")
+                                    
+                                        baskets_count = len(json_data['baskets'])
+                                        if baskets_count > 0:
+                                            #_LOGGER.debug(f"JSON first basket id: '{json_data['baskets'][0]['id']}'")
+                                            count = 0
+                                            for id in json_data['baskets']:
+                                                #self.attrs[ATTR_ID][count] = json_data['baskets'][count]['id'],
+                                                #self.attrs[ATTR_DESCRIPTION][count] = json_data['baskets'][count]['description'],
+                                                #self.attrs[ATTR_UNTIL][count] = json_data['baskets'][count]['until']
+                                                self.attrs[ATTR_ID] = json_data['baskets'][count]['id'],
+                                                self.attrs[ATTR_DESCRIPTION] = json_data['baskets'][count]['description'],
+                                                self.attrs[ATTR_UNTIL] = json_data['baskets'][count]['until']
+                                                count += 1
+
+                                        self.attrs[ATTR_ATTRIBUTION] = f"last updated {self.updated.strftime('%d %b, %Y  %H:%M:%S')} \n{ATTRIBUTION}"
+                                        self._state = baskets_count
+                                        self._available = True
+                                    else:
+                                        self._available = False
+                                        _LOGGER.exception(f"Error on update after sign in: '{response.status}' - Cannot retrieve data for: '{self.latitude_fs}' '{self.longitude_fs}'")
+                                except:
+                                    self._available = False
+                                    _LOGGER.exception(f"Cannot retrieve data for: '{self.latitude_fs}' '{self.longitude_fs}'")
+                            elif response_login.status == 400:
+                                _LOGGER.exception(f"Bad request. Most likely because you are already signed in and cant sign in twice. Or json credentials were missing. Continuing... - '{response_login.text}'")
+                                self._available = False
+                            elif response_login.status == 405:
+                                _LOGGER.exception(f"Invalid request. Please report this issue to the developer. '{response_login.text}'")
+                            else:
+                                self._available = False
+                                _LOGGER.exception(f"Error '{response_login.status}' - Invalid login credentials for {self.email} with {self.password}!")
+                    except:
+                        self._available = False
+                        _LOGGER.exception(f"Unable to login for '{self.email}'")
                 elif response.status == 405:
                     self._available = False
                     _LOGGER.exception(f"Invalid request. Please report this issue to the developer. - '{response.text}'")
