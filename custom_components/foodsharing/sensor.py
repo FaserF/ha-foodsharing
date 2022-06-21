@@ -132,9 +132,9 @@ class FoodsharingSensor(Entity):
                     _LOGGER.debug(f"JSON Response: '{json_data}")
                 
                     baskets_count = len(json_data['baskets'])
+                    baskets = []
                     if baskets_count > 0:
                         #_LOGGER.debug(f"JSON first basket id: '{json_data['baskets'][0]['id']}'")
-                        baskets = []
                         count = 0
                         for id in json_data['baskets']:
                             #Convert Time to human readable time
@@ -157,9 +157,10 @@ class FoodsharingSensor(Entity):
                                     }
                                 )
                             count += 1
-                        self.attrs[ATTR_BASKETS] = baskets
 
-                    self.attrs[ATTR_ATTRIBUTION] = f"last updated {self.updated.strftime('%d %b, %Y  %H:%M:%S')} \n{ATTRIBUTION}"
+                    self.attrs[ATTR_BASKETS] = baskets
+                    #self.attrs[ATTR_ATTRIBUTION] = f"last updated {self.updated.strftime('%d %b, %Y  %H:%M:%S')} \n{ATTRIBUTION}"
+                    self.attrs[ATTR_ATTRIBUTION] = f"{ATTRIBUTION}"
                     self._state = baskets_count
                     self._available = True
                 elif response.status == 401:
@@ -188,9 +189,9 @@ class FoodsharingSensor(Entity):
                                         _LOGGER.debug(f"JSON Response: '{json_data}")
                                     
                                         baskets_count = len(json_data['baskets'])
+                                        baskets = []
                                         if baskets_count > 0:
                                             #_LOGGER.debug(f"JSON first basket id: '{json_data['baskets'][0]['id']}'")
-                                            baskets = []
                                             count = 0
                                             for id in json_data['baskets']:
                                                 #Convert Time to human readable time
@@ -213,8 +214,8 @@ class FoodsharingSensor(Entity):
                                                         }
                                                     )
                                                 count += 1
-                                            self.attrs[ATTR_BASKETS] = baskets
                                         
+                                        self.attrs[ATTR_BASKETS] = baskets
                                         self.attrs[ATTR_ATTRIBUTION] = f"last updated {self.updated.strftime('%d %b, %Y  %H:%M:%S')} \n{ATTRIBUTION}"
                                         self._state = baskets_count
                                         self._available = True

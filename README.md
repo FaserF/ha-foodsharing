@@ -53,10 +53,21 @@ To use a basket URL in automations you can use the following code for example:
 
 ```yaml
 message: >
-    There are {{ states.sensor.foodsharing_latitudecoordinate.state }} foodsharing baskets available. 
-    Newest one: {{ state_attr('sensor.foodsharing_latitudecoordinate', 'baskets')[-1]['description'] }} available until {{ state_attr('sensor.foodsharing_latitudecoordinate', 'baskets')[-1]['available until'] }}
+{% if is_state('sensor.foodsharing_latitude', '1') %}
+There is {{ states.sensor.foodsharing_latitude.state }} foodsharing basket available. 
+{% else %}
+There are {{ states.sensor.foodsharing_latitude.state }} foodsharing baskets available. 
+{% endif %}
 
-    Link: https://foodsharing.de/essenskoerbe/{{ state_attr('sensor.foodsharing_latitudecoordinate', 'baskets')[-1]['id'] }}
+Newest one: {{ state_attr('sensor.foodsharing_latitude', 'baskets')[-1]['description'] }}
+
+------------
+
+Available until: {{ state_attr('sensor.foodsharing_latitude', 'baskets')[-1]['available until'] }}
+
+Picture: {{ state_attr('sensor.foodsharing_latitude', 'baskets')[-1]['picture'] }}
+
+Link: https://foodsharing.de/essenskoerbe/{{ state_attr('sensor.foodsharing_latitude', 'baskets')[-1]['id'] }}
 ```
 
 ## Bug reporting
