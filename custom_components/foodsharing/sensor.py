@@ -140,12 +140,13 @@ class FoodsharingSensor(Entity):
                             #Convert Time to human readable time
                             json_data['baskets'][count]['until'] = datetime.fromtimestamp(json_data['baskets'][count]['until']).strftime('%c')
                             if not json_data['baskets'][count]['picture']:
+                                picture = {json_data['baskets'][count]['picture']}
                                 baskets.append(
                                     {
                                         ATTR_ID: json_data['baskets'][count]['id'],
                                         ATTR_DESCRIPTION: json_data['baskets'][count]['description'],
                                         ATTR_UNTIL: json_data['baskets'][count]['until'],
-                                        ATTR_PICTURE: f"https://foodsharing.de/images/basket/medium-{json_data['baskets'][count]['picture']}"
+                                        ATTR_PICTURE: f"https://foodsharing.de/images/basket/medium-{picture}"
                                     }
                                 )
                             else:
