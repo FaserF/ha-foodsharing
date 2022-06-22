@@ -15,7 +15,6 @@ import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.typing import (
     ConfigType,
-    DiscoveryInfoType,
     HomeAssistantType,
 )
 import voluptuous as vol
@@ -43,15 +42,19 @@ SCAN_INTERVAL = timedelta(minutes=30)
 
 async def async_setup_entry(
     hass: HomeAssistantType, entry: ConfigType, async_add_entities
-) -> None:
+):
     """Setup sensors from a config entry created in the integrations UI."""
     config = hass.data[DOMAIN][entry.entry_id]
     _LOGGER.debug("Sensor async_setup_entry")
+    if entry.options:
+        config.update(entry.options)
+    sensors = FoodsharingSensor(config, hass)
+    async_add_entities(sensors, update_before_add=True)
     async_add_entities(
         [
             FoodsharingSensor(config, hass)
         ],
-        False,
+        update_before_add=True
     )
 
 class FoodsharingSensor(Entity):
@@ -146,7 +149,6 @@ class FoodsharingSensor(Entity):
                                         ATTR_ID: json_data['baskets'][count]['id'],
                                         ATTR_DESCRIPTION: json_data['baskets'][count]['description'],
                                         ATTR_UNTIL: json_data['baskets'][count]['until'],
-                                        ATTR_PICTURE: f"https://foodsharing.de/images/basket/medium-{picture}"
                                     }
                                 )
                             else:
@@ -155,6 +157,7 @@ class FoodsharingSensor(Entity):
                                         ATTR_ID: json_data['baskets'][count]['id'],
                                         ATTR_DESCRIPTION: json_data['baskets'][count]['description'],
                                         ATTR_UNTIL: json_data['baskets'][count]['until'],
+                                        ATTR_PICTURE: f"https://foodsharing.de/images/basket/medium-{picture}"
                                     }
                                 )
                             count += 1
@@ -176,7 +179,6 @@ class FoodsharingSensor(Entity):
                             _LOGGER.debug(f"Login: '{json_parameters}' '{response_login.status}' {response_login.text} - {response_login.headers}")
 
                             if response_login.status == 200:
-                                #FoodsharingSensor(config, hass)
                                 try:
                                     response = await aiohttp_client.async_get_clientsession(self.hass).get(url)
 
@@ -204,7 +206,6 @@ class FoodsharingSensor(Entity):
                                                             ATTR_ID: json_data['baskets'][count]['id'],
                                                             ATTR_DESCRIPTION: json_data['baskets'][count]['description'],
                                                             ATTR_UNTIL: json_data['baskets'][count]['until'],
-                                                            ATTR_PICTURE: f"https://foodsharing.de/images/basket/medium-{picture}"
                                                         }
                                                     )
                                                 else:
@@ -213,6 +214,7 @@ class FoodsharingSensor(Entity):
                                                             ATTR_ID: json_data['baskets'][count]['id'],
                                                             ATTR_DESCRIPTION: json_data['baskets'][count]['description'],
                                                             ATTR_UNTIL: json_data['baskets'][count]['until'],
+                                                            ATTR_PICTURE: f"https://foodsharing.de/images/basket/medium-{picture}"
                                                         }
                                                     )
                                                 count += 1
