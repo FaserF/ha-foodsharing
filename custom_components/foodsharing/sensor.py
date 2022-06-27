@@ -218,7 +218,12 @@ class FoodsharingSensor(Entity):
                                                         }
                                                     )
                                                 count += 1
-                                        
+                                        else: 
+                                            baskets.append(
+                                                {
+                                                    ATTR_ID: ""
+                                                }
+                                            )
                                         self.attrs[ATTR_BASKETS] = baskets
                                         self.attrs[ATTR_ATTRIBUTION] = f"last updated {self.updated.strftime('%d %b, %Y  %H:%M:%S')} \n{ATTRIBUTION}"
                                         self._state = baskets_count
