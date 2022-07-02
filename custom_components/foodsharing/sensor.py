@@ -4,6 +4,7 @@ import logging
 import re
 import json
 from typing import Any, Callable, Dict, Optional
+from geopy.geocoders import GoogleV3
 
 import async_timeout
 
@@ -26,6 +27,8 @@ from .const import (
     CONF_LATITUDE_FS,
     CONF_LONGITUDE_FS,
     CONF_DISTANCE,
+    CONF_GOOLEMAPS_API,
+    CONF_SCAN_INTERVAL,
     ATTR_BASKETS,
     ATTR_ID,
     ATTR_DESCRIPTION,
@@ -36,9 +39,6 @@ from .const import (
 )
 
 _LOGGER = logging.getLogger(__name__)
-# Time between updating data
-# Unused variable??
-SCAN_INTERVAL = timedelta(minutes=30)
 
 async def async_setup_entry(
     hass: HomeAssistantType, entry: ConfigType, async_add_entities
@@ -63,11 +63,13 @@ class FoodsharingSensor(Entity):
     def __init__(self, config, hass: HomeAssistantType):
         super().__init__()
 
+        self.update_interval=timedelta(minutes=config[CONF_SCAN_INTERVAL]),
         self.email = config[CONF_EMAIL]
         self.password = config[CONF_PASSWORD]
         self.latitude_fs = config[CONF_LATITUDE_FS]
         self.longitude_fs = config[CONF_LONGITUDE_FS]
         self.distance = config[CONF_DISTANCE]
+        self.gmapsapi = config[CONF_GOOLEMAPS_API]
         self.hass = hass
         self.attrs: Dict[str, Any] = {CONF_LONGITUDE_FS: self.longitude_fs}
         self.updated = datetime.now()
@@ -124,6 +126,9 @@ class FoodsharingSensor(Entity):
                 _LOGGER.debug(f"Getting Baskets: '{response.status}' {response.text} - {response.headers}")
                 _LOGGER.debug(f"Fetching URL: '{url}'")
 
+                if self.gmapsapi:
+                    geolocator = GoogleV3(api_key=f"{self.gmapsapi}")
+
                 if response.status == 200:
                     raw_html = await response.text()
                     json_data = json.loads(raw_html)
@@ -132,7 +137,7 @@ class FoodsharingSensor(Entity):
                     #json_response = await response.json()
                     #json_data = json.loads(json_response)
 
-                    _LOGGER.debug(f"JSON Response: '{json_data}")
+                    _LOGGER.debug(f"JSON Response: '{json_data}'")
                 
                     baskets_count = len(json_data['baskets'])
                     baskets = []
@@ -143,12 +148,26 @@ class FoodsharingSensor(Entity):
                             #Convert Time to human readable time
                             json_data['baskets'][count]['until'] = datetime.fromtimestamp(json_data['baskets'][count]['until']).strftime('%c')
                             picture = json_data['baskets'][count]['picture']
+                            location_human_readable = ""
+                            
+                            #Convert to human readable location adress
+                            if not self.gmapsapi == "false":
+                                if json_data['baskets'][count]['lat']:
+                                    try:
+                                        with async_timeout.timeout(30):
+                                            location = geolocator.reverse(f"{json_data['baskets'][count]['lat']}, {json_data['baskets'][count]['lon']}")
+                                            location_human_readable = location.address
+                                    except:
+                                        _LOGGER.debug(f"Error on recieving human readable adress via Google Maps. Maps API: '{self.gmapsapi}'")
+                            _LOGGER.debug(f"Location: '{location_human_readable}'")
+                            
                             if not picture:
                                 baskets.append(
                                     {
                                         ATTR_ID: json_data['baskets'][count]['id'],
                                         ATTR_DESCRIPTION: json_data['baskets'][count]['description'],
-                                        ATTR_UNTIL: json_data['baskets'][count]['until'],
+                                        ATTR_ADRESS: location_human_readable,
+                                        ATTR_UNTIL: json_data['baskets'][count]['until']
                                     }
                                 )
                             else:
@@ -156,6 +175,7 @@ class FoodsharingSensor(Entity):
                                     {
                                         ATTR_ID: json_data['baskets'][count]['id'],
                                         ATTR_DESCRIPTION: json_data['baskets'][count]['description'],
+                                        ATTR_ADRESS: location_human_readable,
                                         ATTR_UNTIL: json_data['baskets'][count]['until'],
                                         ATTR_PICTURE: f"https://foodsharing.de/images/basket/medium-{picture}"
                                     }
@@ -164,13 +184,14 @@ class FoodsharingSensor(Entity):
                     else: 
                         baskets.append(
                             {
-                                ATTR_ID: ""
+                                ATTR_ID: "",
+                                ATTR_DESCRIPTION: ""
                             }
                         )
 
+                    baskets.sort(key = baskets.get('ATTR_ID'))
                     self.attrs[ATTR_BASKETS] = baskets
-                    #self.attrs[ATTR_ATTRIBUTION] = f"last updated {self.updated.strftime('%d %b, %Y  %H:%M:%S')} \n{ATTRIBUTION}"
-                    self.attrs[ATTR_ATTRIBUTION] = f"{ATTRIBUTION}"
+                    self.attrs[ATTR_ATTRIBUTION] = f"last updated {datetime.now()} \n{ATTRIBUTION}"
                     self._state = baskets_count
                     self._available = True
                 elif response.status == 401:
@@ -206,12 +227,26 @@ class FoodsharingSensor(Entity):
                                                 #Convert Time to human readable time
                                                 json_data['baskets'][count]['until'] = datetime.fromtimestamp(json_data['baskets'][count]['until']).strftime('%c')
                                                 picture = json_data['baskets'][count]['picture']
+                                                location_human_readable = ""
+                                                
+                                                #Convert to human readable location adress
+                                                if not self.gmapsapi == "false":
+                                                    if json_data['baskets'][count]['lat']:
+                                                        try:
+                                                            with async_timeout.timeout(30):
+                                                                location = geolocator.reverse(f"{json_data['baskets'][count]['lat']}, {json_data['baskets'][count]['lon']}")
+                                                                location_human_readable = location.address
+                                                        except:
+                                                            _LOGGER.debug(f"Error on recieving human readable adress via Google Maps. Maps API: '{self.gmapsapi}'")
+                                                _LOGGER.debug(f"Location: '{location_human_readable}'")
+
                                                 if not picture:
                                                     baskets.append(
                                                         {
                                                             ATTR_ID: json_data['baskets'][count]['id'],
                                                             ATTR_DESCRIPTION: json_data['baskets'][count]['description'],
-                                                            ATTR_UNTIL: json_data['baskets'][count]['until'],
+                                                            ATTR_ADRESS: location_human_readable,
+                                                            ATTR_UNTIL: json_data['baskets'][count]['until']
                                                         }
                                                     )
                                                 else:
@@ -219,6 +254,7 @@ class FoodsharingSensor(Entity):
                                                         {
                                                             ATTR_ID: json_data['baskets'][count]['id'],
                                                             ATTR_DESCRIPTION: json_data['baskets'][count]['description'],
+                                                            ATTR_ADRESS: location_human_readable,
                                                             ATTR_UNTIL: json_data['baskets'][count]['until'],
                                                             ATTR_PICTURE: f"https://foodsharing.de/images/basket/medium-{picture}"
                                                         }
@@ -227,12 +263,14 @@ class FoodsharingSensor(Entity):
                                         else: 
                                             baskets.append(
                                                 {
-                                                    ATTR_ID: ""
+                                                    ATTR_ID: "",
+                                                    ATTR_DESCRIPTION: ""
                                                 }
                                             )
+                                        
+                                        baskets.sort(key = baskets.get('ATTR_ID'))
                                         self.attrs[ATTR_BASKETS] = baskets
-                                        #self.attrs[ATTR_ATTRIBUTION] = f"last updated {self.updated.strftime('%d %b, %Y  %H:%M:%S')} \n{ATTRIBUTION}"
-                                        self.attrs[ATTR_ATTRIBUTION] = f"{ATTRIBUTION}"
+                                        self.attrs[ATTR_ATTRIBUTION] = f"last updated {datetime.now()} \n{ATTRIBUTION}"
                                         self._state = baskets_count
                                         self._available = True
                                     else:

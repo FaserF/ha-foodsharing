@@ -34,6 +34,9 @@ async def options_update_listener(
     """Handle options update."""
     await hass.config_entries.async_reload(config_entry.entry_id)
 
+async def async_update(self):
+    """Async wrapper for update method."""
+    return await self._hass.async_add_executor_job(self._update)
 
 async def async_unload_entry(
     hass: core.HomeAssistant, entry: config_entries.ConfigEntry
@@ -52,9 +55,3 @@ async def async_unload_entry(
         hass.data[DOMAIN].pop(entry.entry_id)
 
     return unload_ok
-
-
-async def async_setup(hass: core.HomeAssistant, config: dict) -> bool:
-    """Set up the Coronavirus Custom component from yaml configuration."""
-    hass.data.setdefault(DOMAIN, {})
-    return True

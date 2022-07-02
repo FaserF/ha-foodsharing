@@ -9,11 +9,16 @@ Gets foodsharing baskets from the [foodsharing.de API](https://beta.foodsharing.
 
 
 
-This integration provides the following informations within one sensor with a refresh rate of 30 minutes until now:
+This integration provides the following informations with a refresh rate of 30 minutes until now:
+
+
+Sensors: 
 
 - How many baskets are available within your distance range
 
-- Basket ID, Description and Available until time (human readable) and a picture link
+Sensor Attributes: 
+
+- Basket ID, Description, adress, available until time and a picture link
 
 ## Installation
 ### 1. Using HACS (recommended way)
@@ -47,6 +52,8 @@ Go to Configuration -> Integrations and click on "add integration". Then search 
 - **distance**: The search distance for baskets in kilometers
 - **email**: Your Foodsharing.de E-Mail adress
 - **password**: Your Foodsharing.de Password
+- **Google Maps API Key**: Optional: Submit an GMaps API key to recieve human readable adress details ([More Details](https://webperfectapp.com/how-to-create-google-maps-api-key-for-free/)). (Leave it to "false" if you dont want to use it.)
+- **refresh time**: Custom refresh time interval in minutes (doesnt work until now!!!)
 
 ### Basket URL
 To use a basket URL in automations you can use the following code for example:
