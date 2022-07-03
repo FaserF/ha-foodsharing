@@ -4,7 +4,10 @@ import logging
 import re
 import json
 from typing import Any, Callable, Dict, Optional
-from geopy.geocoders import GoogleV3
+#import geopy
+#from geopy.geocoders import GoogleV3
+#from geopy.geocoders import Nominatim
+#from geopy.extra.rate_limiter import RateLimiter
 
 import async_timeout
 
@@ -27,13 +30,14 @@ from .const import (
     CONF_LATITUDE_FS,
     CONF_LONGITUDE_FS,
     CONF_DISTANCE,
-    CONF_GOOLEMAPS_API,
+    #CONF_GOOLEMAPS_API,
     CONF_SCAN_INTERVAL,
     ATTR_BASKETS,
     ATTR_ID,
     ATTR_DESCRIPTION,
     ATTR_UNTIL,
     ATTR_PICTURE,
+    ATTR_ADRESS,
 
     DOMAIN,
 )
@@ -57,19 +61,44 @@ async def async_setup_entry(
         update_before_add=True
     )
 
+NOMINATIM_URL = "https://nominatim.openstreetmap.org/reverse"
+def get_address(latitude, longitude):
+    try:
+        headers = {
+            "user-agent": "Foodsharing Homeassistant",
+        }
+
+        params = (
+            ("lat", latitude),
+            ("lon", longitude),
+            ("format", "geojson"),
+        )
+
+        response = requests.get(NOMINATIM_URL, headers=headers, params=params)
+
+        address = response.json()["features"][0]["properties"].copy()
+        address.update(address["address"])
+        del address["address"]
+        location_human_readable = adress
+        return location_human_readable
+    except:
+        location_human_readable = f"Lat: {json_data['baskets'][count]['lat']} / Long: {json_data['baskets'][count]['lon']}"
+        _LOGGER.debug(f"Error on recieving human readable adress via OpenMap API. - {response}")
+        return location_human_readable
+
 class FoodsharingSensor(Entity):
     """Collects and represents foodsharing baskets based on given coordinates"""
 
     def __init__(self, config, hass: HomeAssistantType):
         super().__init__()
 
-        self.update_interval=timedelta(minutes=config[CONF_SCAN_INTERVAL]),
+        #self.update_interval=timedelta(minutes=config[CONF_SCAN_INTERVAL]),
         self.email = config[CONF_EMAIL]
         self.password = config[CONF_PASSWORD]
         self.latitude_fs = config[CONF_LATITUDE_FS]
         self.longitude_fs = config[CONF_LONGITUDE_FS]
         self.distance = config[CONF_DISTANCE]
-        self.gmapsapi = config[CONF_GOOLEMAPS_API]
+        #self.gmapsapi = config[CONF_GOOLEMAPS_API]
         self.hass = hass
         self.attrs: Dict[str, Any] = {CONF_LONGITUDE_FS: self.longitude_fs}
         self.updated = datetime.now()
@@ -122,12 +151,12 @@ class FoodsharingSensor(Entity):
                 url = f'https://foodsharing.de/api/baskets/nearby?lat={self.latitude_fs}&lon={self.longitude_fs}&distance={self.distance}'
 
                 response = await aiohttp_client.async_get_clientsession(self.hass).get(url)
-
-                _LOGGER.debug(f"Getting Baskets: '{response.status}' {response.text} - {response.headers}")
                 _LOGGER.debug(f"Fetching URL: '{url}'")
+                _LOGGER.debug(f"Getting Baskets: '{response.status}' {response.text} - {response.headers}")
 
-                if self.gmapsapi:
-                    geolocator = GoogleV3(api_key=f"{self.gmapsapi}")
+                #if self.gmapsapi:
+                #    geolocator = GoogleV3(api_key=f"{self.gmapsapi}")
+                #locator = Nominatim(user_agent="openmapquest")
 
                 if response.status == 200:
                     raw_html = await response.text()
@@ -142,23 +171,36 @@ class FoodsharingSensor(Entity):
                     baskets_count = len(json_data['baskets'])
                     baskets = []
                     if baskets_count > 0:
-                        #_LOGGER.debug(f"JSON first basket id: '{json_data['baskets'][0]['id']}'")
+                        json_data['baskets'] = sorted(json_data['baskets'], key=lambda x : x['id'], reverse=True)
                         count = 0
                         for id in json_data['baskets']:
                             #Convert Time to human readable time
                             json_data['baskets'][count]['until'] = datetime.fromtimestamp(json_data['baskets'][count]['until']).strftime('%c')
                             picture = json_data['baskets'][count]['picture']
-                            location_human_readable = ""
-                            
+
                             #Convert to human readable location adress
-                            if not self.gmapsapi == "false":
-                                if json_data['baskets'][count]['lat']:
-                                    try:
-                                        with async_timeout.timeout(30):
-                                            location = geolocator.reverse(f"{json_data['baskets'][count]['lat']}, {json_data['baskets'][count]['lon']}")
-                                            location_human_readable = location.address
-                                    except:
-                                        _LOGGER.debug(f"Error on recieving human readable adress via Google Maps. Maps API: '{self.gmapsapi}'")
+                            location_human_readable = ""
+                            if json_data['baskets'][count]['lat']:
+                                get_address(json_data['baskets'][count]['lat'], json_data['baskets'][count]['lon'])
+                                #try:
+                                    #coordinates = f"{json_data['baskets'][count]['lat']}, {json_data['baskets'][count]['lon']}"
+                                    #location = await hass.async_add_executor_job(locator.reverse(coordinates))
+                                    #location_human_readable = location.address #f"{location.raw.road}, {location.house_number}, {location.postcode}, {location.city}"
+                                #except:
+                                #    location_human_readable = f"Lat: {json_data['baskets'][count]['lat']} / Long: {json_data['baskets'][count]['lon']}"
+                                #    _LOGGER.debug(f"Error on recieving human readable adress via OpenMap API.'")
+
+                            #if not self.gmapsapi == "false":
+                            #    if json_data['baskets'][count]['lat']:
+                            #        try:
+                            #            with async_timeout.timeout(30):
+                            #                location = await hass.async_add_executor_job(geolocator.reverse(f"{json_data['baskets'][count]['lat']}, {json_data['baskets'][count]['lon']}"))
+                                            #location = geolocator.reverse(f"{json_data['baskets'][count]['lat']}, {json_data['baskets'][count]['lon']}")
+                            #        except:
+                            #            location_human_readable = f"Lat: {json_data['baskets'][count]['lat']} / Long: {json_data['baskets'][count]['lon']}"
+                            #            _LOGGER.debug(f"Error on recieving human readable adress via Google Maps. Maps API: '{self.gmapsapi}'")
+                            #else: 
+                            #    location_human_readable = f"Lat: {json_data['baskets'][count]['lat']} / Long: {json_data['baskets'][count]['lon']}"
                             _LOGGER.debug(f"Location: '{location_human_readable}'")
                             
                             if not picture:
@@ -189,7 +231,6 @@ class FoodsharingSensor(Entity):
                             }
                         )
 
-                    baskets.sort(key = baskets.get('ATTR_ID'))
                     self.attrs[ATTR_BASKETS] = baskets
                     self.attrs[ATTR_ATTRIBUTION] = f"last updated {datetime.now()} \n{ATTRIBUTION}"
                     self._state = baskets_count
@@ -208,9 +249,8 @@ class FoodsharingSensor(Entity):
                             if response_login.status == 200:
                                 try:
                                     response = await aiohttp_client.async_get_clientsession(self.hass).get(url)
-
-                                    _LOGGER.debug(f"Getting Baskets: '{response.status}' {response.text} - {response.headers}")
                                     _LOGGER.debug(f"Fetching URL: '{url}'")
+                                    _LOGGER.debug(f"Getting Baskets: '{response.status}' {response.text} - {response.headers}")
 
                                     if response.status == 200:
                                         raw_html = await response.text()
@@ -221,25 +261,38 @@ class FoodsharingSensor(Entity):
                                         baskets_count = len(json_data['baskets'])
                                         baskets = []
                                         if baskets_count > 0:
-                                            #_LOGGER.debug(f"JSON first basket id: '{json_data['baskets'][0]['id']}'")
+                                            json_data['baskets'] = sorted(json_data['baskets'], key=lambda x : x['id'], reverse=True)
                                             count = 0
                                             for id in json_data['baskets']:
                                                 #Convert Time to human readable time
                                                 json_data['baskets'][count]['until'] = datetime.fromtimestamp(json_data['baskets'][count]['until']).strftime('%c')
                                                 picture = json_data['baskets'][count]['picture']
-                                                location_human_readable = ""
-                                                
-                                                #Convert to human readable location adress
-                                                if not self.gmapsapi == "false":
-                                                    if json_data['baskets'][count]['lat']:
-                                                        try:
-                                                            with async_timeout.timeout(30):
-                                                                location = geolocator.reverse(f"{json_data['baskets'][count]['lat']}, {json_data['baskets'][count]['lon']}")
-                                                                location_human_readable = location.address
-                                                        except:
-                                                            _LOGGER.debug(f"Error on recieving human readable adress via Google Maps. Maps API: '{self.gmapsapi}'")
-                                                _LOGGER.debug(f"Location: '{location_human_readable}'")
 
+                                                #Convert to human readable location adress
+                                                location_human_readable = ""
+                                                if json_data['baskets'][count]['lat']:
+                                                    get_address(json_data['baskets'][count]['lat'], json_data['baskets'][count]['lon'])
+                                                    #try:
+                                                        #coordinates = f"{json_data['baskets'][count]['lat']}, {json_data['baskets'][count]['lon']}"
+                                                        #location = await hass.async_add_executor_job(locator.reverse(coordinates))
+                                                        #location_human_readable = location.address #f"{location.raw.road}, {location.house_number}, {location.postcode}, {location.city}"
+                                                    #except:
+                                                    #    location_human_readable = f"Lat: {json_data['baskets'][count]['lat']} / Long: {json_data['baskets'][count]['lon']}"
+                                                    #    _LOGGER.debug(f"Error on recieving human readable adress via OpenMap API.'")
+
+                                                #if not self.gmapsapi == "false":
+                                                #    if json_data['baskets'][count]['lat']:
+                                                #        try:
+                                                #            with async_timeout.timeout(30):
+                                                #                location = await hass.async_add_executor_job(geolocator.reverse(f"{json_data['baskets'][count]['lat']}, {json_data['baskets'][count]['lon']}"))
+                                                                #location = geolocator.reverse(f"{json_data['baskets'][count]['lat']}, {json_data['baskets'][count]['lon']}")
+                                                #        except:
+                                                #            location_human_readable = f"Lat: {json_data['baskets'][count]['lat']} / Long: {json_data['baskets'][count]['lon']}"
+                                                #            _LOGGER.debug(f"Error on recieving human readable adress via Google Maps. Maps API: '{self.gmapsapi}'")
+                                                #else: 
+                                                #    location_human_readable = f"Lat: {json_data['baskets'][count]['lat']} / Long: {json_data['baskets'][count]['lon']}"
+                                                _LOGGER.debug(f"Location: '{location_human_readable}'")
+                                                
                                                 if not picture:
                                                     baskets.append(
                                                         {
@@ -268,7 +321,6 @@ class FoodsharingSensor(Entity):
                                                 }
                                             )
                                         
-                                        baskets.sort(key = baskets.get('ATTR_ID'))
                                         self.attrs[ATTR_BASKETS] = baskets
                                         self.attrs[ATTR_ATTRIBUTION] = f"last updated {datetime.now()} \n{ATTRIBUTION}"
                                         self._state = baskets_count
