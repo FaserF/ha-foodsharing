@@ -4,10 +4,6 @@ import logging
 import re
 import json
 from typing import Any, Callable, Dict, Optional
-#import geopy
-#from geopy.geocoders import GoogleV3
-#from geopy.geocoders import Nominatim
-#from geopy.extra.rate_limiter import RateLimiter
 
 import async_timeout
 
@@ -30,7 +26,6 @@ from .const import (
     CONF_LATITUDE_FS,
     CONF_LONGITUDE_FS,
     CONF_DISTANCE,
-    #CONF_GOOLEMAPS_API,
     CONF_SCAN_INTERVAL,
     ATTR_BASKETS,
     ATTR_ID,
@@ -67,13 +62,12 @@ class FoodsharingSensor(Entity):
     def __init__(self, config, hass: HomeAssistantType):
         super().__init__()
 
-        #self.update_interval=timedelta(minutes=config[CONF_SCAN_INTERVAL]),
+        self.update_interval=timedelta(minutes=config[CONF_SCAN_INTERVAL]),
         self.email = config[CONF_EMAIL]
         self.password = config[CONF_PASSWORD]
         self.latitude_fs = config[CONF_LATITUDE_FS]
         self.longitude_fs = config[CONF_LONGITUDE_FS]
         self.distance = config[CONF_DISTANCE]
-        #self.gmapsapi = config[CONF_GOOLEMAPS_API]
         self.hass = hass
         self.attrs: Dict[str, Any] = {CONF_LONGITUDE_FS: self.longitude_fs}
         self.updated = datetime.now()
@@ -168,13 +162,13 @@ class FoodsharingSensor(Entity):
                                         ("format", "geojson"),
                                     )
                                     response_nominatim = await aiohttp_client.async_get_clientsession(self.hass).get(NOMINATIM_URL, params=params, headers=headers)
-                                    _LOGGER.debug(f"Nominatim Request: '{params}' '{response_nominatim.status}' {response_nominatim.text} - {response_nominatim.headers}")
+                                    #_LOGGER.debug(f"Nominatim Request: '{params}' '{response_nominatim.status}' {response_nominatim.text} - {response_nominatim.headers}")
 
                                     if response.status == 200:
                                         raw_html_nominatim = await response_nominatim.text()
                                         json_data_nominatim = json.loads(raw_html_nominatim)
                                         location_human_readable = json_data_nominatim['features'][0]['properties']['display_name']
-                                        _LOGGER.debug(f"Nominatim Answer: '{json_data_nominatim}'")
+                                        #_LOGGER.debug(f"Nominatim Answer: '{json_data_nominatim}'")
                                     else:
                                         location_human_readable = f"Lat: {json_data['baskets'][count]['lat']} / Long: {json_data['baskets'][count]['lon']}"
                                 except:
@@ -260,13 +254,13 @@ class FoodsharingSensor(Entity):
                                                             ("format", "geojson"),
                                                         )
                                                         response_nominatim = await aiohttp_client.async_get_clientsession(self.hass).get(NOMINATIM_URL, params=params, headers=headers)
-                                                        _LOGGER.debug(f"Nominatim Request: '{params}' '{response_nominatim.status}' {response_nominatim.text} - {response_nominatim.headers}")
+                                                        #_LOGGER.debug(f"Nominatim Request: '{params}' '{response_nominatim.status}' {response_nominatim.text} - {response_nominatim.headers}")
 
                                                         if response.status == 200:
                                                             raw_html_nominatim = await response_nominatim.text()
                                                             json_data_nominatim = json.loads(raw_html_nominatim)
                                                             location_human_readable = json_data_nominatim['features'][0]['properties']['display_name']
-                                                            _LOGGER.debug(f"Nominatim Answer: '{json_data_nominatim}'")
+                                                            #_LOGGER.debug(f"Nominatim Answer: '{json_data_nominatim}'")
                                                         else:
                                                             location_human_readable = f"Lat: {json_data['baskets'][count]['lat']} / Long: {json_data['baskets'][count]['lon']}"
                                                     except:

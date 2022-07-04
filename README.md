@@ -58,6 +58,12 @@ Go to Configuration -> Integrations and click on "add integration". Then search 
 To use a basket URL in automations you can use the following code for example:
 
 ```yaml
+Link: https://foodsharing.de/essenskoerbe/{{ state_attr('sensor.foodsharing_latitude', 'baskets')[0]['id'] }}
+```
+
+A full automation example for HA would be:
+
+```yaml
 message: >
 {% if is_state('sensor.foodsharing_latitude', '1') %}
 There is {{ states.sensor.foodsharing_latitude.state }} foodsharing basket available. 
@@ -65,15 +71,19 @@ There is {{ states.sensor.foodsharing_latitude.state }} foodsharing basket avail
 There are {{ states.sensor.foodsharing_latitude.state }} foodsharing baskets available. 
 {% endif %}
 
-Newest one: {{ state_attr('sensor.foodsharing_latitude', 'baskets')[-1]['description'] }}
+Newest one: {{ state_attr('sensor.foodsharing_latitude', 'baskets')[0]['description'] }}
 
 ------------
 
-Available until: {{ state_attr('sensor.foodsharing_latitude', 'baskets')[-1]['available until'] }}
+Available until: {{ state_attr('sensor.foodsharing_latitude', 'baskets')[0]['available until'] }}
 
-Picture: {{ state_attr('sensor.foodsharing_latitude', 'baskets')[-1]['picture'] }}
+Adress: {{ state_attr('sensor.foodsharing_48_076690', 'baskets')[0]['adress'] }}
 
-Link: https://foodsharing.de/essenskoerbe/{{ state_attr('sensor.foodsharing_latitude', 'baskets')[-1]['id'] }}
+{% if not state_attr('sensor.foodsharing_48_076690', 'baskets')[0]['picture'] == '' %}
+Picture: {{ state_attr('sensor.foodsharing_48_076690', 'baskets')[0]['picture'] }}
+{% endif %}
+
+Link: https://foodsharing.de/essenskoerbe/{{ state_attr('sensor.foodsharing_latitude', 'baskets')[0]['id'] }}
 ```
 
 ## Bug reporting
