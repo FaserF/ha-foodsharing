@@ -52,7 +52,6 @@ Go to Configuration -> Integrations and click on "add integration". Then search 
 - **distance**: The search distance for baskets in kilometers
 - **email**: Your Foodsharing.de E-Mail adress
 - **password**: Your Foodsharing.de Password
-DEPRECATED as no API Key is needed anymore- **Google Maps API Key**: Optional: Submit an GMaps API key to recieve human readable adress details ([More Details](https://webperfectapp.com/how-to-create-google-maps-api-key-for-free/)). (Leave it to "false" if you dont want to use it.)
 - **refresh time**: Custom refresh time interval in minutes (doesnt work until now!!!)
 
 ### Basket URL

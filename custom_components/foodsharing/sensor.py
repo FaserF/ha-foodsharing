@@ -61,31 +61,6 @@ async def async_setup_entry(
         update_before_add=True
     )
 
-NOMINATIM_URL = "https://nominatim.openstreetmap.org/reverse"
-def get_address(latitude, longitude):
-    try:
-        headers = {
-            "user-agent": "Foodsharing Homeassistant",
-        }
-
-        params = (
-            ("lat", latitude),
-            ("lon", longitude),
-            ("format", "geojson"),
-        )
-
-        response = requests.get(NOMINATIM_URL, headers=headers, params=params)
-
-        address = response.json()["features"][0]["properties"].copy()
-        address.update(address["address"])
-        del address["address"]
-        location_human_readable = adress
-        return location_human_readable
-    except:
-        location_human_readable = f"Lat: {json_data['baskets'][count]['lat']} / Long: {json_data['baskets'][count]['lon']}"
-        _LOGGER.debug(f"Error on recieving human readable adress via OpenMap API. - {response}")
-        return location_human_readable
-
 class FoodsharingSensor(Entity):
     """Collects and represents foodsharing baskets based on given coordinates"""
 
@@ -148,6 +123,7 @@ class FoodsharingSensor(Entity):
         
         try:
             with async_timeout.timeout(30):
+                NOMINATIM_URL = "https://nominatim.openstreetmap.org/reverse"
                 url = f'https://foodsharing.de/api/baskets/nearby?lat={self.latitude_fs}&lon={self.longitude_fs}&distance={self.distance}'
 
                 response = await aiohttp_client.async_get_clientsession(self.hass).get(url)
@@ -181,27 +157,29 @@ class FoodsharingSensor(Entity):
                             #Convert to human readable location adress
                             location_human_readable = ""
                             if json_data['baskets'][count]['lat']:
-                                get_address(json_data['baskets'][count]['lat'], json_data['baskets'][count]['lon'])
-                                #try:
-                                    #coordinates = f"{json_data['baskets'][count]['lat']}, {json_data['baskets'][count]['lon']}"
-                                    #location = await hass.async_add_executor_job(locator.reverse(coordinates))
-                                    #location_human_readable = location.address #f"{location.raw.road}, {location.house_number}, {location.postcode}, {location.city}"
-                                #except:
-                                #    location_human_readable = f"Lat: {json_data['baskets'][count]['lat']} / Long: {json_data['baskets'][count]['lon']}"
-                                #    _LOGGER.debug(f"Error on recieving human readable adress via OpenMap API.'")
+                                try:
+                                    headers = {
+                                        "user-agent": "Foodsharing Homeassistant",
+                                    }
 
-                            #if not self.gmapsapi == "false":
-                            #    if json_data['baskets'][count]['lat']:
-                            #        try:
-                            #            with async_timeout.timeout(30):
-                            #                location = await hass.async_add_executor_job(geolocator.reverse(f"{json_data['baskets'][count]['lat']}, {json_data['baskets'][count]['lon']}"))
-                                            #location = geolocator.reverse(f"{json_data['baskets'][count]['lat']}, {json_data['baskets'][count]['lon']}")
-                            #        except:
-                            #            location_human_readable = f"Lat: {json_data['baskets'][count]['lat']} / Long: {json_data['baskets'][count]['lon']}"
-                            #            _LOGGER.debug(f"Error on recieving human readable adress via Google Maps. Maps API: '{self.gmapsapi}'")
-                            #else: 
-                            #    location_human_readable = f"Lat: {json_data['baskets'][count]['lat']} / Long: {json_data['baskets'][count]['lon']}"
-                            _LOGGER.debug(f"Location: '{location_human_readable}'")
+                                    params = (
+                                        ("lat", json_data['baskets'][count]['lat']),
+                                        ("lon", json_data['baskets'][count]['lon']),
+                                        ("format", "geojson"),
+                                    )
+                                    response_nominatim = await aiohttp_client.async_get_clientsession(self.hass).get(NOMINATIM_URL, params=params, headers=headers)
+                                    _LOGGER.debug(f"Nominatim Request: '{params}' '{response_nominatim.status}' {response_nominatim.text} - {response_nominatim.headers}")
+
+                                    if response.status == 200:
+                                        raw_html_nominatim = await response_nominatim.text()
+                                        json_data_nominatim = json.loads(raw_html_nominatim)
+                                        location_human_readable = json_data_nominatim['features'][0]['properties']['display_name']
+                                        _LOGGER.debug(f"Nominatim Answer: '{json_data_nominatim}'")
+                                    else:
+                                        location_human_readable = f"Lat: {json_data['baskets'][count]['lat']} / Long: {json_data['baskets'][count]['lon']}"
+                                except:
+                                    location_human_readable = f"Lat: {json_data['baskets'][count]['lat']} / Long: {json_data['baskets'][count]['lon']}"
+                                    _LOGGER.debug(f"Error on recieving human readable adress via OpenMap API.")
                             
                             if not picture:
                                 baskets.append(
@@ -271,27 +249,29 @@ class FoodsharingSensor(Entity):
                                                 #Convert to human readable location adress
                                                 location_human_readable = ""
                                                 if json_data['baskets'][count]['lat']:
-                                                    get_address(json_data['baskets'][count]['lat'], json_data['baskets'][count]['lon'])
-                                                    #try:
-                                                        #coordinates = f"{json_data['baskets'][count]['lat']}, {json_data['baskets'][count]['lon']}"
-                                                        #location = await hass.async_add_executor_job(locator.reverse(coordinates))
-                                                        #location_human_readable = location.address #f"{location.raw.road}, {location.house_number}, {location.postcode}, {location.city}"
-                                                    #except:
-                                                    #    location_human_readable = f"Lat: {json_data['baskets'][count]['lat']} / Long: {json_data['baskets'][count]['lon']}"
-                                                    #    _LOGGER.debug(f"Error on recieving human readable adress via OpenMap API.'")
+                                                    try:
+                                                        headers = {
+                                                            "user-agent": "Foodsharing Homeassistant",
+                                                        }
 
-                                                #if not self.gmapsapi == "false":
-                                                #    if json_data['baskets'][count]['lat']:
-                                                #        try:
-                                                #            with async_timeout.timeout(30):
-                                                #                location = await hass.async_add_executor_job(geolocator.reverse(f"{json_data['baskets'][count]['lat']}, {json_data['baskets'][count]['lon']}"))
-                                                                #location = geolocator.reverse(f"{json_data['baskets'][count]['lat']}, {json_data['baskets'][count]['lon']}")
-                                                #        except:
-                                                #            location_human_readable = f"Lat: {json_data['baskets'][count]['lat']} / Long: {json_data['baskets'][count]['lon']}"
-                                                #            _LOGGER.debug(f"Error on recieving human readable adress via Google Maps. Maps API: '{self.gmapsapi}'")
-                                                #else: 
-                                                #    location_human_readable = f"Lat: {json_data['baskets'][count]['lat']} / Long: {json_data['baskets'][count]['lon']}"
-                                                _LOGGER.debug(f"Location: '{location_human_readable}'")
+                                                        params = (
+                                                            ("lat", json_data['baskets'][count]['lat']),
+                                                            ("lon", json_data['baskets'][count]['lon']),
+                                                            ("format", "geojson"),
+                                                        )
+                                                        response_nominatim = await aiohttp_client.async_get_clientsession(self.hass).get(NOMINATIM_URL, params=params, headers=headers)
+                                                        _LOGGER.debug(f"Nominatim Request: '{params}' '{response_nominatim.status}' {response_nominatim.text} - {response_nominatim.headers}")
+
+                                                        if response.status == 200:
+                                                            raw_html_nominatim = await response_nominatim.text()
+                                                            json_data_nominatim = json.loads(raw_html_nominatim)
+                                                            location_human_readable = json_data_nominatim['features'][0]['properties']['display_name']
+                                                            _LOGGER.debug(f"Nominatim Answer: '{json_data_nominatim}'")
+                                                        else:
+                                                            location_human_readable = f"Lat: {json_data['baskets'][count]['lat']} / Long: {json_data['baskets'][count]['lon']}"
+                                                    except:
+                                                        location_human_readable = f"Lat: {json_data['baskets'][count]['lat']} / Long: {json_data['baskets'][count]['lon']}"
+                                                        _LOGGER.debug(f"Error on recieving human readable adress via OpenMap API.")
                                                 
                                                 if not picture:
                                                     baskets.append(
