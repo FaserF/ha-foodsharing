@@ -14,11 +14,16 @@ This integration provides the following informations with a refresh rate of 30 m
 
 Sensors: 
 
-- How many baskets are available within your distance range
+- sensor.foodsharing_latitudeCoordinate: How many baskets are available within your distance range
 
 Sensor Attributes: 
 
-- Basket ID, Description, adress, available until time and a picture link
+- id: Basket ID
+- description: Description text about the basket
+- adress: Human readable detailed adress, fetched from coordinates
+- maps: Google Maps Link to basket
+- available until: time until basket creator says it could be available
+- picture: link
 
 ## Installation
 ### 1. Using HACS (recommended way)
@@ -77,13 +82,15 @@ Newest one: {{ state_attr('sensor.foodsharing_latitude', 'baskets')[0]['descript
 
 Available until: {{ state_attr('sensor.foodsharing_latitude', 'baskets')[0]['available until'] }}
 
-Adress: {{ state_attr('sensor.foodsharing_48_076690', 'baskets')[0]['adress'] }}
-
 {% if not state_attr('sensor.foodsharing_48_076690', 'baskets')[0]['picture'] == '' %}
 Picture: {{ state_attr('sensor.foodsharing_48_076690', 'baskets')[0]['picture'] }}
 {% endif %}
 
 Link: https://foodsharing.de/essenskoerbe/{{ state_attr('sensor.foodsharing_latitude', 'baskets')[0]['id'] }}
+
+Adress: {{ state_attr('sensor.foodsharing_48_076690', 'baskets')[0]['adress'] }}
+
+Google Maps Link: {{ state_attr('sensor.foodsharing_48_076690', 'baskets')[0]['maps'] }}
 ```
 
 ## Bug reporting

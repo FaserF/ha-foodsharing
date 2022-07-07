@@ -33,6 +33,7 @@ from .const import (
     ATTR_UNTIL,
     ATTR_PICTURE,
     ATTR_ADRESS,
+    ATTR_MAPS_LINK,
 
     DOMAIN,
 )
@@ -149,7 +150,6 @@ class FoodsharingSensor(Entity):
                             picture = json_data['baskets'][count]['picture']
 
                             #Convert to human readable location adress
-                            location_human_readable = ""
                             if json_data['baskets'][count]['lat']:
                                 try:
                                     headers = {
@@ -168,12 +168,15 @@ class FoodsharingSensor(Entity):
                                         raw_html_nominatim = await response_nominatim.text()
                                         json_data_nominatim = json.loads(raw_html_nominatim)
                                         location_human_readable = json_data_nominatim['features'][0]['properties']['display_name']
+                                        maps_link = f"https://www.google.de/maps/place/{json_data_nominatim['features'][0]['properties']['address']['road']}+{json_data_nominatim['features'][0]['properties']['address']['house_number']}+{json_data_nominatim['features'][0]['properties']['address']['postcode']}+{json_data_nominatim['features'][0]['properties']['address']['city']}"
                                         #_LOGGER.debug(f"Nominatim Answer: '{json_data_nominatim}'")
                                     else:
-                                        location_human_readable = f"Lat: {json_data['baskets'][count]['lat']} / Long: {json_data['baskets'][count]['lon']}"
+                                        location_human_readable = "unavailable"
+                                        maps_link = "unavailable"
                                 except:
-                                    location_human_readable = f"Lat: {json_data['baskets'][count]['lat']} / Long: {json_data['baskets'][count]['lon']}"
-                                    _LOGGER.debug(f"Error on recieving human readable adress via OpenMap API.")
+                                    location_human_readable = "unavailable"
+                                    maps_link = "unavailable"
+                                    _LOGGER.debug(f"Error on recieving human readable adress via OpenMap API for {json_data['baskets'][count]['lat']}, {json_data['baskets'][count]['lat']}.")
                             
                             if not picture:
                                 baskets.append(
@@ -181,6 +184,7 @@ class FoodsharingSensor(Entity):
                                         ATTR_ID: json_data['baskets'][count]['id'],
                                         ATTR_DESCRIPTION: json_data['baskets'][count]['description'],
                                         ATTR_ADRESS: location_human_readable,
+                                        ATTR_MAPS_LINK: maps_link,
                                         ATTR_UNTIL: json_data['baskets'][count]['until']
                                     }
                                 )
@@ -190,6 +194,7 @@ class FoodsharingSensor(Entity):
                                         ATTR_ID: json_data['baskets'][count]['id'],
                                         ATTR_DESCRIPTION: json_data['baskets'][count]['description'],
                                         ATTR_ADRESS: location_human_readable,
+                                        ATTR_MAPS_LINK: maps_link,
                                         ATTR_UNTIL: json_data['baskets'][count]['until'],
                                         ATTR_PICTURE: f"https://foodsharing.de/images/basket/medium-{picture}"
                                     }
@@ -241,7 +246,6 @@ class FoodsharingSensor(Entity):
                                                 picture = json_data['baskets'][count]['picture']
 
                                                 #Convert to human readable location adress
-                                                location_human_readable = ""
                                                 if json_data['baskets'][count]['lat']:
                                                     try:
                                                         headers = {
@@ -260,12 +264,15 @@ class FoodsharingSensor(Entity):
                                                             raw_html_nominatim = await response_nominatim.text()
                                                             json_data_nominatim = json.loads(raw_html_nominatim)
                                                             location_human_readable = json_data_nominatim['features'][0]['properties']['display_name']
+                                                            maps_link = f"https://www.google.de/maps/place/{json_data_nominatim['features'][0]['properties']['address']['road']}+{json_data_nominatim['features'][0]['properties']['address']['house_number']}+{json_data_nominatim['features'][0]['properties']['address']['postcode']}+{json_data_nominatim['features'][0]['properties']['address']['city']}"
                                                             #_LOGGER.debug(f"Nominatim Answer: '{json_data_nominatim}'")
                                                         else:
-                                                            location_human_readable = f"Lat: {json_data['baskets'][count]['lat']} / Long: {json_data['baskets'][count]['lon']}"
+                                                            location_human_readable = "unavailable"
+                                                            maps_link = "unavailable"
                                                     except:
-                                                        location_human_readable = f"Lat: {json_data['baskets'][count]['lat']} / Long: {json_data['baskets'][count]['lon']}"
-                                                        _LOGGER.debug(f"Error on recieving human readable adress via OpenMap API.")
+                                                        location_human_readable = "unavailable"
+                                                        maps_link = "unavailable"
+                                                        _LOGGER.debug(f"Error on recieving human readable adress via OpenMap API for {json_data['baskets'][count]['lat']}, {json_data['baskets'][count]['lat']}.")
                                                 
                                                 if not picture:
                                                     baskets.append(
@@ -273,6 +280,7 @@ class FoodsharingSensor(Entity):
                                                             ATTR_ID: json_data['baskets'][count]['id'],
                                                             ATTR_DESCRIPTION: json_data['baskets'][count]['description'],
                                                             ATTR_ADRESS: location_human_readable,
+                                                            ATTR_MAPS_LINK: maps_link,
                                                             ATTR_UNTIL: json_data['baskets'][count]['until']
                                                         }
                                                     )
@@ -283,6 +291,7 @@ class FoodsharingSensor(Entity):
                                                             ATTR_DESCRIPTION: json_data['baskets'][count]['description'],
                                                             ATTR_ADRESS: location_human_readable,
                                                             ATTR_UNTIL: json_data['baskets'][count]['until'],
+                                                            ATTR_MAPS_LINK: maps_link,
                                                             ATTR_PICTURE: f"https://foodsharing.de/images/basket/medium-{picture}"
                                                         }
                                                     )
