@@ -20,7 +20,7 @@ Sensor Attributes:
 
 - id: Basket ID
 - description: Description text about the basket
-- adress: Human readable detailed adress, fetched from coordinates
+- address: Human readable detailed address, fetched from coordinates
 - maps: Google Maps Link to basket
 - available until: time until basket creator says it could be available
 - picture: link
@@ -55,7 +55,7 @@ Go to Configuration -> Integrations and click on "add integration". Then search 
 - **latitude**: Enter your Latitude
 - **longitude**: Enter your Longitude
 - **distance**: The search distance for baskets in kilometers
-- **email**: Your Foodsharing.de E-Mail adress
+- **email**: Your Foodsharing.de E-Mail address
 - **password**: Your Foodsharing.de Password
 - **refresh time**: Custom refresh time interval in minutes (doesnt work until now!!!)
 
@@ -70,27 +70,29 @@ A full automation example for HA would be:
 
 ```yaml
 message: >
-{% if is_state('sensor.foodsharing_latitude', '1') %}
-There is {{ states.sensor.foodsharing_latitude.state }} foodsharing basket available. 
-{% else %}
-There are {{ states.sensor.foodsharing_latitude.state }} foodsharing baskets available. 
-{% endif %}
+    {% if is_state('sensor.foodsharing_latitude', '1') %}
+        There is {{ states.sensor.foodsharing_latitude.state }} foodsharing basket available. 
+    {% else %}
+        There are {{ states.sensor.foodsharing_latitude.state }} foodsharing baskets available. 
+    {% endif %}
 
-Newest one: {{ state_attr('sensor.foodsharing_latitude', 'baskets')[0]['description'] }}
+    Newest one: {{ state_attr('sensor.foodsharing_latitude', 'baskets')[0]['description'] }}
 
-------------
+    ------------
 
-Available until: {{ state_attr('sensor.foodsharing_latitude', 'baskets')[0]['available until'] }}
+    Available until: {{ state_attr('sensor.foodsharing_latitude', 'baskets')[0]['available until'] }}
 
-{% if not state_attr('sensor.foodsharing_48_076690', 'baskets')[0]['picture'] == '' %}
-Picture: {{ state_attr('sensor.foodsharing_48_076690', 'baskets')[0]['picture'] }}
-{% endif %}
+    {% if not state_attr('sensor.foodsharing_latitude', 'baskets')[0]['picture'] == '' %}
+        Picture: {{ state_attr('sensor.foodsharing_latitude', 'baskets')[0]['picture'] }}
+    {% endif %}
 
-Link: https://foodsharing.de/essenskoerbe/{{ state_attr('sensor.foodsharing_latitude', 'baskets')[0]['id'] }}
+    Link: https://foodsharing.de/essenskoerbe/{{ state_attr('sensor.foodsharing_latitude', 'baskets')[0]['id'] }}
 
-Adress: {{ state_attr('sensor.foodsharing_48_076690', 'baskets')[0]['adress'] }}
+    {% if not state_attr('sensor.foodsharing_latitude', 'baskets')[0]['address'] == 'unavailable' %}
+        addresse: {{ state_attr('sensor.foodsharing_latitude', 'baskets')[0]['address'] }}
 
-Google Maps Link: {{ state_attr('sensor.foodsharing_48_076690', 'baskets')[0]['maps'] }}
+        Google Maps Link: {{ state_attr('sensor.foodsharing_latitude', 'baskets')[0]['maps'] }}
+    {% endif %}
 ```
 
 ## Bug reporting
