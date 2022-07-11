@@ -153,6 +153,7 @@ class FoodsharingSensor(Entity):
                             location_human_readable = "unavailable"
                             maps_link = "unavailable"
                             if json_data['baskets'][count]['lat']:
+                                maps_link = f"https://www.google.de/maps/place/{json_data['baskets'][count]['lat']},+{json_data['baskets'][count]['lon']}"
                                 try:
                                     headers = {
                                         "user-agent": "Foodsharing Homeassistant",
@@ -182,7 +183,8 @@ class FoodsharingSensor(Entity):
                                         ATTR_DESCRIPTION: json_data['baskets'][count]['description'],
                                         ATTR_ADDRESS: location_human_readable,
                                         ATTR_MAPS_LINK: maps_link,
-                                        ATTR_UNTIL: json_data['baskets'][count]['until']
+                                        ATTR_UNTIL: json_data['baskets'][count]['until'],
+                                        ATTR_PICTURE: "unavailable"
                                     }
                                 )
                             else:
@@ -246,6 +248,7 @@ class FoodsharingSensor(Entity):
                                                 location_human_readable = "unavailable"
                                                 maps_link = "unavailable"
                                                 if json_data['baskets'][count]['lat']:
+                                                    maps_link = f"https://www.google.de/maps/place/{json_data['baskets'][count]['lat']},+{json_data['baskets'][count]['lon']}"
                                                     try:
                                                         headers = {
                                                             "user-agent": "Foodsharing Homeassistant",
@@ -275,7 +278,8 @@ class FoodsharingSensor(Entity):
                                                             ATTR_DESCRIPTION: json_data['baskets'][count]['description'],
                                                             ATTR_ADDRESS: location_human_readable,
                                                             ATTR_MAPS_LINK: maps_link,
-                                                            ATTR_UNTIL: json_data['baskets'][count]['until']
+                                                            ATTR_UNTIL: json_data['baskets'][count]['until'],
+                                                            ATTR_PICTURE: "unavailable"
                                                         }
                                                     )
                                                 else:
