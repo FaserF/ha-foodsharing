@@ -172,6 +172,7 @@ class FoodsharingSensor(Entity):
                                         json_data_nominatim = json.loads(raw_html_nominatim)
                                         location_human_readable = f"{json_data_nominatim['features'][0]['properties']['address']['road']} {json_data_nominatim['features'][0]['properties']['address']['house_number']}, {json_data_nominatim['features'][0]['properties']['address']['postcode']} {json_data_nominatim['features'][0]['properties']['address']['city']}"
                                         maps_link = f"https://www.google.de/maps/place/{json_data_nominatim['features'][0]['properties']['address']['road']}+{json_data_nominatim['features'][0]['properties']['address']['house_number']}+{json_data_nominatim['features'][0]['properties']['address']['postcode']}+{json_data_nominatim['features'][0]['properties']['address']['city']}"
+                                        maps_link = maps_link.replace(" ", "+")
                                         #_LOGGER.debug(f"Nominatim Answer: '{json_data_nominatim}'")
                                 except:
                                     _LOGGER.debug(f"Error on recieving human readable address via OpenMap API for {json_data['baskets'][count]['lat']}, {json_data['baskets'][count]['lat']}.")
@@ -267,6 +268,7 @@ class FoodsharingSensor(Entity):
                                                             json_data_nominatim = json.loads(raw_html_nominatim)
                                                             location_human_readable = f"{json_data_nominatim['features'][0]['properties']['address']['road']} {json_data_nominatim['features'][0]['properties']['address']['house_number']}, {json_data_nominatim['features'][0]['properties']['address']['postcode']} {json_data_nominatim['features'][0]['properties']['address']['city']}"
                                                             maps_link = f"https://www.google.de/maps/place/{json_data_nominatim['features'][0]['properties']['address']['road']}+{json_data_nominatim['features'][0]['properties']['address']['house_number']}+{json_data_nominatim['features'][0]['properties']['address']['postcode']}+{json_data_nominatim['features'][0]['properties']['address']['city']}"
+                                                            maps_link = maps_link.replace(" ", "+")
                                                             #_LOGGER.debug(f"Nominatim Answer: '{json_data_nominatim}'")
                                                     except:
                                                         _LOGGER.debug(f"Error on recieving human readable address via OpenMap API for {json_data['baskets'][count]['lat']}, {json_data['baskets'][count]['lat']}.")
