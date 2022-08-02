@@ -324,7 +324,7 @@ class FoodsharingSensor(Entity):
                                 _LOGGER.exception(f"Invalid request. Please report this issue to the developer. '{response_login.text}'")
                             else:
                                 self._available = False
-                                _LOGGER.exception(f"Error '{response_login.status}' - Invalid login credentials for {self.email} with {self.password}!")
+                                _LOGGER.exception(f"Error '{response_login.status}' - Invalid login credentials for {self.email} with HIDDEN! Please check your credentials.")
                     except:
                         self._available = False
                         _LOGGER.exception(f"Unable to login for '{self.email}'")
