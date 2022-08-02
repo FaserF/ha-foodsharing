@@ -212,6 +212,9 @@ class FoodsharingSensor(Entity):
                     self.attrs[ATTR_ATTRIBUTION] = f"last updated {datetime.now()} \n{ATTRIBUTION}"
                     self._state = baskets_count
                     self._available = True
+                elif response.status == 503:
+                    _LOGGER.exception(f"Error 503 - cannot reach foodsharing api. Most likely the API is under Maintainance right now.")
+                    self._available = False
                 elif response.status == 401:
                     #Unauthentificated -> Login first
                     try:
@@ -221,7 +224,7 @@ class FoodsharingSensor(Entity):
                             url_login = 'https://foodsharing.de/api/user/login'
                             #headers = {'Content-Type: application/json'}
                             response_login = await aiohttp_client.async_get_clientsession(self.hass).post(url_login, json=json_parameters)
-                            _LOGGER.debug(f"Login: '{json_parameters}' '{response_login.status}' {response_login.text} - {response_login.headers}")
+                            _LOGGER.debug(f"Login: 'email':f'{self.email}' 'remember_me':'true' '{response_login.status}' {response_login.text} - {response_login.headers}")
 
                             if response_login.status == 200:
                                 try:
