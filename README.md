@@ -57,7 +57,7 @@ Go to Configuration -> Integrations and click on "add integration". Then search 
 - **distance**: The search distance for baskets in kilometers
 - **email**: Your Foodsharing.de E-Mail address
 - **password**: Your Foodsharing.de Password
-- **refresh time**: Custom refresh time interval in minutes (doesnt work until now!!!)
+- **update interval**: Custom refresh time interval in minutes
 
 ### Basket URL
 To use a basket URL in automations you can use the following code for example:

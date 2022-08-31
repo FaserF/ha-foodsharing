@@ -1,5 +1,5 @@
 """Foodsharing.de sensor platform."""
-from datetime import datetime, timedelta
+from datetime import datetime
 import logging
 import re
 import json
@@ -172,8 +172,9 @@ class FoodsharingSensor(Entity):
                                         maps_link = f"https://www.google.de/maps/place/{json_data_nominatim['features'][0]['properties']['address']['road']}+{json_data_nominatim['features'][0]['properties']['address']['house_number']}+{json_data_nominatim['features'][0]['properties']['address']['postcode']}+{json_data_nominatim['features'][0]['properties']['address']['city']}"
                                         maps_link = maps_link.replace(" ", "+")
                                         _LOGGER.debug(f"Nominatim Answer: '{json_data_nominatim}'")
-                                except:
+                                except Exception as ex:
                                     _LOGGER.debug(f"Error on recieving human readable address via OpenMap API for {json_data['baskets'][count]['lat']}, {json_data['baskets'][count]['lat']}.")
+                                    _LOGGER.debug(f"Error {ex}.")
 
                             baskets.append(
                                 {
