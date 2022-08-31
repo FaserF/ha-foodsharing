@@ -52,7 +52,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Required(CONF_DISTANCE, default=7): cv.positive_int,
                 vol.Required(CONF_EMAIL, default="my@email.de"): str,
                 vol.Required(CONF_PASSWORD, default="mySecretPassword"): str,
-                vol.Required(CONF_SCAN_INTERVAL, default=30): cv.positive_int,
+                vol.Required(CONF_SCAN_INTERVAL, default=180): cv.positive_int,
             },
         )
 

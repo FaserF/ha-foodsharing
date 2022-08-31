@@ -26,7 +26,6 @@ from .const import (
     CONF_LATITUDE_FS,
     CONF_LONGITUDE_FS,
     CONF_DISTANCE,
-    CONF_SCAN_INTERVAL,
     ATTR_BASKETS,
     ATTR_ID,
     ATTR_DESCRIPTION,
@@ -63,7 +62,6 @@ class FoodsharingSensor(Entity):
     def __init__(self, config, hass: HomeAssistantType):
         super().__init__()
 
-        self.update_interval=timedelta(minutes=config[CONF_SCAN_INTERVAL]),
         self.email = config[CONF_EMAIL]
         self.password = config[CONF_PASSWORD]
         self.latitude_fs = config[CONF_LATITUDE_FS]
@@ -115,7 +113,7 @@ class FoodsharingSensor(Entity):
 
     async def async_update(self):
         #_LOGGER.debug(f"HA Parameters: 'email':'{self.email}', 'password':'HIDDEN', 'lat':'{self.latitude_fs}', 'long':'{self.longitude_fs}', 'distance':'{self.distance}'")
-        
+
         try:
             with async_timeout.timeout(30):
                 NOMINATIM_URL = "https://nominatim.openstreetmap.org/reverse"
@@ -138,7 +136,7 @@ class FoodsharingSensor(Entity):
                     #json_data = json.loads(json_response)
 
                     _LOGGER.debug(f"JSON Response: '{json_data}'")
-                
+
                     baskets_count = len(json_data['baskets'])
                     baskets = []
                     if baskets_count > 0:
@@ -156,7 +154,7 @@ class FoodsharingSensor(Entity):
                                 maps_link = f"https://www.google.de/maps/place/{json_data['baskets'][count]['lat']},+{json_data['baskets'][count]['lon']}"
                                 try:
                                     headers = {
-                                        "user-agent": "Foodsharing Homeassistant",
+                                        "user-agent": "Foodsharing Homeassistant Custom Integration",
                                     }
 
                                     params = (
@@ -165,42 +163,41 @@ class FoodsharingSensor(Entity):
                                         ("format", "geojson"),
                                     )
                                     response_nominatim = await aiohttp_client.async_get_clientsession(self.hass).get(NOMINATIM_URL, params=params, headers=headers)
-                                    #_LOGGER.debug(f"Nominatim Request: '{params}' '{response_nominatim.status}' {response_nominatim.text} - {response_nominatim.headers}")
+                                    _LOGGER.debug(f"Nominatim Request: '{params}' '{response_nominatim.status}' {response_nominatim.text} - {response_nominatim.headers}")
 
-                                    if response.status == 200:
+                                    if response_nominatim.status == 200:
                                         raw_html_nominatim = await response_nominatim.text()
                                         json_data_nominatim = json.loads(raw_html_nominatim)
                                         location_human_readable = f"{json_data_nominatim['features'][0]['properties']['address']['road']} {json_data_nominatim['features'][0]['properties']['address']['house_number']}, {json_data_nominatim['features'][0]['properties']['address']['postcode']} {json_data_nominatim['features'][0]['properties']['address']['city']}"
                                         maps_link = f"https://www.google.de/maps/place/{json_data_nominatim['features'][0]['properties']['address']['road']}+{json_data_nominatim['features'][0]['properties']['address']['house_number']}+{json_data_nominatim['features'][0]['properties']['address']['postcode']}+{json_data_nominatim['features'][0]['properties']['address']['city']}"
                                         maps_link = maps_link.replace(" ", "+")
-                                        #_LOGGER.debug(f"Nominatim Answer: '{json_data_nominatim}'")
+                                        _LOGGER.debug(f"Nominatim Answer: '{json_data_nominatim}'")
                                 except:
                                     _LOGGER.debug(f"Error on recieving human readable address via OpenMap API for {json_data['baskets'][count]['lat']}, {json_data['baskets'][count]['lat']}.")
-                            
+
+                            baskets.append(
+                                {
+                                    ATTR_ID: json_data['baskets'][count]['id'],
+                                    ATTR_DESCRIPTION: json_data['baskets'][count]['description'],
+                                    ATTR_ADDRESS: location_human_readable,
+                                    ATTR_MAPS_LINK: maps_link,
+                                    ATTR_UNTIL: json_data['baskets'][count]['until']
+                                }
+                            )
                             if not picture:
                                 baskets.append(
                                     {
-                                        ATTR_ID: json_data['baskets'][count]['id'],
-                                        ATTR_DESCRIPTION: json_data['baskets'][count]['description'],
-                                        ATTR_ADDRESS: location_human_readable,
-                                        ATTR_MAPS_LINK: maps_link,
-                                        ATTR_UNTIL: json_data['baskets'][count]['until'],
                                         ATTR_PICTURE: "unavailable"
                                     }
                                 )
                             else:
                                 baskets.append(
                                     {
-                                        ATTR_ID: json_data['baskets'][count]['id'],
-                                        ATTR_DESCRIPTION: json_data['baskets'][count]['description'],
-                                        ATTR_ADDRESS: location_human_readable,
-                                        ATTR_MAPS_LINK: maps_link,
-                                        ATTR_UNTIL: json_data['baskets'][count]['until'],
                                         ATTR_PICTURE: f"https://foodsharing.de/images/basket/medium-{picture}"
                                     }
                                 )
                             count += 1
-                    else: 
+                    else:
                         baskets.append(
                             {
                                 ATTR_ID: "",
@@ -234,7 +231,7 @@ class FoodsharingSensor(Entity):
                                         json_data = json.loads(raw_html)
 
                                         _LOGGER.debug(f"JSON Response: '{json_data}")
-                                    
+
                                         baskets_count = len(json_data['baskets'])
                                         baskets = []
                                         if baskets_count > 0:
@@ -252,7 +249,7 @@ class FoodsharingSensor(Entity):
                                                     maps_link = f"https://www.google.de/maps/place/{json_data['baskets'][count]['lat']},+{json_data['baskets'][count]['lon']}"
                                                     try:
                                                         headers = {
-                                                            "user-agent": "Foodsharing Homeassistant",
+                                                            "user-agent": "Foodsharing Homeassistant Custom Integration",
                                                         }
 
                                                         params = (
@@ -261,49 +258,49 @@ class FoodsharingSensor(Entity):
                                                             ("format", "geojson"),
                                                         )
                                                         response_nominatim = await aiohttp_client.async_get_clientsession(self.hass).get(NOMINATIM_URL, params=params, headers=headers)
-                                                        #_LOGGER.debug(f"Nominatim Request: '{params}' '{response_nominatim.status}' {response_nominatim.text} - {response_nominatim.headers}")
+                                                        _LOGGER.debug(f"Nominatim Request: '{params}' '{response_nominatim.status}' {response_nominatim.text} - {response_nominatim.headers}")
 
-                                                        if response.status == 200:
+                                                        if response_nominatim.status == 200:
                                                             raw_html_nominatim = await response_nominatim.text()
                                                             json_data_nominatim = json.loads(raw_html_nominatim)
                                                             location_human_readable = f"{json_data_nominatim['features'][0]['properties']['address']['road']} {json_data_nominatim['features'][0]['properties']['address']['house_number']}, {json_data_nominatim['features'][0]['properties']['address']['postcode']} {json_data_nominatim['features'][0]['properties']['address']['city']}"
                                                             maps_link = f"https://www.google.de/maps/place/{json_data_nominatim['features'][0]['properties']['address']['road']}+{json_data_nominatim['features'][0]['properties']['address']['house_number']}+{json_data_nominatim['features'][0]['properties']['address']['postcode']}+{json_data_nominatim['features'][0]['properties']['address']['city']}"
                                                             maps_link = maps_link.replace(" ", "+")
-                                                            #_LOGGER.debug(f"Nominatim Answer: '{json_data_nominatim}'")
-                                                    except:
+                                                            _LOGGER.debug(f"Nominatim Answer: '{json_data_nominatim}'")
+                                                    except Exception as ex:
                                                         _LOGGER.debug(f"Error on recieving human readable address via OpenMap API for {json_data['baskets'][count]['lat']}, {json_data['baskets'][count]['lat']}.")
-                                                
+                                                        _LOGGER.debug(f"Error {ex}.")
+
+                                                baskets.append(
+                                                    {
+                                                        ATTR_ID: json_data['baskets'][count]['id'],
+                                                        ATTR_DESCRIPTION: json_data['baskets'][count]['description'],
+                                                        ATTR_ADDRESS: location_human_readable,
+                                                        ATTR_MAPS_LINK: maps_link,
+                                                        ATTR_UNTIL: json_data['baskets'][count]['until']
+                                                    }
+                                                )
                                                 if not picture:
                                                     baskets.append(
                                                         {
-                                                            ATTR_ID: json_data['baskets'][count]['id'],
-                                                            ATTR_DESCRIPTION: json_data['baskets'][count]['description'],
-                                                            ATTR_ADDRESS: location_human_readable,
-                                                            ATTR_MAPS_LINK: maps_link,
-                                                            ATTR_UNTIL: json_data['baskets'][count]['until'],
                                                             ATTR_PICTURE: "unavailable"
                                                         }
                                                     )
                                                 else:
                                                     baskets.append(
                                                         {
-                                                            ATTR_ID: json_data['baskets'][count]['id'],
-                                                            ATTR_DESCRIPTION: json_data['baskets'][count]['description'],
-                                                            ATTR_ADDRESS: location_human_readable,
-                                                            ATTR_UNTIL: json_data['baskets'][count]['until'],
-                                                            ATTR_MAPS_LINK: maps_link,
                                                             ATTR_PICTURE: f"https://foodsharing.de/images/basket/medium-{picture}"
                                                         }
                                                     )
                                                 count += 1
-                                        else: 
+                                        else:
                                             baskets.append(
                                                 {
                                                     ATTR_ID: "",
                                                     ATTR_DESCRIPTION: ""
                                                 }
                                             )
-                                        
+
                                         self.attrs[ATTR_BASKETS] = baskets
                                         self.attrs[ATTR_ATTRIBUTION] = f"last updated {datetime.now()} \n{ATTRIBUTION}"
                                         self._state = baskets_count

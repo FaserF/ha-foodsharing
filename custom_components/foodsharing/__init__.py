@@ -4,7 +4,7 @@ import logging
 
 from homeassistant import config_entries, core
 
-from .const import DOMAIN
+from .const import DOMAIN,CONF_SCAN_INTERVAL
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -25,6 +25,25 @@ async def async_setup_entry(
     hass.async_create_task(
         hass.config_entries.async_forward_entry_setup(entry, "sensor")
     )
+
+    async def async_update_data():
+        """Fetch data from OPNsense."""
+        async with async_timeout.timeout(scan_interval - 1):
+            await hass.async_add_executor_job(lambda: data.update())
+
+            if not data.state:
+                raise UpdateFailed(f"Error fetching {entry.title} OPNsense state")
+
+            return data.state
+
+    coordinator = DataUpdateCoordinator(
+        hass,
+        _LOGGER,
+        name=f"{entry.title} OPNsense state",
+        update_method=async_update_data,
+        update_interval=timedelta(seconds=CONF_SCAN_INTERVAL),
+    )
+
     return True
 
 

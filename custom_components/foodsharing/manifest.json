@@ -1,5 +1,7 @@
 {
-  "codeowners": ["@faserf"],
+  "codeowners": [
+    "@faserf"
+  ],
   "config_flow": true,
   "dependencies": [],
   "documentation": "https://github.com/faserf/ha-foodsharing#readme",
@@ -7,6 +9,6 @@
   "domain": "foodsharing",
   "name": "Foodsharing.de",
   "requirements": [],
-  "version": "1.2.1",
+  "version": "1.2.2",
   "iot_class": "cloud_polling"
 }

@@ -12,11 +12,11 @@ Gets foodsharing baskets from the [foodsharing.de API](https://beta.foodsharing.
 This integration provides the following informations with a refresh rate of 30 minutes until now:
 
 
-Sensors: 
+Sensors:
 
 - sensor.foodsharing_latitudeCoordinate: How many baskets are available within your distance range
 
-Sensor Attributes: 
+Sensor Attributes:
 
 - id: Basket ID
 - description: Description text about the basket
@@ -41,13 +41,13 @@ If you use this method, your component will always update to the latest version.
 ### 2. Manual
 Place a copy of:
 
-[`__init__.py`](custom_components/foodsharing) at `<config>/custom_components/`  
+[`__init__.py`](custom_components/foodsharing) at `<config>/custom_components/`
 
 where `<config>` is your Home Assistant configuration directory.
 
 >__NOTE__: Do not download the file by using the link above directly. Rather, click on it, then on the page that comes up use the `Raw` button.
 
-## Configuration 
+## Configuration
 
 Go to Configuration -> Integrations and click on "add integration". Then search for Foodsharing.de
 
@@ -71,9 +71,9 @@ A full automation example for HA would be:
 ```yaml
 message: >
     {% if is_state('sensor.foodsharing_latitude', '1') %}
-        There is {{ states.sensor.foodsharing_latitude.state }} foodsharing basket available. 
+        There is {{ states.sensor.foodsharing_latitude.state }} foodsharing basket available.
     {% else %}
-        There are {{ states.sensor.foodsharing_latitude.state }} foodsharing baskets available. 
+        There are {{ states.sensor.foodsharing_latitude.state }} foodsharing baskets available.
     {% endif %}
 
     Newest one: {{ state_attr('sensor.foodsharing_latitude', 'baskets')[0]['description'] }}
@@ -101,8 +101,9 @@ Open an issue over at [github issues](https://github.com/FaserF/ha-foodsharing/i
 To enable debugging enter the following in your configuration.yaml
 
 ```yaml
-logs:
-    custom_components.foodsharing: debug
+logger:
+    logs:
+        custom_components.foodsharing: debug
 ```
 
 ## Thanks to
