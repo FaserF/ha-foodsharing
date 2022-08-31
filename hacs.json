@@ -1,5 +1,4 @@
 {
     "name": "Foodsharing.de",
-    "iot_class": "Cloud Polling",
     "render_readme": true
 }

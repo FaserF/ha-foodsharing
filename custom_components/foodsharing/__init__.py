@@ -47,6 +47,7 @@ async def async_setup_entry(
     coordinator = DataUpdateCoordinator(
         hass,
         _LOGGER,
+        name=f"{entry.title} Foodsharing state",
         update_method=async_update_data,
         update_interval=timedelta(seconds=config[CONF_SCAN_INTERVAL]),
     )
