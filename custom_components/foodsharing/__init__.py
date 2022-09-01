@@ -40,14 +40,14 @@ async def async_setup_entry(
             await hass.async_add_executor_job(lambda: data.update())
 
             if not data.state:
-                raise UpdateFailed(f"Error fetching {entry.title} Foodsharing state")
+                raise UpdateFailed(f"Error fetching {entry.entry_id} Foodsharing state")
 
             return data.state
 
     coordinator = DataUpdateCoordinator(
         hass,
         _LOGGER,
-        name=f"{entry.title} Foodsharing state",
+        name=f"{entry.entry_id} Foodsharing state",
         update_method=async_update_data,
         update_interval=timedelta(seconds=config[CONF_SCAN_INTERVAL]),
     )
