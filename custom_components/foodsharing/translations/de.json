@@ -2,7 +2,7 @@
   "config": {
     "step": {
       "user": {
-        "description": "Die Breiten- und Längenkoordinaten werden verwendet, um nach Körben in Ihrer Entfernung zu suchen. Ihr Benutzername und Ihr Passwort werden zur Authentifizierung innerhalb der foodsharing.de API verwendet.",
+        "description": "Die Breiten- und Längenkoordinaten werden verwendet, um nach Körben in Ihrer Entfernung zu suchen. Ihr Benutzername und Passwort werden zur Authentifizierung verwendet.",
         "data": {
           "latitude": "Latitude",
           "longitude": "Longitude",

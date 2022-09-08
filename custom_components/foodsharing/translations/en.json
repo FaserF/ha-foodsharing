@@ -2,7 +2,7 @@
   "config": {
     "step": {
       "user": {
-        "description": "The latitude and longitude coordinates will be used to search for baskets within your distance. Your username and password will be used to authentificate within the foodsharing.de API.",
+        "description": "The latitude and longitude coordinates will be used to search for baskets within your distance. Your username and password will be used to authentificate API.",
         "data": {
           "latitude": "Latitude",
           "longitude": "Longitude",
