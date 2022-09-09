@@ -1,4 +1,4 @@
-[![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg?style=for-the-badge)](https://github.com/hacs/integration)
+[![hacs_badge](https://img.shields.io/badge/HACS-Default-41BDF5.svg?style=for-the-badge)](https://github.com/hacs/integration)
 # Foodsharing.de Homeassistant Sensor
 Gets foodsharing baskets from the [foodsharing.de API](https://beta.foodsharing.de/api/doc/).
 
@@ -28,13 +28,9 @@ Sensor Attributes:
 ## Installation
 ### 1. Using HACS (recommended way)
 
-Open your HACS Settings and add
+This integration is a official HACS Integration.
 
-https://github.com/faserf/ha-foodsharing
-
-as custom repository URL.
-
-Then install the "Foodsharing.de" integration.
+Open HACS then install the "Foodsharing.de" integration.
 
 If you use this method, your component will always update to the latest version.
 
