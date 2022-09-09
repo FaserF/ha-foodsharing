@@ -176,27 +176,21 @@ class FoodsharingSensor(Entity):
                                     _LOGGER.debug(f"Error on recieving human readable address via OpenMap API for {json_data['baskets'][count]['lat']}, {json_data['baskets'][count]['lat']}.")
                                     _LOGGER.debug(f"Error {ex}.")
 
+                            if not picture:
+                                picture = "unavailable"
+                            else:
+                                picture = f"https://foodsharing.de/images/basket/medium-{picture}"
+
                             baskets.append(
                                 {
                                     ATTR_ID: json_data['baskets'][count]['id'],
                                     ATTR_DESCRIPTION: json_data['baskets'][count]['description'],
                                     ATTR_ADDRESS: location_human_readable,
                                     ATTR_MAPS_LINK: maps_link,
-                                    ATTR_UNTIL: json_data['baskets'][count]['until']
+                                    ATTR_UNTIL: json_data['baskets'][count]['until'],
+                                    ATTR_PICTURE: picture
                                 }
                             )
-                            if not picture:
-                                baskets.append(
-                                    {
-                                        ATTR_PICTURE: "unavailable"
-                                    }
-                                )
-                            else:
-                                baskets.append(
-                                    {
-                                        ATTR_PICTURE: f"https://foodsharing.de/images/basket/medium-{picture}"
-                                    }
-                                )
                             count += 1
                     else:
                         baskets.append(
@@ -275,27 +269,21 @@ class FoodsharingSensor(Entity):
                                                         _LOGGER.debug(f"Error on recieving human readable address via OpenMap API for {json_data['baskets'][count]['lat']}, {json_data['baskets'][count]['lat']}.")
                                                         _LOGGER.debug(f"Error {ex}.")
 
+                                                if not picture:
+                                                    picture = "unavailable"
+                                                else:
+                                                    picture = f"https://foodsharing.de/images/basket/medium-{picture}"
+
                                                 baskets.append(
                                                     {
                                                         ATTR_ID: json_data['baskets'][count]['id'],
                                                         ATTR_DESCRIPTION: json_data['baskets'][count]['description'],
                                                         ATTR_ADDRESS: location_human_readable,
                                                         ATTR_MAPS_LINK: maps_link,
-                                                        ATTR_UNTIL: json_data['baskets'][count]['until']
+                                                        ATTR_UNTIL: json_data['baskets'][count]['until'],
+                                                        ATTR_PICTURE: picture
                                                     }
                                                 )
-                                                if not picture:
-                                                    baskets.append(
-                                                        {
-                                                            ATTR_PICTURE: "unavailable"
-                                                        }
-                                                    )
-                                                else:
-                                                    baskets.append(
-                                                        {
-                                                            ATTR_PICTURE: f"https://foodsharing.de/images/basket/medium-{picture}"
-                                                        }
-                                                    )
                                                 count += 1
                                         else:
                                             baskets.append(
