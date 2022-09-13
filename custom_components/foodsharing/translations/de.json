@@ -8,7 +8,8 @@
           "longitude": "Longitude",
           "distance": "Entfernung in Kilometern (km)",
           "email": "E-Mail Adresse des foodsharing accounts",
-          "password": "Passwort des foodsharing accounts"
+          "password": "Passwort des foodsharing accounts",
+          "scan_interval": "Scan Intervall in Minuten"
         }
       }
     },

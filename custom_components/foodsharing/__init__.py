@@ -36,6 +36,7 @@ async def async_setup_entry(
     config = hass.data[DOMAIN][entry.entry_id]
     async def async_update_data():
         """Fetch data from Foodsharing."""
+        scan_interval=timedelta(minutes=config[CONF_SCAN_INTERVAL])
         async with async_timeout.timeout(scan_interval - 1):
             await hass.async_add_executor_job(lambda: data.update())
 
@@ -49,7 +50,7 @@ async def async_setup_entry(
         _LOGGER,
         name=f"{entry.entry_id} Foodsharing state",
         update_method=async_update_data,
-        update_interval=timedelta(seconds=config[CONF_SCAN_INTERVAL]),
+        update_interval=timedelta(minutes=config[CONF_SCAN_INTERVAL]),
     )
 
     return True
