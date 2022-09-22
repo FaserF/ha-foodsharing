@@ -14,7 +14,7 @@ from homeassistant.helpers.update_coordinator import (
 from .const import DOMAIN,CONF_SCAN_INTERVAL
 
 _LOGGER = logging.getLogger(__name__)
-
+SCAN_INTERVAL = timedelta(minutes=2)
 
 async def async_setup_entry(
     hass: core.HomeAssistant, entry: config_entries.ConfigEntry
@@ -36,8 +36,8 @@ async def async_setup_entry(
     config = hass.data[DOMAIN][entry.entry_id]
     async def async_update_data():
         """Fetch data from Foodsharing."""
-        scan_interval=timedelta(minutes=config[CONF_SCAN_INTERVAL])
-        async with async_timeout.timeout(scan_interval - 1):
+        update_interval=timedelta(minutes=config[CONF_SCAN_INTERVAL])
+        async with async_timeout.timeout(update_interval - 1):
             await hass.async_add_executor_job(lambda: data.update())
 
             if not data.state:

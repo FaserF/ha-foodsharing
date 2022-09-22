@@ -4,6 +4,7 @@ import logging
 import re
 import json
 from typing import Any, Callable, Dict, Optional
+from datetime import timedelta
 
 import async_timeout
 
@@ -38,6 +39,7 @@ from .const import (
 )
 
 _LOGGER = logging.getLogger(__name__)
+SCAN_INTERVAL = timedelta(minutes=2)
 
 async def async_setup_entry(
     hass: HomeAssistantType, entry: ConfigType, async_add_entities
