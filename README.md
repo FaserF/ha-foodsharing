@@ -9,7 +9,7 @@ Gets foodsharing baskets from the [foodsharing.de API](https://beta.foodsharing.
 
 
 
-This integration provides the following informations with a refresh rate of 30 minutes until now:
+This integration provides the following informations with a refresh rate of 2 minutes until now:
 
 
 Sensors:
@@ -39,13 +39,14 @@ Then install the "Foodsharing.de" integration.
 If you use this method, your component will always update to the latest version.
 
 ### 2. Manual
-Place a copy of:
 
-[`__init__.py`](custom_components/foodsharing) at `<config>/custom_components/`
+- Download the latest zip release from [here](https://github.com/FaserF/ha-foodsharing/releases/latest)
+- Extract the zip file
+- Copy the folder "foodsharing" from within custom_components with all of its components to `<config>/custom_components/`
 
 where `<config>` is your Home Assistant configuration directory.
 
->__NOTE__: Do not download the file by using the link above directly. Rather, click on it, then on the page that comes up use the `Raw` button.
+>__NOTE__: Do not download the file by using the link above directly, the status in the "master" branch can be in development and therefore is maybe not working.
 
 ## Configuration
 
@@ -57,7 +58,7 @@ Go to Configuration -> Integrations and click on "add integration". Then search 
 - **distance**: The search distance for baskets in kilometers
 - **email**: Your Foodsharing.de E-Mail address
 - **password**: Your Foodsharing.de Password
-- **update interval**: Custom refresh time interval in minutes
+- **update interval**: Custom refresh time interval in minutes (not working for the moment)
 
 ### Basket URL
 To use a basket URL in automations you can use the following code for example:
