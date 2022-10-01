@@ -39,7 +39,7 @@ from .const import (
 )
 
 _LOGGER = logging.getLogger(__name__)
-SCAN_INTERVAL = timedelta(minutes=2)
+SCAN_INTERVAL = timedelta(seconds=120)
 
 async def async_setup_entry(
     hass: HomeAssistantType, entry: ConfigType, async_add_entities
@@ -177,6 +177,8 @@ class FoodsharingSensor(Entity):
                                 except Exception as ex:
                                     _LOGGER.debug(f"Error on recieving human readable address via OpenMap API for {json_data['baskets'][count]['lat']}, {json_data['baskets'][count]['lat']}.")
                                     _LOGGER.debug(f"Error {ex}.")
+                                    _LOGGER.debug(f"Most likely you are running multiple Foodsharing Sensors, the Openmap api does not allow too fast scannings. So we will now wait some seconds before the next refresh.")
+                                    SCAN_INTERVAL = timedelta(seconds=133)
 
                             if not picture:
                                 picture = "unavailable"
@@ -270,6 +272,8 @@ class FoodsharingSensor(Entity):
                                                     except Exception as ex:
                                                         _LOGGER.debug(f"Error on recieving human readable address via OpenMap API for {json_data['baskets'][count]['lat']}, {json_data['baskets'][count]['lat']}.")
                                                         _LOGGER.debug(f"Error {ex}.")
+                                                        _LOGGER.debug(f"Most likely you are running multiple Foodsharing Sensors, the Openmap api does not allow too fast scannings. So we will now wait some seconds before the next refresh.")
+                                                        SCAN_INTERVAL = timedelta(seconds=133)
 
                                                 if not picture:
                                                     picture = "unavailable"

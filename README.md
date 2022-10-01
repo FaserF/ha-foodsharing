@@ -107,5 +107,7 @@ logger:
         custom_components.foodsharing: debug
 ```
 
+You can then find the log in the HA settings -> System -> Logs -> Enter "foodsharing" in the search bar -> "Load full logs"
+
 ## Thanks to
 Huge thanks to [@knorr3](https://github.com/knorr3) for his help and the [coronavirus integration](https://github.com/knorr3/coronavirus_germany), where this integration structure is based on!

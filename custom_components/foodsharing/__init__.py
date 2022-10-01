@@ -52,9 +52,7 @@ async def async_setup_entry(
         update_method=async_update_data,
         update_interval=timedelta(minutes=config[CONF_SCAN_INTERVAL]),
     )
-
     return True
-
 
 async def options_update_listener(
     hass: core.HomeAssistant, config_entry: config_entries.ConfigEntry
