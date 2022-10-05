@@ -2,7 +2,7 @@
   "config": {
     "step": {
       "user": {
-        "description": "The latitude and longitude coordinates will be used to search for baskets within your distance. Your username and password will be used to authentificate API.",
+        "description": "The latitude and longitude coordinates will be used to search for baskets within your distance. Your username and password will be used to authentificate with the API.",
         "data": {
           "latitude": "Latitude",
           "longitude": "Longitude",
