@@ -50,8 +50,8 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     CONF_LONGITUDE_FS, default=self.hass.config.longitude
                 ): cv.string,
                 vol.Required(CONF_DISTANCE, default=7): cv.positive_int,
-                vol.Required(CONF_EMAIL, default="my@email.de"): str,
-                vol.Required(CONF_PASSWORD, default="mySecretPassword"): str,
+                vol.Required(CONF_EMAIL): str,
+                vol.Required(CONF_PASSWORD): str,
                 vol.Required(CONF_SCAN_INTERVAL, default=2): cv.positive_int,
             },
         )
