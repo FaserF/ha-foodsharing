@@ -183,7 +183,7 @@ class FoodsharingSensor(Entity):
                             if not picture:
                                 picture = "unavailable"
                             else:
-                                picture = f"https://foodsharing.de/images/basket/medium-{picture}"
+                                picture = f"https://foodsharing.de{picture}"
 
                             baskets.append(
                                 {
@@ -278,7 +278,7 @@ class FoodsharingSensor(Entity):
                                                 if not picture:
                                                     picture = "unavailable"
                                                 else:
-                                                    picture = f"https://foodsharing.de/images/basket/medium-{picture}"
+                                                    picture = f"https://foodsharing.de{picture}"
 
                                                 baskets.append(
                                                     {

@@ -8,6 +8,6 @@
   "documentation": "https://github.com/faserf/ha-foodsharing#readme",
   "issue_tracker": "https://github.com/faserf/ha-foodsharing/issues",
   "requirements": [],
-  "version": "2022.09.0",
+  "version": "2024.03.0",
   "iot_class": "cloud_polling"
 }
