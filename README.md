@@ -84,15 +84,15 @@ message: >
     Available until: {{ state_attr('sensor.foodsharing_latitude', 'baskets')[0]['available until'] }}
 
     {% if not state_attr('sensor.foodsharing_latitude', 'baskets')[0]['picture'] == '' %}
-        Picture: {{ state_attr('sensor.foodsharing_latitude', 'baskets')[0]['picture'] }}
+        [Picture]({{ state_attr('sensor.foodsharing_latitude', 'baskets')[0]['picture'] }})
     {% endif %}
 
-    Link: https://foodsharing.de/essenskoerbe/{{ state_attr('sensor.foodsharing_latitude', 'baskets')[0]['id'] }}
+    [Link](https://foodsharing.de/essenskoerbe/{{ state_attr('sensor.foodsharing_latitude', 'baskets')[0]['id'] }})
 
     {% if not state_attr('sensor.foodsharing_latitude', 'baskets')[0]['address'] == 'unavailable' %}
-        addresse: {{ state_attr('sensor.foodsharing_latitude', 'baskets')[0]['address'] }}
+        address: {{ state_attr('sensor.foodsharing_latitude', 'baskets')[0]['address'] }}
 
-        Google Maps Link: {{ state_attr('sensor.foodsharing_latitude', 'baskets')[0]['maps'] }}
+        [Google Maps Link]({{ state_attr('sensor.foodsharing_latitude', 'baskets')[0]['maps'] }})
     {% endif %}
 ```
 
