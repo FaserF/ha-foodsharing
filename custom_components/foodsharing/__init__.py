@@ -29,14 +29,12 @@ async def async_setup_entry(
     hass.data[DOMAIN][entry.entry_id] = hass_data
 
     # Forward the setup to the sensor platform.
-    hass.async_create_task(
-        hass.config_entries.async_forward_entry_setup(entry, "sensor")
-    )
+    await hass.config_entries.async_forward_entry_setups(entry, ["sensor"])
 
     config = hass.data[DOMAIN][entry.entry_id]
     async def async_update_data():
         """Fetch data from Foodsharing."""
-        update_interval=timedelta(minutes=config[CONF_SCAN_INTERVAL])
+        update_interval = timedelta(minutes=config[CONF_SCAN_INTERVAL])
         async with async_timeout.timeout(update_interval - 1):
             await hass.async_add_executor_job(lambda: data.update())
 
@@ -53,6 +51,7 @@ async def async_setup_entry(
         update_interval=timedelta(minutes=config[CONF_SCAN_INTERVAL]),
     )
     return True
+
 
 async def options_update_listener(
     hass: core.HomeAssistant, config_entry: config_entries.ConfigEntry
