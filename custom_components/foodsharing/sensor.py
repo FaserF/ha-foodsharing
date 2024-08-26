@@ -44,7 +44,7 @@ async def async_setup_entry(
         config.update(entry.options)
     
     sensor = FoodsharingSensor(config, hass)
-    async_add_entities([sensor], update_before_add=True)  # Änderung: Sensor in eine Liste einfügen
+    async_add_entities([sensor], update_before_add=True)
 
 class FoodsharingSensor(Entity):
     """Collects and represents foodsharing baskets based on given coordinates."""
@@ -77,6 +77,7 @@ class FoodsharingSensor(Entity):
     @property
     def available(self) -> bool:
         """Return True if entity is available."""
+        _LOGGER.debug(f"Sensor available: {self._available}")
         return self._available
 
     @property
@@ -97,7 +98,8 @@ class FoodsharingSensor(Entity):
 
     @property
     def extra_state_attributes(self):
-        """Return extra attributes."""
+        """Return the state attributes."""
+        _LOGGER.debug(f"Extra state attributes: {self.attrs}")
         return self.attrs
 
     async def async_update(self):
@@ -108,8 +110,8 @@ class FoodsharingSensor(Entity):
                 url = f'https://foodsharing.de/api/baskets/nearby?lat={self.latitude_fs}&lon={self.longitude_fs}&distance={self.distance}'
 
                 session = aiohttp_client.async_get_clientsession(self.hass)
-                response = await session.get(url)
                 _LOGGER.debug(f"Fetching URL: '{url}'")
+                response = await session.get(url)
                 _LOGGER.debug(f"Getting Baskets: Status: {response.status}, Headers: {response.headers}")
 
                 if response.status == 200:
@@ -117,12 +119,18 @@ class FoodsharingSensor(Entity):
                     json_data = json.loads(raw_html)
                     _LOGGER.debug(f"JSON Response: '{json_data}'")
 
-                    baskets_count = len(json_data.get('baskets', []))
-                    baskets = self._process_baskets(json_data, NOMINATIM_URL)
+                    baskets = await self._process_baskets(json_data, NOMINATIM_URL)
+                    baskets_count = len(baskets)
+                    _LOGGER.debug(f"Processed baskets count: {baskets_count}")
+                    _LOGGER.debug(f"Baskets Data: {baskets}")
+
                     self.attrs[ATTR_BASKETS] = baskets
                     self.attrs[ATTR_ATTRIBUTION] = f"last updated {datetime.now()} \n{ATTRIBUTION}"
+                    _LOGGER.debug(f"Attributes: {self.attrs}")
+
                     self._state = baskets_count
                     self._available = True
+                    _LOGGER.debug(f"Sensor state set to: {self._state}")
 
                 elif response.status == 401:
                     _LOGGER.warning("Received 401 Unauthorized. Attempting to re-authenticate.")
@@ -158,8 +166,10 @@ class FoodsharingSensor(Entity):
                         json_data = json.loads(raw_html)
                         _LOGGER.debug(f"JSON Response after login: '{json_data}'")
 
-                        baskets_count = len(json_data.get('baskets', []))
-                        baskets = self._process_baskets(json_data, "https://nominatim.openstreetmap.org/reverse")
+                        baskets = await self._process_baskets(json_data, "https://nominatim.openstreetmap.org/reverse")
+                        baskets_count = len(baskets)
+                        _LOGGER.debug(f"Processed baskets count after login: {baskets_count}")
+
                         self.attrs[ATTR_BASKETS] = baskets
                         self.attrs[ATTR_ATTRIBUTION] = f"last updated {datetime.now()} \n{ATTRIBUTION}"
                         self._state = baskets_count
@@ -175,10 +185,12 @@ class FoodsharingSensor(Entity):
             _LOGGER.error(f"Exception during login: {e}")
             self._available = False
 
-    def _process_baskets(self, json_data, nominatim_url):
+    async def _process_baskets(self, json_data, nominatim_url):
         """Process basket data and return formatted list."""
         baskets = []
         baskets_data = json_data.get('baskets', [])
+        _LOGGER.debug(f"Baskets Data Raw: {baskets_data}")
+        
         if baskets_data:
             baskets_data = sorted(baskets_data, key=lambda x: x['id'], reverse=True)
             for basket in baskets_data:
@@ -186,39 +198,53 @@ class FoodsharingSensor(Entity):
                 picture = basket.get('picture', "unavailable")
                 if picture != "unavailable":
                     picture = f"https://foodsharing.de{picture}"
+                
+                location_human_readable = await self._get_human_readable_location(basket['lat'], basket['lon'])
+                _LOGGER.debug(f"Location for basket ID {basket['id']}: {location_human_readable}")
 
-                location_human_readable = "unavailable"
-                maps_link = "unavailable"
-                if basket.get('lat') and basket.get('lon'):
-                    maps_link = f"https://www.google.de/maps/place/{basket['lat']},+{basket['lon']}"
-                    location_human_readable = self._get_human_readable_location(nominatim_url, basket)
-
-                baskets.append({
+                basket_info = {
                     ATTR_ID: basket['id'],
                     ATTR_DESCRIPTION: basket['description'],
-                    ATTR_ADDRESS: location_human_readable,
-                    ATTR_MAPS_LINK: maps_link,
                     ATTR_UNTIL: until,
-                    ATTR_PICTURE: picture
-                })
+                    ATTR_PICTURE: picture,
+                    ATTR_ADDRESS: location_human_readable,
+                    ATTR_MAPS_LINK: f"https://www.google.de/maps/place/{basket['lat']},{basket['lon']}",
+                }
 
+                _LOGGER.debug(f"Processed Basket Info: {basket_info}")
+                baskets.append(basket_info)
+        
+        _LOGGER.debug(f"Final Baskets List: {baskets}")
         return baskets
 
-    async def _get_human_readable_location(self, nominatim_url, basket):
-        """Get human-readable address using Nominatim."""
+    async def _get_human_readable_location(self, lat, lon):
+        """Retrieve a human-readable location from Nominatim."""
+        url = f"https://nominatim.openstreetmap.org/reverse?lat={lat}&lon={lon}&format=json"
+        session = aiohttp_client.async_get_clientsession(self.hass)
         try:
-            headers = {"user-agent": "Foodsharing Homeassistant Custom Integration"}
-            params = {"lat": basket['lat'], "lon": basket['lon'], "format": "geojson"}
-            response_nominatim = await aiohttp_client.async_get_clientsession(self.hass).get(nominatim_url, params=params, headers=headers)
-            if response_nominatim.status == 200:
-                raw_html_nominatim = await response_nominatim.text()
-                json_data_nominatim = json.loads(raw_html_nominatim)
-                address = json_data_nominatim['features'][0]['properties']['address']
-                location_human_readable = f"{address.get('road', 'unknown')} {address.get('house_number', '')}, {address.get('postcode', '')} {address.get('city', '')}"
-                maps_link = f"https://www.google.de/maps/place/{location_human_readable.replace(' ', '+')}"
-                return location_human_readable
-            else:
-                _LOGGER.warning(f"Failed to get human-readable address: {response_nominatim.status}")
-        except Exception as ex:
-            _LOGGER.error(f"Error retrieving human-readable address: {ex}")
+            _LOGGER.debug(f"Fetching location from Nominatim: '{url}'")
+            async with session.get(url) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    _LOGGER.debug(f"Nominatim response: {data}")
+                    if 'address' in data:
+                        address = data['address']
+                        # Ensure all address components are available before using them
+                        house_number = address.get('house_number', '')
+                        road = address.get('road', '')
+                        town = address.get('town', '')
+                        state = address.get('state', '')
+                        country = address.get('country', '')
+                        
+                        # Concatenate address components
+                        location = f"{house_number} {road}, {town}, {state}, {country}"
+                        return location
+                    else:
+                        _LOGGER.warning("Nominatim response has no address data.")
+                        return "unavailable"
+                else:
+                    _LOGGER.warning(f"Nominatim returned status {response.status}")
+                    return "unavailable"
+        except Exception as e:
+            _LOGGER.error(f"Error retrieving human-readable location: {e}")
         return "unavailable"
