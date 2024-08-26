@@ -1,24 +1,17 @@
 """Foodsharing.de sensor platform."""
-from datetime import datetime
+from datetime import datetime, timedelta
 import logging
-import re
 import json
-from typing import Any, Callable, Dict, Optional
-from datetime import timedelta
+from typing import Any, Dict, Optional
 
 import async_timeout
-
 from homeassistant import config_entries, core
 from homeassistant.helpers import aiohttp_client
 from homeassistant.components.sensor import PLATFORM_SCHEMA
 from homeassistant.const import ATTR_ATTRIBUTION
 import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.entity import Entity
-from homeassistant.helpers.typing import (
-    ConfigType,
-    HomeAssistantType,
-)
-import voluptuous as vol
+from homeassistant.helpers.typing import ConfigType, HomeAssistantType
 
 from .const import (
     ATTRIBUTION,
@@ -34,7 +27,6 @@ from .const import (
     ATTR_PICTURE,
     ATTR_ADDRESS,
     ATTR_MAPS_LINK,
-
     DOMAIN,
 )
 
@@ -47,19 +39,15 @@ async def async_setup_entry(
     """Setup sensors from a config entry created in the integrations UI."""
     config = hass.data[DOMAIN][entry.entry_id]
     _LOGGER.debug("Sensor async_setup_entry")
+    
     if entry.options:
         config.update(entry.options)
-    sensors = FoodsharingSensor(config, hass)
-    async_add_entities(sensors, update_before_add=True)
-    async_add_entities(
-        [
-            FoodsharingSensor(config, hass)
-        ],
-        update_before_add=True
-    )
+    
+    sensor = FoodsharingSensor(config, hass)
+    async_add_entities([sensor], update_before_add=True)  # Änderung: Sensor in eine Liste einfügen
 
 class FoodsharingSensor(Entity):
-    """Collects and represents foodsharing baskets based on given coordinates"""
+    """Collects and represents foodsharing baskets based on given coordinates."""
 
     def __init__(self, config, hass: HomeAssistantType):
         super().__init__()
@@ -84,7 +72,6 @@ class FoodsharingSensor(Entity):
     @property
     def unique_id(self) -> str:
         """Return the unique ID of the sensor."""
-        #return self._name
         return f"Foodsharing-{self.latitude_fs}"
 
     @property
@@ -114,218 +101,124 @@ class FoodsharingSensor(Entity):
         return self.attrs
 
     async def async_update(self):
-        #_LOGGER.debug(f"HA Parameters: 'email':'{self.email}', 'password':'HIDDEN', 'lat':'{self.latitude_fs}', 'long':'{self.longitude_fs}', 'distance':'{self.distance}'")
-
+        """Fetch data from the Foodsharing API."""
         try:
             with async_timeout.timeout(30):
                 NOMINATIM_URL = "https://nominatim.openstreetmap.org/reverse"
                 url = f'https://foodsharing.de/api/baskets/nearby?lat={self.latitude_fs}&lon={self.longitude_fs}&distance={self.distance}'
 
-                response = await aiohttp_client.async_get_clientsession(self.hass).get(url)
+                session = aiohttp_client.async_get_clientsession(self.hass)
+                response = await session.get(url)
                 _LOGGER.debug(f"Fetching URL: '{url}'")
-                _LOGGER.debug(f"Getting Baskets: '{response.status}' {response.text} - {response.headers}")
-
-                #if self.gmapsapi:
-                #    geolocator = GoogleV3(api_key=f"{self.gmapsapi}")
-                #locator = Nominatim(user_agent="openmapquest")
+                _LOGGER.debug(f"Getting Baskets: Status: {response.status}, Headers: {response.headers}")
 
                 if response.status == 200:
                     raw_html = await response.text()
                     json_data = json.loads(raw_html)
-
-                    # Doesnt work due to: TypeError: the JSON object must be str, bytes or bytearray, not dict
-                    #json_response = await response.json()
-                    #json_data = json.loads(json_response)
-
                     _LOGGER.debug(f"JSON Response: '{json_data}'")
 
-                    baskets_count = len(json_data['baskets'])
-                    baskets = []
-                    if baskets_count > 0:
-                        json_data['baskets'] = sorted(json_data['baskets'], key=lambda x : x['id'], reverse=True)
-                        count = 0
-                        for id in json_data['baskets']:
-                            #Convert Time to human readable time
-                            json_data['baskets'][count]['until'] = datetime.fromtimestamp(json_data['baskets'][count]['until']).strftime('%c')
-                            picture = json_data['baskets'][count]['picture']
-
-                            #Convert to human readable location address
-                            location_human_readable = "unavailable"
-                            maps_link = "unavailable"
-                            if json_data['baskets'][count]['lat']:
-                                maps_link = f"https://www.google.de/maps/place/{json_data['baskets'][count]['lat']},+{json_data['baskets'][count]['lon']}"
-                                try:
-                                    headers = {
-                                        "user-agent": "Foodsharing Homeassistant Custom Integration",
-                                    }
-
-                                    params = (
-                                        ("lat", json_data['baskets'][count]['lat']),
-                                        ("lon", json_data['baskets'][count]['lon']),
-                                        ("format", "geojson"),
-                                    )
-                                    response_nominatim = await aiohttp_client.async_get_clientsession(self.hass).get(NOMINATIM_URL, params=params, headers=headers)
-                                    _LOGGER.debug(f"Nominatim Request: '{params}' '{response_nominatim.status}' {response_nominatim.text} - {response_nominatim.headers}")
-
-                                    if response_nominatim.status == 200:
-                                        raw_html_nominatim = await response_nominatim.text()
-                                        json_data_nominatim = json.loads(raw_html_nominatim)
-                                        location_human_readable = f"{json_data_nominatim['features'][0]['properties']['address']['road']} {json_data_nominatim['features'][0]['properties']['address']['house_number']}, {json_data_nominatim['features'][0]['properties']['address']['postcode']} {json_data_nominatim['features'][0]['properties']['address']['city']}"
-                                        maps_link = f"https://www.google.de/maps/place/{json_data_nominatim['features'][0]['properties']['address']['road']}+{json_data_nominatim['features'][0]['properties']['address']['house_number']}+{json_data_nominatim['features'][0]['properties']['address']['postcode']}+{json_data_nominatim['features'][0]['properties']['address']['city']}"
-                                        maps_link = maps_link.replace(" ", "+")
-                                        _LOGGER.debug(f"Nominatim Answer: '{json_data_nominatim}'")
-                                except Exception as ex:
-                                    _LOGGER.debug(f"Error on recieving human readable address via OpenMap API for {json_data['baskets'][count]['lat']}, {json_data['baskets'][count]['lat']}.")
-                                    _LOGGER.debug(f"Error {ex}.")
-                                    _LOGGER.debug(f"Most likely you are running multiple Foodsharing Sensors, the Openmap api does not allow too fast scannings. So we will now wait some seconds before the next refresh.")
-                                    SCAN_INTERVAL = timedelta(seconds=133)
-
-                            if not picture:
-                                picture = "unavailable"
-                            else:
-                                picture = f"https://foodsharing.de{picture}"
-
-                            baskets.append(
-                                {
-                                    ATTR_ID: json_data['baskets'][count]['id'],
-                                    ATTR_DESCRIPTION: json_data['baskets'][count]['description'],
-                                    ATTR_ADDRESS: location_human_readable,
-                                    ATTR_MAPS_LINK: maps_link,
-                                    ATTR_UNTIL: json_data['baskets'][count]['until'],
-                                    ATTR_PICTURE: picture
-                                }
-                            )
-                            count += 1
-                    else:
-                        baskets.append(
-                            {
-                                ATTR_ID: "",
-                                ATTR_DESCRIPTION: ""
-                            }
-                        )
-
+                    baskets_count = len(json_data.get('baskets', []))
+                    baskets = self._process_baskets(json_data, NOMINATIM_URL)
                     self.attrs[ATTR_BASKETS] = baskets
                     self.attrs[ATTR_ATTRIBUTION] = f"last updated {datetime.now()} \n{ATTRIBUTION}"
                     self._state = baskets_count
                     self._available = True
-                elif response.status == 503:
-                    _LOGGER.exception(f"Error 503 - cannot reach foodsharing api. Most likely the API is under Maintainance right now.")
-                    self._available = False
+
                 elif response.status == 401:
-                    #Unauthentificated -> Login first
-                    try:
-                        with async_timeout.timeout(30):
-                            json_parameters = {'email':f'{self.email}', 'password':f'{self.password}', 'remember_me':'true'}
+                    _LOGGER.warning("Received 401 Unauthorized. Attempting to re-authenticate.")
+                    await self._perform_login_and_retry(session, url)
 
-                            url_login = 'https://foodsharing.de/api/user/login'
-                            #headers = {'Content-Type: application/json'}
-                            response_login = await aiohttp_client.async_get_clientsession(self.hass).post(url_login, json=json_parameters)
-                            _LOGGER.debug(f"Login: 'email':f'{self.email}' 'remember_me':'true' '{response_login.status}' {response_login.text} - {response_login.headers}")
-
-                            if response_login.status == 200:
-                                try:
-                                    response = await aiohttp_client.async_get_clientsession(self.hass).get(url)
-                                    _LOGGER.debug(f"Fetching URL: '{url}'")
-                                    _LOGGER.debug(f"Getting Baskets: '{response.status}' {response.text} - {response.headers}")
-
-                                    if response.status == 200:
-                                        raw_html = await response.text()
-                                        json_data = json.loads(raw_html)
-
-                                        _LOGGER.debug(f"JSON Response: '{json_data}")
-
-                                        baskets_count = len(json_data['baskets'])
-                                        baskets = []
-                                        if baskets_count > 0:
-                                            json_data['baskets'] = sorted(json_data['baskets'], key=lambda x : x['id'], reverse=True)
-                                            count = 0
-                                            for id in json_data['baskets']:
-                                                #Convert Time to human readable time
-                                                json_data['baskets'][count]['until'] = datetime.fromtimestamp(json_data['baskets'][count]['until']).strftime('%c')
-                                                picture = json_data['baskets'][count]['picture']
-
-                                                #Convert to human readable location address
-                                                location_human_readable = "unavailable"
-                                                maps_link = "unavailable"
-                                                if json_data['baskets'][count]['lat']:
-                                                    maps_link = f"https://www.google.de/maps/place/{json_data['baskets'][count]['lat']},+{json_data['baskets'][count]['lon']}"
-                                                    try:
-                                                        headers = {
-                                                            "user-agent": "Foodsharing Homeassistant Custom Integration",
-                                                        }
-
-                                                        params = (
-                                                            ("lat", json_data['baskets'][count]['lat']),
-                                                            ("lon", json_data['baskets'][count]['lon']),
-                                                            ("format", "geojson"),
-                                                        )
-                                                        response_nominatim = await aiohttp_client.async_get_clientsession(self.hass).get(NOMINATIM_URL, params=params, headers=headers)
-                                                        _LOGGER.debug(f"Nominatim Request: '{params}' '{response_nominatim.status}' {response_nominatim.text} - {response_nominatim.headers}")
-
-                                                        if response_nominatim.status == 200:
-                                                            raw_html_nominatim = await response_nominatim.text()
-                                                            json_data_nominatim = json.loads(raw_html_nominatim)
-                                                            location_human_readable = f"{json_data_nominatim['features'][0]['properties']['address']['road']} {json_data_nominatim['features'][0]['properties']['address']['house_number']}, {json_data_nominatim['features'][0]['properties']['address']['postcode']} {json_data_nominatim['features'][0]['properties']['address']['city']}"
-                                                            maps_link = f"https://www.google.de/maps/place/{json_data_nominatim['features'][0]['properties']['address']['road']}+{json_data_nominatim['features'][0]['properties']['address']['house_number']}+{json_data_nominatim['features'][0]['properties']['address']['postcode']}+{json_data_nominatim['features'][0]['properties']['address']['city']}"
-                                                            maps_link = maps_link.replace(" ", "+")
-                                                            _LOGGER.debug(f"Nominatim Answer: '{json_data_nominatim}'")
-                                                    except Exception as ex:
-                                                        _LOGGER.debug(f"Error on recieving human readable address via OpenMap API for {json_data['baskets'][count]['lat']}, {json_data['baskets'][count]['lat']}.")
-                                                        _LOGGER.debug(f"Error {ex}.")
-                                                        _LOGGER.debug(f"Most likely you are running multiple Foodsharing Sensors, the Openmap api does not allow too fast scannings. So we will now wait some seconds before the next refresh.")
-                                                        SCAN_INTERVAL = timedelta(seconds=133)
-
-                                                if not picture:
-                                                    picture = "unavailable"
-                                                else:
-                                                    picture = f"https://foodsharing.de{picture}"
-
-                                                baskets.append(
-                                                    {
-                                                        ATTR_ID: json_data['baskets'][count]['id'],
-                                                        ATTR_DESCRIPTION: json_data['baskets'][count]['description'],
-                                                        ATTR_ADDRESS: location_human_readable,
-                                                        ATTR_MAPS_LINK: maps_link,
-                                                        ATTR_UNTIL: json_data['baskets'][count]['until'],
-                                                        ATTR_PICTURE: picture
-                                                    }
-                                                )
-                                                count += 1
-                                        else:
-                                            baskets.append(
-                                                {
-                                                    ATTR_ID: "",
-                                                    ATTR_DESCRIPTION: ""
-                                                }
-                                            )
-
-                                        self.attrs[ATTR_BASKETS] = baskets
-                                        self.attrs[ATTR_ATTRIBUTION] = f"last updated {datetime.now()} \n{ATTRIBUTION}"
-                                        self._state = baskets_count
-                                        self._available = True
-                                    else:
-                                        self._available = False
-                                        _LOGGER.exception(f"Error on update after sign in: '{response.status}' - Cannot retrieve data for: '{self.latitude_fs}' '{self.longitude_fs}'")
-                                except:
-                                    self._available = False
-                                    _LOGGER.exception(f"Cannot retrieve data for: '{self.latitude_fs}' '{self.longitude_fs}'")
-                            elif response_login.status == 400:
-                                _LOGGER.exception(f"Bad request. Most likely because you are already signed in and cant sign in twice. Or json credentials were missing. Continuing... - '{response_login.text}'")
-                                self._available = False
-                            elif response_login.status == 405:
-                                _LOGGER.exception(f"Invalid request. Please report this issue to the developer. '{response_login.text}'")
-                            else:
-                                self._available = False
-                                _LOGGER.exception(f"Error '{response_login.status}' - Invalid login credentials for {self.email} with HIDDEN! Please check your credentials.")
-                    except:
-                        self._available = False
-                        _LOGGER.exception(f"Unable to login for '{self.email}'")
-                elif response.status == 405:
+                elif response.status == 503:
+                    _LOGGER.error("Error 503 - Cannot reach Foodsharing API. The API might be under maintenance.")
                     self._available = False
-                    _LOGGER.exception(f"Invalid request. Please report this issue to the developer. - '{response.text}'")
+
                 else:
+                    _LOGGER.error(f"Unexpected error: {response.status} - Cannot retrieve data.")
                     self._available = False
-                    _LOGGER.exception(f"Error '{response.status}' - Cannot retrieve data for: '{self.latitude_fs}' '{self.longitude_fs}'")
-        except:
+
+        except Exception as e:
+            _LOGGER.error(f"Exception during update: {e}")
             self._available = False
-            _LOGGER.exception(f"Cannot retrieve data for: '{self.latitude_fs}' '{self.longitude_fs}'")
+
+    async def _perform_login_and_retry(self, session, url):
+        """Attempt to log in and retry fetching data."""
+        try:
+            with async_timeout.timeout(30):
+                login_payload = {'email': self.email, 'password': self.password, 'remember_me': 'true'}
+                login_url = 'https://foodsharing.de/api/user/login'
+                login_response = await session.post(login_url, json=login_payload)
+                login_response_text = await login_response.text()
+                _LOGGER.debug(f"Login response: Status: {login_response.status}, Text: {login_response_text}")
+
+                if login_response.status == 200:
+                    _LOGGER.info("Login successful. Retrying data fetch.")
+                    response = await session.get(url)
+                    if response.status == 200:
+                        raw_html = await response.text()
+                        json_data = json.loads(raw_html)
+                        _LOGGER.debug(f"JSON Response after login: '{json_data}'")
+
+                        baskets_count = len(json_data.get('baskets', []))
+                        baskets = self._process_baskets(json_data, "https://nominatim.openstreetmap.org/reverse")
+                        self.attrs[ATTR_BASKETS] = baskets
+                        self.attrs[ATTR_ATTRIBUTION] = f"last updated {datetime.now()} \n{ATTRIBUTION}"
+                        self._state = baskets_count
+                        self._available = True
+                    else:
+                        _LOGGER.error(f"Error during fetch after login: {response.status}")
+                        self._available = False
+                else:
+                    _LOGGER.error(f"Login failed: {login_response.status} - {login_response_text}")
+                    self._available = False
+
+        except Exception as e:
+            _LOGGER.error(f"Exception during login: {e}")
+            self._available = False
+
+    def _process_baskets(self, json_data, nominatim_url):
+        """Process basket data and return formatted list."""
+        baskets = []
+        baskets_data = json_data.get('baskets', [])
+        if baskets_data:
+            baskets_data = sorted(baskets_data, key=lambda x: x['id'], reverse=True)
+            for basket in baskets_data:
+                until = datetime.fromtimestamp(basket['until']).strftime('%c')
+                picture = basket.get('picture', "unavailable")
+                if picture != "unavailable":
+                    picture = f"https://foodsharing.de{picture}"
+
+                location_human_readable = "unavailable"
+                maps_link = "unavailable"
+                if basket.get('lat') and basket.get('lon'):
+                    maps_link = f"https://www.google.de/maps/place/{basket['lat']},+{basket['lon']}"
+                    location_human_readable = self._get_human_readable_location(nominatim_url, basket)
+
+                baskets.append({
+                    ATTR_ID: basket['id'],
+                    ATTR_DESCRIPTION: basket['description'],
+                    ATTR_ADDRESS: location_human_readable,
+                    ATTR_MAPS_LINK: maps_link,
+                    ATTR_UNTIL: until,
+                    ATTR_PICTURE: picture
+                })
+
+        return baskets
+
+    async def _get_human_readable_location(self, nominatim_url, basket):
+        """Get human-readable address using Nominatim."""
+        try:
+            headers = {"user-agent": "Foodsharing Homeassistant Custom Integration"}
+            params = {"lat": basket['lat'], "lon": basket['lon'], "format": "geojson"}
+            response_nominatim = await aiohttp_client.async_get_clientsession(self.hass).get(nominatim_url, params=params, headers=headers)
+            if response_nominatim.status == 200:
+                raw_html_nominatim = await response_nominatim.text()
+                json_data_nominatim = json.loads(raw_html_nominatim)
+                address = json_data_nominatim['features'][0]['properties']['address']
+                location_human_readable = f"{address.get('road', 'unknown')} {address.get('house_number', '')}, {address.get('postcode', '')} {address.get('city', '')}"
+                maps_link = f"https://www.google.de/maps/place/{location_human_readable.replace(' ', '+')}"
+                return location_human_readable
+            else:
+                _LOGGER.warning(f"Failed to get human-readable address: {response_nominatim.status}")
+        except Exception as ex:
+            _LOGGER.error(f"Error retrieving human-readable address: {ex}")
+        return "unavailable"
