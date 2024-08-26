@@ -1,25 +1,40 @@
 {
   "config": {
+    "flow_title": "Setup Foodsharing",
     "step": {
       "user": {
-        "description": "Die Breiten- und Längenkoordinaten werden verwendet, um nach Körben in Ihrer Entfernung zu suchen. Ihr Benutzername und Passwort werden zur Authentifizierung verwendet.",
+        "description": "Die Koordinaten für Breitengrad und Längengrad werden verwendet, um nach Körben in deiner Nähe zu suchen. Deine E-Mail-Adresse und dein Passwort werden verwendet, um dich bei der API zu authentifizieren.",
         "data": {
-          "latitude": "Latitude",
-          "longitude": "Longitude",
+          "latitude_fs": "Breitengrad",
+          "longitude_fs": "Längengrad",
           "distance": "Entfernung in Kilometern (km)",
-          "email": "E-Mail Adresse des foodsharing accounts",
-          "password": "Passwort des foodsharing accounts",
-          "scan_interval": "Scan Intervall in Minuten"
+          "email": "E-Mail-Adresse von deinem Foodsharing-Konto",
+          "password": "Passwort von deinem Foodsharing-Konto",
+          "scan_interval": "Abfrageintervall in Minuten"
         }
       }
     },
-    "error": {
-      "cannot_connect": "Verbindung fehlgeschlagen",
-      "invalid_lat_long": "Ungültige Langitude / Longitude Koordinaten",
-      "unknown": "Unbekannter Fehler"
-    },
     "abort": {
-      "already_configured": "Diese Koordinaten sind bereits konfiguriert."
+      "already_configured": "Diese Kombination aus Breitengrad & Längengrad ist bereits konfiguriert"
+    },
+    "error": {
+      "cannot_connect": "Kann keine Verbindung herstellen",
+      "invalid_lat_long": "Ungültige Breitengrad- / Längengrad-Koordinaten",
+      "unknown": "Unbekannter Fehler"
+    }
+  },
+  "options": {
+    "flow_title": "Setup Foodsharing Options",
+    "step": {
+      "init": {
+        "description": "Ändere die Optionen für die Foodsharing-Integration.",
+        "data": {
+          "distance": "Entfernung in Kilometern (km)",
+          "scan_interval": "Abfrageintervall in Minuten",
+          "email": "E-Mail-Adresse von deinem Foodsharing-Konto",
+          "password": "Passwort von deinem Foodsharing-Konto"
+        }
+      }
     }
   }
 }
