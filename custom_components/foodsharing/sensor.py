@@ -11,7 +11,8 @@ from homeassistant.components.sensor import PLATFORM_SCHEMA
 from homeassistant.const import ATTR_ATTRIBUTION
 import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.entity import Entity
-from homeassistant.helpers.typing import ConfigType, HomeAssistantType
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers.typing import ConfigType
 
 from .const import (
     ATTRIBUTION,
@@ -34,7 +35,7 @@ _LOGGER = logging.getLogger(__name__)
 SCAN_INTERVAL = timedelta(seconds=120)
 
 async def async_setup_entry(
-    hass: HomeAssistantType, entry: ConfigType, async_add_entities
+    hass: HomeAssistant, entry: ConfigType, async_add_entities
 ):
     """Setup sensors from a config entry created in the integrations UI."""
     config = hass.data[DOMAIN][entry.entry_id]
@@ -49,7 +50,7 @@ async def async_setup_entry(
 class FoodsharingSensor(Entity):
     """Collects and represents foodsharing baskets based on given coordinates."""
 
-    def __init__(self, config, hass: HomeAssistantType):
+    def __init__(self, config, hass: HomeAssistant):
         super().__init__()
 
         self.email = config[CONF_EMAIL]
