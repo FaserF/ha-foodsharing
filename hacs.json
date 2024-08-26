@@ -1,6 +1,5 @@
 {
     "name": "Foodsharing.de",
     "render_readme": true,
-    "country": ["DE", "AT", "CH"],
-    "iot_class": "cloud_polling"
+    "country": ["DE", "AT", "CH"]
 }
