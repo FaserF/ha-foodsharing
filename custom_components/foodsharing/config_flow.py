@@ -52,7 +52,6 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Create the options flow."""
         return OptionsFlowHandler(config_entry)
 
-
 class OptionsFlowHandler(config_entries.OptionsFlow):
     """Handle an options flow"""
 
@@ -68,17 +67,19 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             if not errors:
                 return self.async_create_entry(title="", data=user_input)
 
+        # Use self.config_entry.data to get the current values
+        options = self.config_entry.data
+
         options_schema = vol.Schema({
-            vol.Optional(CONF_DISTANCE, default=self.config_entry.options.get(CONF_DISTANCE, 7)): cv.positive_int,
-            vol.Optional(CONF_SCAN_INTERVAL, default=self.config_entry.options.get(CONF_SCAN_INTERVAL, 2)): cv.positive_int,
-            vol.Optional(CONF_EMAIL, default=self.config_entry.options.get(CONF_EMAIL, "")): str,
-            vol.Optional(CONF_PASSWORD, default=self.config_entry.options.get(CONF_PASSWORD, "")): str,
+            vol.Optional(CONF_DISTANCE, default=options.get(CONF_DISTANCE, 7)): cv.positive_int,
+            vol.Optional(CONF_SCAN_INTERVAL, default=options.get(CONF_SCAN_INTERVAL, 2)): cv.positive_int,
+            vol.Optional(CONF_EMAIL, default=options.get(CONF_EMAIL, "")): str,
+            vol.Optional(CONF_PASSWORD, default=options.get(CONF_PASSWORD, "")): str,
         })
 
         return self.async_show_form(
             step_id="init", data_schema=options_schema, errors=errors
         )
-
 
 def validate_options(user_input, errors):
     """Validate the options in the OptionsFlow."""
