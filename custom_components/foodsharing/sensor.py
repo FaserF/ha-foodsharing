@@ -134,7 +134,7 @@ class FoodsharingSensor(Entity):
                     _LOGGER.debug(f"Sensor state set to: {self._state}")
 
                 elif response.status == 401:
-                    _LOGGER.warning("Received 401 Unauthorized. Attempting to re-authenticate.")
+                    _LOGGER.info("Received 401 Unauthorized. Attempting to re-authenticate.")
                     await self._perform_login_and_retry(session, url)
 
                 elif response.status == 503:
@@ -193,11 +193,10 @@ class FoodsharingSensor(Entity):
         if isinstance(json_data, dict):
             baskets_data = json_data.get('baskets', [])
         elif isinstance(json_data, list):
-            _LOGGER.warning("json_data is a list. Attempting to process as list of basket dictionaries.")
             baskets_data = json_data
         else:
             _LOGGER.error("Unexpected json_data type: %s", type(json_data).__name__)
-            return baskets
+            return []
 
         _LOGGER.debug(f"Baskets Data Raw: {baskets_data}")
         if baskets_data:
@@ -208,8 +207,14 @@ class FoodsharingSensor(Entity):
                 if picture != "unavailable":
                     picture = f"https://foodsharing.de{picture}"
 
-                location_human_readable = await self._get_human_readable_location(basket['lat'], basket['lon'])
-                _LOGGER.debug(f"Location for basket ID {basket['id']}: {location_human_readable}")
+                if 'lat' in basket and 'lon' in basket:
+                    location_human_readable = await self._get_human_readable_location(basket['lat'], basket['lon'])
+                    _LOGGER.debug(f"Location for basket ID {basket['id']}: {location_human_readable}")
+                    maps_link = f"https://www.google.de/maps/place/{basket['lat']},{basket['lon']}"
+                else:
+                    _LOGGER.debug(f"Skipping location fetching for basket ID {basket['id']} due to missing 'lat' or 'lon'.")
+                    location_human_readable = "Location unavailable"
+                    maps_link = "Unavailable"
 
                 basket_info = {
                     ATTR_ID: basket['id'],
@@ -217,7 +222,7 @@ class FoodsharingSensor(Entity):
                     ATTR_UNTIL: until,
                     ATTR_PICTURE: picture,
                     ATTR_ADDRESS: location_human_readable,
-                    ATTR_MAPS_LINK: f"https://www.google.de/maps/place/{basket['lat']},{basket['lon']}",
+                    ATTR_MAPS_LINK: maps_link,
                 }
 
                 _LOGGER.debug(f"Processed Basket Info: {basket_info}")
@@ -225,7 +230,6 @@ class FoodsharingSensor(Entity):
 
         _LOGGER.debug(f"Final Baskets List: {baskets}")
         return baskets
-
 
     async def _get_human_readable_location(self, lat, lon):
         """Retrieve a human-readable location from Nominatim."""
