@@ -20,8 +20,8 @@ Sensor Attributes:
 
 - id: Basket ID
 - description: Description text about the basket
-- address: Human readable detailed address, fetched from coordinates
-- maps: Google Maps Link to basket
+- address: Human readable detailed address, fetched from coordinates (Not working anymore since 13th december 2024, as adress data has been removed from their API)
+- maps: Google Maps Link to basket (Not working anymore since 13th december 2024, as adress data has been removed from their API)
 - available until: time until basket creator says it could be available
 - picture: link
 
@@ -92,7 +92,7 @@ message: >
     {% if not state_attr('sensor.foodsharing_latitude', 'baskets')[0]['address'] == 'unavailable' %}
         address: {{ state_attr('sensor.foodsharing_latitude', 'baskets')[0]['address'] }}
     {% endif %}
-    
+
     {% if not state_attr('sensor.foodsharing_latitude', 'baskets')[0]['maps'] == 'unavailable' %}
         [Google Maps Link]({{ state_attr('sensor.foodsharing_latitude', 'baskets')[0]['maps'] }})
     {% endif %}
