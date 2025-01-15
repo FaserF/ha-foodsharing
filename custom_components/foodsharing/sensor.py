@@ -213,8 +213,8 @@ class FoodsharingSensor(Entity):
                     maps_link = f"https://www.google.de/maps/place/{basket['lat']},{basket['lon']}"
                 else:
                     _LOGGER.debug(f"Skipping location fetching for basket ID {basket['id']} due to missing 'lat' or 'lon'.")
-                    location_human_readable = "Location unavailable"
-                    maps_link = "Unavailable"
+                    location_human_readable = "unavailable"
+                    maps_link = "unavailable"
 
                 basket_info = {
                     ATTR_ID: basket['id'],

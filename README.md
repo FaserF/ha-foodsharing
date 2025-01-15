@@ -83,7 +83,7 @@ message: >
 
     Available until: {{ state_attr('sensor.foodsharing_latitude', 'baskets')[0]['available until'] }}
 
-    {% if not state_attr('sensor.foodsharing_latitude', 'baskets')[0]['picture'] == '' %}
+    {% if not state_attr('sensor.foodsharing_latitude', 'baskets')[0]['picture'] == 'unavailable' %}
         [Picture]({{ state_attr('sensor.foodsharing_latitude', 'baskets')[0]['picture'] }})
     {% endif %}
 
@@ -91,7 +91,9 @@ message: >
 
     {% if not state_attr('sensor.foodsharing_latitude', 'baskets')[0]['address'] == 'unavailable' %}
         address: {{ state_attr('sensor.foodsharing_latitude', 'baskets')[0]['address'] }}
-
+    {% endif %}
+    
+    {% if not state_attr('sensor.foodsharing_latitude', 'baskets')[0]['maps'] == 'unavailable' %}
         [Google Maps Link]({{ state_attr('sensor.foodsharing_latitude', 'baskets')[0]['maps'] }})
     {% endif %}
 ```
