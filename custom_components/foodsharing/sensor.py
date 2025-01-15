@@ -40,10 +40,10 @@ async def async_setup_entry(
     """Setup sensors from a config entry created in the integrations UI."""
     config = hass.data[DOMAIN][entry.entry_id]
     _LOGGER.debug("Sensor async_setup_entry")
-    
+
     if entry.options:
         config.update(entry.options)
-    
+
     sensor = FoodsharingSensor(config, hass)
     async_add_entities([sensor], update_before_add=True)
 
@@ -189,9 +189,17 @@ class FoodsharingSensor(Entity):
     async def _process_baskets(self, json_data, nominatim_url):
         """Process basket data and return formatted list."""
         baskets = []
-        baskets_data = json_data.get('baskets', [])
+
+        if isinstance(json_data, dict):
+            baskets_data = json_data.get('baskets', [])
+        elif isinstance(json_data, list):
+            _LOGGER.warning("json_data is a list. Attempting to process as list of basket dictionaries.")
+            baskets_data = json_data
+        else:
+            _LOGGER.error("Unexpected json_data type: %s", type(json_data).__name__)
+            return baskets
+
         _LOGGER.debug(f"Baskets Data Raw: {baskets_data}")
-        
         if baskets_data:
             baskets_data = sorted(baskets_data, key=lambda x: x['id'], reverse=True)
             for basket in baskets_data:
@@ -199,7 +207,7 @@ class FoodsharingSensor(Entity):
                 picture = basket.get('picture', "unavailable")
                 if picture != "unavailable":
                     picture = f"https://foodsharing.de{picture}"
-                
+
                 location_human_readable = await self._get_human_readable_location(basket['lat'], basket['lon'])
                 _LOGGER.debug(f"Location for basket ID {basket['id']}: {location_human_readable}")
 
@@ -214,9 +222,10 @@ class FoodsharingSensor(Entity):
 
                 _LOGGER.debug(f"Processed Basket Info: {basket_info}")
                 baskets.append(basket_info)
-        
+
         _LOGGER.debug(f"Final Baskets List: {baskets}")
         return baskets
+
 
     async def _get_human_readable_location(self, lat, lon):
         """Retrieve a human-readable location from Nominatim."""
@@ -230,22 +239,22 @@ class FoodsharingSensor(Entity):
                     _LOGGER.debug(f"Nominatim response: {data}")
                     if 'address' in data:
                         address = data['address']
-                        # Ensure all address components are available before using them
-                        house_number = address.get('house_number', '')
-                        road = address.get('road', '')
-                        town = address.get('town', '')
-                        state = address.get('state', '')
-                        country = address.get('country', '')
-                        
-                        # Concatenate address components
-                        location = f"{house_number} {road}, {town}, {state}, {country}"
-                        return location
+                        location_parts = [
+                            address.get('house_number', ''),
+                            address.get('road', ''),
+                            address.get('town', ''),
+                            address.get('state', ''),
+                            address.get('country', '')
+                        ]
+                        # Remove empty parts and concatenate the address
+                        location = ", ".join(part for part in location_parts if part)
+                        return location if location else "Address unavailable"
                     else:
                         _LOGGER.warning("Nominatim response has no address data.")
-                        return "unavailable"
+                        return "Address unavailable"
                 else:
                     _LOGGER.warning(f"Nominatim returned status {response.status}")
-                    return "unavailable"
+                    return "Address unavailable"
         except Exception as e:
             _LOGGER.error(f"Error retrieving human-readable location: {e}")
-        return "unavailable"
+        return "Address unavailable"
