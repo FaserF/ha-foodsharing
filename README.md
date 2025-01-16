@@ -83,7 +83,7 @@ message: >
 
     Available until: {{ state_attr('sensor.foodsharing_latitude', 'baskets')[0]['available until'] }}
 
-    {% if not state_attr('sensor.foodsharing_latitude', 'baskets')[0]['picture'] == 'unavailable' %}
+    {% if not state_attr('sensor.foodsharing_latitude', 'baskets')[0]['picture'] in ['unavailable', 'none'] %}
         [Picture]({{ state_attr('sensor.foodsharing_latitude', 'baskets')[0]['picture'] }})
     {% endif %}
 
