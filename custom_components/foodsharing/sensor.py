@@ -204,8 +204,10 @@ class FoodsharingSensor(Entity):
             for basket in baskets_data:
                 until = datetime.fromtimestamp(basket['until']).strftime('%c')
                 picture = basket.get('picture', "unavailable")
-                if picture != "unavailable" and picture != "none":
+                if picture and picture not in ["unavailable", "None"]:
                     picture = f"https://foodsharing.de{picture}"
+                else:
+                    picture = None
 
                 if 'lat' in basket and 'lon' in basket:
                     location_human_readable = await self._get_human_readable_location(basket['lat'], basket['lon'])
