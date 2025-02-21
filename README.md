@@ -28,13 +28,11 @@ Sensor Attributes:
 ## Installation
 ### 1. Using HACS (recommended way)
 
-Open your HACS Settings and add
+This integration is NO official HACS Integration right now.
 
-https://github.com/faserf/ha-foodsharing
+Open HACS then install the "Foodsharing.de" integration or use the link below.
 
-as custom repository URL.
-
-Then install the "Foodsharing.de" integration.
+[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=FaserF&repository=ha-foodsharing&category=integration)
 
 If you use this method, your component will always update to the latest version.
 
