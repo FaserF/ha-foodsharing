@@ -1,54 +1,40 @@
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg?style=for-the-badge)](https://github.com/hacs/integration)
-# Foodsharing.de Homeassistant Sensor
-Gets foodsharing baskets from the [foodsharing.de API](https://beta.foodsharing.de/api/doc/).
+
+# Foodsharing.de Home Assistant Sensor 🧺
+
+Retrieve available food baskets from the [foodsharing.de API](https://foodsharing.de/).
 
 <img src="https://wiki.foodsharing.de/images/thumb/3/35/Foodsharinglogo_positiv.png/280px-Foodsharinglogo_positiv.png" alt="Foodsharing.de" width="300px">
-
 <img src="images/sensor.png" alt="Foodsharing.de Sensor" width="300px">
 
+## Features ✨
 
+- **Basket Monitoring**: See how many baskets are available nearby.
+- **Detailed Attributes**: Basket description, pickup times, and images.
 
+## Installation 🛠️
 
-This integration provides the following informations with a refresh rate of 2 minutes until now:
+### 1. Using HACS (Recommended)
 
+This integration can be added to HACS as a **Custom Repository**.
 
-Sensors:
-
-- sensor.foodsharing_latitudeCoordinate: How many baskets are available within your distance range
-
-Sensor Attributes:
-
-- id: Basket ID
-- description: Description text about the basket
-- address: Human readable detailed address, fetched from coordinates (Not working anymore since 13th december 2024, as adress data has been removed from their API)
-- maps: Google Maps Link to basket (Not working anymore since 13th december 2024, as adress data has been removed from their API)
-- available until: time until basket creator says it could be available
-- picture: link
-
-## Installation
-### 1. Using HACS (recommended way)
-
-This integration is NO official HACS Integration right now.
-
-Open HACS then install the "Foodsharing.de" integration or use the link below.
+1.  Open HACS.
+2.  Add Custom Repository: `https://github.com/FaserF/ha-foodsharing` (Category: Integration).
+3.  Click **Download**.
 
 [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=FaserF&repository=ha-foodsharing&category=integration)
 
-If you use this method, your component will always update to the latest version.
+### 2. Manual Installation
 
-### 2. Manual
+1.  Download the latest [Release](https://github.com/FaserF/ha-foodsharing/releases/latest).
+2.  Extract the ZIP file.
+3.  Copy the `foodsharing` folder to `<config>/custom_components/`.
 
-- Download the latest zip release from [here](https://github.com/FaserF/ha-foodsharing/releases/latest)
-- Extract the zip file
-- Copy the folder "foodsharing" from within custom_components with all of its components to `<config>/custom_components/`
+## Configuration ⚙️
 
-where `<config>` is your Home Assistant configuration directory.
-
->__NOTE__: Do not download the file by using the link above directly, the status in the "master" branch can be in development and therefore is maybe not working.
-
-## Configuration
-
-Go to Configuration -> Integrations and click on "add integration". Then search for Foodsharing.de
+1.  Go to **Settings** -> **Devices & Services**.
+2.  Click **Add Integration**.
+3.  Search for "Foodsharing.de".
 
 ### Configuration Variables
 - **latitude**: Enter your Latitude
