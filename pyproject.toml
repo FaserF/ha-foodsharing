@@ -17,6 +17,7 @@ ignore = ["E501", "B904", "C901", "SIM110", "SIM105"]
 asyncio_mode = "auto"
 testpaths = ["tests"]
 norecursedirs = [".git", "testing_config"]
+pythonpath = ["."]
 
 [tool.mypy]
 python_version = "3.14"

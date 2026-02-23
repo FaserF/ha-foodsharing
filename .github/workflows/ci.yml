@@ -25,7 +25,7 @@ jobs:
       - name: Run Mypy
         run: mypy custom_components/foodsharing
       - name: Run Tests
-        run: pytest --cov=custom_components.foodsharing tests/
+        run: python -m pytest --cov=custom_components.foodsharing tests/
 
   validate:
     runs-on: ubuntu-latest
