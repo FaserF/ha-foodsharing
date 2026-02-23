@@ -9,6 +9,7 @@
           "password": "Password",
           "location": "Location (Pin on map)",
           "distance": "Search Radius (km)",
+          "keywords": "Keywords (comma-separated)",
           "scan_interval": "Update Interval (minutes)"
         }
       }
@@ -30,6 +31,7 @@
           "password": "Password",
           "location": "Location (Pin on map)",
           "distance": "Search Radius (km)",
+          "keywords": "Keywords (comma-separated)",
           "scan_interval": "Update Interval (minutes)"
         }
       }

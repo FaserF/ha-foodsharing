@@ -8,6 +8,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN
 from .coordinator import FoodsharingCoordinator
@@ -65,9 +66,9 @@ class FoodsharingCalendar(CoordinatorEntity[FoodsharingCoordinator], CalendarEnt
                 continue
 
             try:
-                start_dt = datetime.fromtimestamp(start_ts).astimezone()
+                start_dt = dt_util.as_local(dt_util.utc_from_timestamp(start_ts))
                 # Assuming 1 hour slot
-                end_dt = datetime.fromtimestamp(start_ts + 3600).astimezone()
+                end_dt = dt_util.as_local(dt_util.utc_from_timestamp(start_ts + 3600))
 
                 event = CalendarEvent(
                     start=start_dt,
@@ -91,7 +92,7 @@ class FoodsharingCalendar(CoordinatorEntity[FoodsharingCoordinator], CalendarEnt
         if not self._events:
             return None
 
-        now = datetime.now().astimezone()
+        now = dt_util.now()
 
         # Find the first event that ends after 'now'
         upcoming_events = [e for e in self._events if e.end > now]

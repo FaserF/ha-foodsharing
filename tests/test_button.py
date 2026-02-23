@@ -1,14 +1,14 @@
 """Tests for Foodsharing buttons."""
-import pytest
-from unittest.mock import MagicMock, AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
-try:
-    from custom_components.foodsharing.button import (
-        FoodsharingRequestButton,
-        FoodsharingCloseOwnBasketButton,
-    )
-except ImportError:
-    pass
+import pytest
+
+pytest.importorskip("custom_components.foodsharing.button")
+from custom_components.foodsharing.button import (
+    FoodsharingCloseOwnBasketButton,
+    FoodsharingRequestButton,
+)
+
 
 @pytest.mark.asyncio
 async def test_request_button_press():
@@ -23,14 +23,11 @@ async def test_request_button_press():
     mock_entry = MagicMock()
     mock_entry.data = {}
 
-    try:
-        basket = {"id": 123, "description": "Test"}
-        button = FoodsharingRequestButton(mock_coordinator, mock_entry, basket)
-        await button.async_press()
-        mock_coordinator.session.post.assert_called_with("https://foodsharing.de/api/baskets/123/request")
-        mock_coordinator.async_request_refresh.assert_called_once()
-    except NameError:
-        pass
+    basket = {"id": 123, "description": "Test"}
+    button = FoodsharingRequestButton(mock_coordinator, mock_entry, basket)
+    await button.async_press()
+    mock_coordinator.session.post.assert_called_with("https://foodsharing.de/api/baskets/123/request")
+    mock_coordinator.async_request_refresh.assert_called_once()
 
 @pytest.mark.asyncio
 async def test_close_own_basket_button_press():
@@ -45,11 +42,8 @@ async def test_close_own_basket_button_press():
     mock_entry = MagicMock()
     mock_entry.data = {}
 
-    try:
-        basket = {"id": 999, "description": "My Basket"}
-        button = FoodsharingCloseOwnBasketButton(mock_coordinator, mock_entry, basket)
-        await button.async_press()
-        mock_coordinator.session.post.assert_called_with("https://foodsharing.de/api/baskets/999/close")
-        mock_coordinator.async_request_refresh.assert_called_once()
-    except NameError:
-        pass
+    basket = {"id": 999, "description": "My Basket"}
+    button = FoodsharingCloseOwnBasketButton(mock_coordinator, mock_entry, basket)
+    await button.async_press()
+    mock_coordinator.session.post.assert_called_with("https://foodsharing.de/api/baskets/999/close")
+    mock_coordinator.async_request_refresh.assert_called_once()

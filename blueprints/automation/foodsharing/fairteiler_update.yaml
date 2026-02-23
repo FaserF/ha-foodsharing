@@ -18,5 +18,5 @@ action:
   - domain: mobile_app
     type: notify
     device_id: !input notify_device
-    message: "New Post at {{ trigger.event.data.fairteiler_name }}!"
+    message: "New Post at {{ trigger.event.data.fairteiler_name | default('Unknown Fairteiler') }}!"
     title: "Fairteiler Update"

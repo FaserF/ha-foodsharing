@@ -67,7 +67,7 @@ class FoodsharingSensor(CoordinatorEntity[FoodsharingCoordinator], SensorEntity)
             ),
         )
 
-        self._attr_name = f"Foodsharing Baskets {self.latitude_fs}"
+        self._attr_name = f"Foodsharing Baskets {self.latitude_fs}, {self.longitude_fs}"
         self._attr_unique_id = f"Foodsharing-Baskets-{entry.entry_id}"
         self._attr_icon = "mdi:basket-unfill"
         self._attr_unit_of_measurement = "baskets"

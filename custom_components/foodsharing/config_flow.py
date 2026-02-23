@@ -1,6 +1,8 @@
+import asyncio
 import logging
 from typing import Any
 
+import aiohttp
 import homeassistant.helpers.config_validation as cv
 import voluptuous as vol
 from homeassistant import config_entries
@@ -29,9 +31,12 @@ async def validate_credentials(
     """Validate the user credentials against the foodsharing.de API."""
     session = async_get_clientsession(hass)
     login_url = "https://foodsharing.de/api/user/login"
+    timeout = aiohttp.ClientTimeout(total=10)
     try:
         login_payload = {"email": email, "password": password, "remember_me": "true"}
-        async with session.post(login_url, json=login_payload) as response:
+        async with session.post(
+            login_url, json=login_payload, timeout=timeout
+        ) as response:
             if response.status == 200:
                 data = await response.json()
                 if "id" in data:
@@ -39,8 +44,13 @@ async def validate_credentials(
                 return True
             else:
                 return False
+    except (TimeoutError, aiohttp.ClientError) as err:
+        _LOGGER.error("Error validating credentials (network/timeout): %s", err)
+        return False
+    except asyncio.CancelledError:
+        raise
     except Exception as err:
-        _LOGGER.error("Error validating credentials: %s", err)
+        _LOGGER.error("Unexpected error validating credentials: %s", err)
         return False
 
 
@@ -67,13 +77,19 @@ class FoodsharingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # type: 
             else:
                 # Expand unique ID to include location so one email can have multiple locations
                 # We round to 4 decimals to allow minor fuzzing but distinct areas
+                lat = ""
+                lon = ""
                 if CONF_LOCATION in user_input:
                     location = user_input[CONF_LOCATION]
                     lat = round(location.get("latitude", 0), 4)
                     lon = round(location.get("longitude", 0), 4)
                     unique_id = f"{email}_{lat}_{lon}"
                 else:
-                    unique_id = str(user_id) if isinstance(user_id, int) else email
+                    unique_id = (
+                        str(user_id)
+                        if (isinstance(user_id, (int, str)) and not isinstance(user_id, bool))
+                        else email
+                    )
 
                 await self.async_set_unique_id(unique_id.lower())
                 self._abort_if_unique_id_configured()
@@ -83,13 +99,18 @@ class FoodsharingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # type: 
                     location = user_input.pop(CONF_LOCATION)
                     user_input[CONF_LATITUDE_FS] = location.get("latitude")
                     user_input[CONF_LONGITUDE_FS] = location.get("longitude")
+                    # Update local lat/lon for title if they were changed by pop
+                    lat = round(user_input[CONF_LATITUDE_FS], 4)
+                    lon = round(user_input[CONF_LONGITUDE_FS], 4)
 
                 _LOGGER.debug(
                     "Initialized new foodsharing sensor with id: %s", unique_id
                 )
-                return self.async_create_entry(
-                    title=f"{email} ({lat}, {lon})", data=user_input
-                )
+                title = f"{email}"
+                if lat != "" and lon != "":
+                    title = f"{email} ({lat}, {lon})"
+
+                return self.async_create_entry(title=title, data=user_input)
 
         data_schema = vol.Schema(
             {

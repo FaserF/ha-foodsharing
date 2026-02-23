@@ -16,6 +16,7 @@ TO_REDACT = {
     "email",
     "password",
     "picture",  # Don't leak personal URLs
+    "name",  # Redact fairteiler/store names for privacy
 }
 
 

@@ -9,6 +9,7 @@
           "password": "Passwort",
           "location": "Standort (Pin auf Karte)",
           "distance": "Suchradius (km)",
+          "keywords": "Schlüsselwörter (kommagetrennt)",
           "scan_interval": "Aktualisierungsintervall (Minuten)"
         }
       }
@@ -30,6 +31,7 @@
           "password": "Passwort",
           "location": "Standort (Pin auf Karte)",
           "distance": "Suchradius (km)",
+          "keywords": "Schlüsselwörter (kommagetrennt)",
           "scan_interval": "Aktualisierungsintervall (Minuten)"
         }
       }
@@ -37,7 +39,7 @@
   },
   "services": {
     "request_basket": {
-      "name": "Essenskorb Anfragen",
+      "name": "Essenskorb anfragen",
       "description": "Sendet eine Anfrage für einen spezifischen Essenskorb",
       "fields": {
         "basket_id": {

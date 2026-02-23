@@ -3,17 +3,19 @@
     "flow_title": "Setup Foodsharing",
     "step": {
       "user": {
-        "description": "Select the location on the map to search for baskets within your distance. Your email address and password will be used to authenticate with the API.",
+        "description": "Select the location on the map to search for baskets within the selected radius. Your email address and password will be used to authenticate with the API.",
         "data": {
           "location": "Location and radius",
           "email": "Email address from your Foodsharing account",
           "password": "Password from your Foodsharing account",
+          "distance": "Search radius in km",
+          "keywords": "Search keywords (comma-separated, optional)",
           "scan_interval": "Scan interval in minutes"
         }
       }
     },
     "abort": {
-      "already_configured": "This foodsharing account is already configured"
+      "already_configured": "This Foodsharing account is already configured"
     },
     "error": {
       "cannot_connect": "Cannot connect",
@@ -28,11 +30,18 @@
         "description": "Change the options for the Foodsharing integration.",
         "data": {
           "location": "Location and radius",
-          "scan_interval": "Scan interval in minutes",
           "email": "Email address from your Foodsharing account",
-          "password": "Password from your Foodsharing account"
+          "password": "Password from your Foodsharing account",
+          "distance": "Search radius in km",
+          "keywords": "Search keywords (comma-separated, optional)",
+          "scan_interval": "Scan interval in minutes"
         }
       }
+    },
+    "error": {
+      "cannot_connect": "Cannot connect",
+      "invalid_auth": "Invalid authentication credentials",
+      "unknown": "Unknown error"
     }
   }
 }

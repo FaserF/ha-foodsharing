@@ -35,18 +35,20 @@ async def async_setup_entry(
         # Baskets to Request
         for basket in coordinator.data.get("baskets", []):
             basket_id = str(basket["id"])
+            key = f"near_{basket_id}"
 
-            if basket_id not in active_baskets:
+            if key not in active_baskets:
                 entity = FoodsharingRequestButton(coordinator, entry, basket)
-                active_baskets[basket_id] = entity
+                active_baskets[key] = entity
                 new_entities.append(entity)
 
         # Own Baskets to Close
         for own in coordinator.data.get("own_baskets", []):
             own_id = str(own["id"])
-            if own_id not in active_baskets:
+            key = f"own_{own_id}"
+            if key not in active_baskets:
                 entity = FoodsharingCloseOwnBasketButton(coordinator, entry, own)
-                active_baskets[own_id] = entity
+                active_baskets[key] = entity
                 new_entities.append(entity)
 
         if new_entities:

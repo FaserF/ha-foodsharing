@@ -107,6 +107,8 @@ class FoodsharingBasketGeoLocation(CoordinatorEntity[FoodsharingCoordinator], Ge
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return the extra state attributes."""
+        if not self.coordinator.data:
+            return {"keyword_match": False}
         basket = next(
             (
                 b

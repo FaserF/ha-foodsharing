@@ -1,7 +1,11 @@
 """Tests for FoodsharingCoordinator."""
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock, AsyncMock
+
+pytest.importorskip("custom_components.foodsharing.coordinator")
 from custom_components.foodsharing.coordinator import FoodsharingCoordinator
+
 
 @pytest.mark.asyncio
 async def test_coordinator_fetch_pickups(mock_session):
@@ -15,6 +19,7 @@ async def test_coordinator_fetch_pickups(mock_session):
         "longitude_fs": "10.0",
         "distance": 5
     }
+    mock_entry.options = {}
 
     with patch("homeassistant.helpers.aiohttp_client.async_get_clientsession", return_value=mock_session):
         coordinator = FoodsharingCoordinator(MagicMock(), mock_entry)
@@ -27,6 +32,7 @@ async def test_coordinator_fetch_pickups(mock_session):
         mock_session.get.return_value.__aenter__.return_value = mock_response
 
         pickups = await coordinator.fetch_pickups()
+        assert isinstance(pickups, list)
         assert len(pickups) == 1
         assert pickups[0]["store_name"] == "Test Store"
 

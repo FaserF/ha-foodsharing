@@ -1,7 +1,10 @@
-"""Tests for Foodsharing sensors."""
 import pytest
+
+pytest.importorskip("custom_components.foodsharing.sensor")
 from unittest.mock import MagicMock
-from custom_components.foodsharing.sensor import FoodsharingSensor, FoodsharingMessagesSensor, FoodsharingBellsSensor
+
+from custom_components.foodsharing.sensor import FoodsharingBellsSensor, FoodsharingMessagesSensor, FoodsharingSensor
+
 
 def test_sensor_init():
     """Test sensor initialization."""
@@ -13,7 +16,7 @@ def test_sensor_init():
     mock_coordinator.hass.config.longitude = 10.0
 
     sensor = FoodsharingSensor(mock_coordinator, mock_entry)
-    assert sensor.name == "Foodsharing Baskets 50.0"
+    assert sensor.name == "Foodsharing Baskets 50.0, 10.0"
 
 def test_messages_sensor():
     """Test messages sensor."""
