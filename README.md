@@ -1,6 +1,5 @@
-[![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg?style=for-the-badge)](https://github.com/hacs/integration)
+[![hacs_badge](https://img.shields.io/badge/HACS-Default-41BDF5.svg?style=for-the-badge)](https://github.com/hacs/integration)
 [![GitHub Release](https://img.shields.io/github/v/release/FaserF/ha-foodsharing?style=for-the-badge)](https://github.com/FaserF/ha-foodsharing/releases)
-[![GitHub License](https://img.shields.io/github/license/FaserF/ha-foodsharing?style=for-the-badge)](https://github.com/FaserF/ha-foodsharing/blob/main/LICENSE)
 
 # Foodsharing.de Home Assistant Integration 🧺
 
@@ -37,10 +36,10 @@ A comprehensive [Home Assistant](https://www.home-assistant.io/) custom integrat
 
 ### 1. Using HACS (Recommended)
 
-This integration can be added to HACS as a **Custom Repository**.
+This integration is available in the **HACS Default Repository**.
 
 1. Open HACS.
-2. Add Custom Repository: `https://github.com/FaserF/ha-foodsharing` (Category: Integration).
+2. Search for **"Foodsharing"**.
 3. Click **Download**.
 4. Restart Home Assistant.
 

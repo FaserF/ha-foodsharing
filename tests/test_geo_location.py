@@ -36,7 +36,7 @@ async def test_basket_geo_location_properties():
         "keyword_match": True,
     }
     entity = FoodsharingBasketGeoLocation(mock_coordinator, mock_entry, basket)
-    assert entity.distance is None
+    assert entity.distance == 0.0
     assert entity.extra_state_attributes.get("keyword_match") is True
     assert entity.available is False
 
@@ -57,5 +57,5 @@ async def test_fairteiler_geo_location_properties():
     entity = FoodsharingFairteilerGeoLocation(
         mock_coordinator, mock_entry, fp, "456"
     )
-    assert entity.distance is None
+    assert entity.distance == 0.0
     assert entity.name == "Fairteiler: Store"
