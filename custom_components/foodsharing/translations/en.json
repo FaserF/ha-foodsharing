@@ -1,38 +1,56 @@
 {
   "config": {
-    "flow_title": "Setup Foodsharing",
     "step": {
       "user": {
-        "description": "The latitude and longitude coordinates will be used to search for baskets within your distance. Your email address and password will be used to authenticate with the API.",
+        "title": "Connect to Foodsharing.de",
+        "description": "Enter your login credentials and select the location you want to monitor.",
         "data": {
-          "latitude_fs": "Latitude",
-          "longitude_fs": "Longitude",
-          "distance": "Distance in kilometers (km)",
-          "email": "Email address from your Foodsharing account",
-          "password": "Password from your Foodsharing account",
-          "scan_interval": "Scan interval in minutes"
+          "email": "Email",
+          "password": "Password",
+          "location": "Location (Pin on map)",
+          "distance": "Search Radius (km)",
+          "keywords": "Keywords (comma-separated)",
+          "scan_interval": "Update Interval (minutes)"
         }
       }
     },
-    "abort": {
-      "already_configured": "This latitude & longitude combination is already configured"
-    },
     "error": {
-      "cannot_connect": "Cannot connect",
-      "invalid_lat_long": "Invalid latitude/longitude coordinates",
-      "unknown": "Unknown error"
+      "invalid_auth": "Invalid email or password.",
+      "cannot_connect": "Cannot connect to the server, please check your network and try again.",
+      "unknown": "Unexpected error occurred."
+    },
+    "abort": {
+      "already_configured": "This Foodsharing account is already configured."
     }
   },
   "options": {
-    "flow_title": "Setup Foodsharing Options",
     "step": {
       "init": {
-        "description": "Change the options for the Foodsharing integration.",
+        "title": "Configure Foodsharing Options",
         "data": {
-          "distance": "Distance in kilometers (km)",
-          "scan_interval": "Scan interval in minutes",
-          "email": "Email address from your Foodsharing account",
-          "password": "Password from your Foodsharing account"
+          "email": "Email",
+          "password": "Password",
+          "location": "Location (Pin on map)",
+          "distance": "Search Radius (km)",
+          "keywords": "Keywords (comma-separated)",
+          "scan_interval": "Update Interval (minutes)"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Invalid email or password.",
+      "cannot_connect": "Cannot connect.",
+      "unknown": "Unexpected error occurred."
+    }
+  },
+  "services": {
+    "request_basket": {
+      "name": "Request Basket",
+      "description": "Requests a specific Foodsharing basket.",
+      "fields": {
+        "basket_id": {
+          "name": "Basket ID",
+          "description": "The numeric ID of the basket to request."
         }
       }
     }

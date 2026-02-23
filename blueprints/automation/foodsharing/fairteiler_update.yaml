@@ -1,0 +1,22 @@
+blueprint:
+  name: Foodsharing - Fairteiler Wall Update
+  description: Send a notification when someone posts on a Fairteiler wall.
+  domain: automation
+  input:
+    notify_device:
+      name: Notification Device
+      description: Device that should receive the notification
+      selector:
+        device:
+          integration: mobile_app
+
+trigger:
+  - platform: event
+    event_type: foodsharing_fairteiler_post
+
+action:
+  - domain: mobile_app
+    type: notify
+    device_id: !input notify_device
+    message: "New Post at {{ trigger.event.data.fairteiler_name | default('Unknown Fairteiler') }}!"
+    title: "Fairteiler Update"

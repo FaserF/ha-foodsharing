@@ -1,266 +1,158 @@
 """Foodsharing.de sensor platform."""
-from datetime import datetime, timedelta
-import logging
-import json
-from typing import Any, Dict, Optional
 
-import async_timeout
-from homeassistant import config_entries, core
-from homeassistant.helpers import aiohttp_client
-from homeassistant.components.sensor import PLATFORM_SCHEMA
+import logging
+from typing import Any
+
+from homeassistant.components.sensor import SensorEntity
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import ATTR_ATTRIBUTION
-import homeassistant.helpers.config_validation as cv
-from homeassistant.helpers.entity import Entity
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.typing import ConfigType
+from homeassistant.helpers.device_registry import DeviceInfo
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import (
     ATTRIBUTION,
-    CONF_EMAIL,
-    CONF_PASSWORD,
     CONF_LATITUDE_FS,
     CONF_LONGITUDE_FS,
-    CONF_DISTANCE,
-    ATTR_BASKETS,
-    ATTR_ID,
-    ATTR_DESCRIPTION,
-    ATTR_UNTIL,
-    ATTR_PICTURE,
-    ATTR_ADDRESS,
-    ATTR_MAPS_LINK,
     DOMAIN,
 )
+from .coordinator import FoodsharingCoordinator
 
 _LOGGER = logging.getLogger(__name__)
-SCAN_INTERVAL = timedelta(seconds=120)
+
 
 async def async_setup_entry(
-    hass: HomeAssistant, entry: ConfigType, async_add_entities
-):
+    hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
+) -> None:
     """Setup sensors from a config entry created in the integrations UI."""
-    config = hass.data[DOMAIN][entry.entry_id]
-    _LOGGER.debug("Sensor async_setup_entry")
+    coordinator: FoodsharingCoordinator = hass.data[DOMAIN][entry.entry_id][
+        "coordinator"
+    ]
 
-    if entry.options:
-        config.update(entry.options)
+    baskets_sensor = FoodsharingSensor(coordinator, entry)
+    messages_sensor = FoodsharingMessagesSensor(coordinator, entry)
+    bells_sensor = FoodsharingBellsSensor(coordinator, entry)
 
-    sensor = FoodsharingSensor(config, hass)
-    async_add_entities([sensor], update_before_add=True)
+    async_add_entities([baskets_sensor, messages_sensor, bells_sensor])
 
-class FoodsharingSensor(Entity):
+
+class FoodsharingSensor(CoordinatorEntity[FoodsharingCoordinator], SensorEntity):  # type: ignore[misc]
     """Collects and represents foodsharing baskets based on given coordinates."""
 
-    def __init__(self, config, hass: HomeAssistant):
-        super().__init__()
+    def __init__(self, coordinator: FoodsharingCoordinator, entry: ConfigEntry) -> None:
+        """Initialize the sensor."""
+        super().__init__(coordinator)
+        self.entry = entry
 
-        self.email = config[CONF_EMAIL]
-        self.password = config[CONF_PASSWORD]
-        self.latitude_fs = config[CONF_LATITUDE_FS]
-        self.longitude_fs = config[CONF_LONGITUDE_FS]
-        self.distance = config[CONF_DISTANCE]
-        self.hass = hass
-        self.attrs: Dict[str, Any] = {CONF_LONGITUDE_FS: self.longitude_fs}
-        self.updated = datetime.now()
-        self._name = f"Foodsharing {self.latitude_fs}"
-        self._state = None
-        self._available = True
+        self.latitude_fs = entry.data.get(CONF_LATITUDE_FS)
+        if self.latitude_fs is None:
+            self.latitude_fs = (
+                coordinator.hass.config.latitude
+                if hasattr(coordinator.hass, "config")
+                else ""
+            )
+        self.longitude_fs = entry.data.get(CONF_LONGITUDE_FS)
+        if self.longitude_fs is None:
+            self.longitude_fs = (
+                coordinator.hass.config.longitude
+                if hasattr(coordinator.hass, "config")
+                else ""
+            )
 
-    @property
-    def name(self) -> str:
-        """Return the name of the entity."""
-        return self._name
+        self._attr_name = f"Foodsharing Baskets {self.latitude_fs}, {self.longitude_fs}"
+        self._attr_unique_id = f"Foodsharing-Baskets-{entry.entry_id}"
+        self._attr_icon = "mdi:basket-unfill"
+        self._attr_native_unit_of_measurement = "baskets"
 
-    @property
-    def unique_id(self) -> str:
-        """Return the unique ID of the sensor."""
-        return f"Foodsharing-{self.latitude_fs}"
-
-    @property
-    def available(self) -> bool:
-        """Return True if entity is available."""
-        _LOGGER.debug(f"Sensor available: {self._available}")
-        return self._available
-
-    @property
-    def icon(self) -> str:
-        return "mdi:basket-unfill"
-
-    @property
-    def state(self) -> Optional[str]:
-        if self._state is not None:
-            return self._state
-        else:
-            return "Error"
+        email = entry.data.get("email", "")
+        # Location Device
+        self._attr_device_info = DeviceInfo(
+            identifiers={
+                (
+                    DOMAIN,
+                    f"{email}_{self.latitude_fs}_{self.longitude_fs}",
+                )
+            },
+            name=f"Foodsharing Location ({self.latitude_fs}, {self.longitude_fs})",
+            manufacturer="Foodsharing.de",
+            model="Location Tracker",
+            via_device=(DOMAIN, email),
+        )
 
     @property
-    def unit_of_measurement(self):
-        """Return unit of measurement."""
-        return "baskets"
+    def native_value(self) -> int:
+        """Return the number of baskets."""
+        if self.coordinator.data is not None and "baskets" in self.coordinator.data:
+            return len(self.coordinator.data["baskets"])
+        return 0
 
     @property
-    def extra_state_attributes(self):
+    def extra_state_attributes(self) -> dict[str, Any]:
         """Return the state attributes."""
-        _LOGGER.debug(f"Extra state attributes: {self.attrs}")
-        return self.attrs
+        attrs = {
+            CONF_LATITUDE_FS: self.latitude_fs,
+            CONF_LONGITUDE_FS: self.longitude_fs,
+            ATTR_ATTRIBUTION: ATTRIBUTION,
+        }
 
-    async def async_update(self):
-        """Fetch data from the Foodsharing API."""
-        try:
-            with async_timeout.timeout(30):
-                NOMINATIM_URL = "https://nominatim.openstreetmap.org/reverse"
-                url = f'https://foodsharing.de/api/baskets/nearby?lat={self.latitude_fs}&lon={self.longitude_fs}&distance={self.distance}'
+        if self.coordinator.data is not None and "baskets" in self.coordinator.data:
+            attrs["basket_count"] = len(self.coordinator.data["baskets"])
 
-                session = aiohttp_client.async_get_clientsession(self.hass)
-                _LOGGER.debug(f"Fetching URL: '{url}'")
-                response = await session.get(url)
-                _LOGGER.debug(f"Getting Baskets: Status: {response.status}, Headers: {response.headers}")
+        return attrs
 
-                if response.status == 200:
-                    raw_html = await response.text()
-                    json_data = json.loads(raw_html)
-                    _LOGGER.debug(f"JSON Response: '{json_data}'")
 
-                    baskets = await self._process_baskets(json_data, NOMINATIM_URL)
-                    baskets_count = len(baskets)
-                    _LOGGER.debug(f"Processed baskets count: {baskets_count}")
-                    _LOGGER.debug(f"Baskets Data: {baskets}")
+class FoodsharingMessagesSensor(CoordinatorEntity[FoodsharingCoordinator], SensorEntity):  # type: ignore[misc]
+    """Represents unread messages on Foodsharing."""
 
-                    self.attrs[ATTR_BASKETS] = baskets
-                    self.attrs[ATTR_ATTRIBUTION] = f"last updated {datetime.now()} \n{ATTRIBUTION}"
-                    _LOGGER.debug(f"Attributes: {self.attrs}")
+    def __init__(self, coordinator: FoodsharingCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator)
+        self.entry = entry
+        self._attr_name = "Foodsharing Unread Messages"
+        self._attr_unique_id = f"Foodsharing-Messages-{entry.entry_id}"
+        self._attr_icon = "mdi:message"
+        self._attr_native_unit_of_measurement = "messages"
 
-                    self._state = baskets_count
-                    self._available = True
-                    _LOGGER.debug(f"Sensor state set to: {self._state}")
+        email = entry.data.get("email", "")
+        # Account Device
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, email)},
+            name=f"Foodsharing Account ({email})",
+            manufacturer="Foodsharing.de",
+            model="Account",
+        )
 
-                elif response.status == 401:
-                    _LOGGER.info("Received 401 Unauthorized. Attempting to re-authenticate.")
-                    await self._perform_login_and_retry(session, url)
+    @property
+    def native_value(self) -> int:
+        """Return the number of unread messages."""
+        if self.coordinator.data is not None:
+            return int(self.coordinator.data.get("messages", 0))
+        return 0
 
-                elif response.status == 503:
-                    _LOGGER.error("Error 503 - Cannot reach Foodsharing API. The API might be under maintenance.")
-                    self._available = False
 
-                else:
-                    _LOGGER.error(f"Unexpected error: {response.status} - Cannot retrieve data.")
-                    self._available = False
+class FoodsharingBellsSensor(CoordinatorEntity[FoodsharingCoordinator], SensorEntity):  # type: ignore[misc]
+    """Represents unread bell notifications on Foodsharing."""
 
-        except Exception as e:
-            _LOGGER.error(f"Exception during update: {e}")
-            self._available = False
+    def __init__(self, coordinator: FoodsharingCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator)
+        self.entry = entry
+        self._attr_name = "Foodsharing Notifications"
+        self._attr_unique_id = f"Foodsharing-Bells-{entry.entry_id}"
+        self._attr_icon = "mdi:bell"
+        self._attr_native_unit_of_measurement = "notifications"
 
-    async def _perform_login_and_retry(self, session, url):
-        """Attempt to log in and retry fetching data."""
-        try:
-            with async_timeout.timeout(30):
-                login_payload = {'email': self.email, 'password': self.password, 'remember_me': 'true'}
-                login_url = 'https://foodsharing.de/api/user/login'
-                login_response = await session.post(login_url, json=login_payload)
-                login_response_text = await login_response.text()
-                _LOGGER.debug(f"Login response: Status: {login_response.status}, Text: {login_response_text}")
+        email = entry.data.get("email", "")
+        # Account Device
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, email)},
+            name=f"Foodsharing Account ({email})",
+            manufacturer="Foodsharing.de",
+            model="Account",
+        )
 
-                if login_response.status == 200:
-                    _LOGGER.info("Login successful. Retrying data fetch.")
-                    response = await session.get(url)
-                    if response.status == 200:
-                        raw_html = await response.text()
-                        json_data = json.loads(raw_html)
-                        _LOGGER.debug(f"JSON Response after login: '{json_data}'")
-
-                        baskets = await self._process_baskets(json_data, "https://nominatim.openstreetmap.org/reverse")
-                        baskets_count = len(baskets)
-                        _LOGGER.debug(f"Processed baskets count after login: {baskets_count}")
-
-                        self.attrs[ATTR_BASKETS] = baskets
-                        self.attrs[ATTR_ATTRIBUTION] = f"last updated {datetime.now()} \n{ATTRIBUTION}"
-                        self._state = baskets_count
-                        self._available = True
-                    else:
-                        _LOGGER.error(f"Error during fetch after login: {response.status}")
-                        self._available = False
-                else:
-                    _LOGGER.error(f"Login failed: {login_response.status} - {login_response_text}")
-                    self._available = False
-
-        except Exception as e:
-            _LOGGER.error(f"Exception during login: {e}")
-            self._available = False
-
-    async def _process_baskets(self, json_data, nominatim_url):
-        """Process basket data and return formatted list."""
-        baskets = []
-
-        if isinstance(json_data, dict):
-            baskets_data = json_data.get('baskets', [])
-        elif isinstance(json_data, list):
-            baskets_data = json_data
-        else:
-            _LOGGER.error("Unexpected json_data type: %s", type(json_data).__name__)
-            return []
-
-        _LOGGER.debug(f"Baskets Data Raw: {baskets_data}")
-        if baskets_data:
-            baskets_data = sorted(baskets_data, key=lambda x: x['id'], reverse=True)
-            for basket in baskets_data:
-                until = datetime.fromtimestamp(basket['until']).strftime('%c')
-                picture = basket.get('picture', "unavailable")
-                if picture and picture not in ["unavailable", "None"]:
-                    picture = f"https://foodsharing.de{picture}"
-                else:
-                    picture = None
-
-                if 'lat' in basket and 'lon' in basket:
-                    location_human_readable = await self._get_human_readable_location(basket['lat'], basket['lon'])
-                    _LOGGER.debug(f"Location for basket ID {basket['id']}: {location_human_readable}")
-                    maps_link = f"https://www.google.de/maps/place/{basket['lat']},{basket['lon']}"
-                else:
-                    _LOGGER.debug(f"Skipping location fetching for basket ID {basket['id']} due to missing 'lat' or 'lon'.")
-                    location_human_readable = "unavailable"
-                    maps_link = "unavailable"
-
-                basket_info = {
-                    ATTR_ID: basket['id'],
-                    ATTR_DESCRIPTION: basket['description'],
-                    ATTR_UNTIL: until,
-                    ATTR_PICTURE: picture,
-                    ATTR_ADDRESS: location_human_readable,
-                    ATTR_MAPS_LINK: maps_link,
-                }
-
-                _LOGGER.debug(f"Processed Basket Info: {basket_info}")
-                baskets.append(basket_info)
-
-        _LOGGER.debug(f"Final Baskets List: {baskets}")
-        return baskets
-
-    async def _get_human_readable_location(self, lat, lon):
-        """Retrieve a human-readable location from Nominatim."""
-        url = f"https://nominatim.openstreetmap.org/reverse?lat={lat}&lon={lon}&format=json"
-        session = aiohttp_client.async_get_clientsession(self.hass)
-        try:
-            _LOGGER.debug(f"Fetching location from Nominatim: '{url}'")
-            async with session.get(url) as response:
-                if response.status == 200:
-                    data = await response.json()
-                    _LOGGER.debug(f"Nominatim response: {data}")
-                    if 'address' in data:
-                        address = data['address']
-                        location_parts = [
-                            address.get('house_number', ''),
-                            address.get('road', ''),
-                            address.get('town', ''),
-                            address.get('state', ''),
-                            address.get('country', '')
-                        ]
-                        # Remove empty parts and concatenate the address
-                        location = ", ".join(part for part in location_parts if part)
-                        return location if location else "Address unavailable"
-                    else:
-                        _LOGGER.warning("Nominatim response has no address data.")
-                        return "Address unavailable"
-                else:
-                    _LOGGER.warning(f"Nominatim returned status {response.status}")
-                    return "Address unavailable"
-        except Exception as e:
-            _LOGGER.error(f"Error retrieving human-readable location: {e}")
-        return "Address unavailable"
+    @property
+    def native_value(self) -> int:
+        """Return the number of unread bell notifications."""
+        if self.coordinator.data is not None:
+            return int(self.coordinator.data.get("bells", 0))
+        return 0

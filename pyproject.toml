@@ -1,0 +1,29 @@
+[project]
+name = "ha-foodsharing"
+version = "2026.2.0"
+description = "Foodsharing Custom Component for Home Assistant"
+readme = "README.md"
+requires-python = ">=3.14"
+
+[tool.ruff]
+target-version = "py314"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "C90", "UP", "B", "SIM"]
+ignore = ["E501", "B904", "C901", "SIM110", "SIM105"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+norecursedirs = [".git", "testing_config"]
+pythonpath = ["."]
+
+[tool.mypy]
+python_version = "3.14"
+ignore_missing_imports = true
+warn_return_any = true
+warn_unused_configs = true
+exclude = [
+    "tests"
+]

@@ -1,7 +1,8 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
-    "config:base"
+    "config:recommended",
+    ":enablePreCommit"
   ],
   "packageRules": [
     {
@@ -12,6 +13,20 @@
         "digest"
       ],
       "automerge": true
+    }
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "managerFilePatterns": [
+        "(^|/)manifest\\.json$"
+      ],
+      "matchStringsStrategy": "recursive",
+      "matchStrings": [
+        "\"requirements\":\\s*\\[(?<content>[\\s\\S]*?)\\]",
+        "\"(?<depName>[^@=<>!~\\s]+)(?<currentValue>[@=<>!~][^\",\\s]*)?\""
+      ],
+      "datasourceTemplate": "pypi"
     }
   ]
 }

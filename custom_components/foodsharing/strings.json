@@ -3,23 +3,23 @@
     "flow_title": "Setup Foodsharing",
     "step": {
       "user": {
-        "description": "The latitude and longitude coordinates will be used to search for baskets within your distance. Your email address and password will be used to authenticate with the API.",
+        "description": "Select the location on the map to search for baskets within the selected radius. Your email address and password will be used to authenticate with the API.",
         "data": {
-          "latitude_fs": "Latitude",
-          "longitude_fs": "Longitude",
-          "distance": "Distance in kilometers (km)",
+          "location": "Location and radius",
           "email": "Email address from your Foodsharing account",
           "password": "Password from your Foodsharing account",
+          "distance": "Search radius in km",
+          "keywords": "Search keywords (comma-separated, optional)",
           "scan_interval": "Scan interval in minutes"
         }
       }
     },
     "abort": {
-      "already_configured": "This latitude & longitude combination is already configured"
+      "already_configured": "This Foodsharing account is already configured"
     },
     "error": {
       "cannot_connect": "Cannot connect",
-      "invalid_lat_long": "Invalid latitude/longitude coordinates",
+      "invalid_auth": "Invalid authentication credentials",
       "unknown": "Unknown error"
     }
   },
@@ -29,12 +29,19 @@
       "init": {
         "description": "Change the options for the Foodsharing integration.",
         "data": {
-          "distance": "Distance in kilometers (km)",
-          "scan_interval": "Scan interval in minutes",
+          "location": "Location and radius",
           "email": "Email address from your Foodsharing account",
-          "password": "Password from your Foodsharing account"
+          "password": "Password from your Foodsharing account",
+          "distance": "Search radius in km",
+          "keywords": "Search keywords (comma-separated, optional)",
+          "scan_interval": "Scan interval in minutes"
         }
       }
+    },
+    "error": {
+      "cannot_connect": "Cannot connect",
+      "invalid_auth": "Invalid authentication credentials",
+      "unknown": "Unknown error"
     }
   }
 }

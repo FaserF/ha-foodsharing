@@ -1,38 +1,56 @@
 {
   "config": {
-    "flow_title": "Setup Foodsharing",
     "step": {
       "user": {
-        "description": "Die Koordinaten für Breitengrad und Längengrad werden verwendet, um nach Körben in deiner Nähe zu suchen. Deine E-Mail-Adresse und dein Passwort werden verwendet, um dich bei der API zu authentifizieren.",
+        "title": "Verbinde Foodsharing.de",
+        "description": "Gib deine Anmeldedaten ein und wähle den Überwachungsstandort.",
         "data": {
-          "latitude_fs": "Breitengrad",
-          "longitude_fs": "Längengrad",
-          "distance": "Entfernung in Kilometern (km)",
-          "email": "E-Mail-Adresse von deinem Foodsharing-Konto",
-          "password": "Passwort von deinem Foodsharing-Konto",
-          "scan_interval": "Abfrageintervall in Minuten"
+          "email": "E-Mail",
+          "password": "Passwort",
+          "location": "Standort (Pin auf Karte)",
+          "distance": "Suchradius (km)",
+          "keywords": "Schlüsselwörter (kommagetrennt)",
+          "scan_interval": "Aktualisierungsintervall (Minuten)"
         }
       }
     },
-    "abort": {
-      "already_configured": "Diese Kombination aus Breitengrad & Längengrad ist bereits konfiguriert"
-    },
     "error": {
-      "cannot_connect": "Kann keine Verbindung herstellen",
-      "invalid_lat_long": "Ungültige Breitengrad- / Längengrad-Koordinaten",
-      "unknown": "Unbekannter Fehler"
+      "invalid_auth": "Ungültige E-Mail oder Passwort.",
+      "cannot_connect": "Verbindung zum Server fehlgeschlagen, bitte überprüfe dein Netzwerk und versuche es erneut.",
+      "unknown": "Ein unerwarteter Fehler ist aufgetreten."
+    },
+    "abort": {
+      "already_configured": "Dieser Standort ist für deinen Account bereits eingerichtet."
     }
   },
   "options": {
-    "flow_title": "Setup Foodsharing Options",
     "step": {
       "init": {
-        "description": "Ändere die Optionen für die Foodsharing-Integration.",
+        "title": "Foodsharing Optionen anpassen",
         "data": {
-          "distance": "Entfernung in Kilometern (km)",
-          "scan_interval": "Abfrageintervall in Minuten",
-          "email": "E-Mail-Adresse von deinem Foodsharing-Konto",
-          "password": "Passwort von deinem Foodsharing-Konto"
+          "email": "E-Mail",
+          "password": "Passwort",
+          "location": "Standort (Pin auf Karte)",
+          "distance": "Suchradius (km)",
+          "keywords": "Schlüsselwörter (kommagetrennt)",
+          "scan_interval": "Aktualisierungsintervall (Minuten)"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Ungültige E-Mail oder Passwort.",
+      "cannot_connect": "Verbindung fehlgeschlagen.",
+      "unknown": "Ein unerwarteter Fehler ist aufgetreten."
+    }
+  },
+  "services": {
+    "request_basket": {
+      "name": "Essenskorb anfragen",
+      "description": "Sendet eine Anfrage für einen spezifischen Essenskorb",
+      "fields": {
+        "basket_id": {
+          "name": "Korb ID",
+          "description": "Die numerische ID des Essenskorbs"
         }
       }
     }
