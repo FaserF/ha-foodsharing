@@ -187,8 +187,8 @@ class OptionsFlowHandler(config_entries.OptionsFlow):  # type: ignore[misc]
 
                 return self.async_create_entry(title="", data=user_input)
 
-        # Use self.config_entry.data to get the current values
-        options = self.config_entry.options or self.config_entry.data
+        # Merge data (base) with options (overrides) so all fields show current values
+        options = {**self.config_entry.data, **self.config_entry.options}
 
         options_schema = vol.Schema(
             {
