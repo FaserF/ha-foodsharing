@@ -9,7 +9,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN
+from .const import CONF_EMAIL, CONF_LATITUDE_FS, CONF_LONGITUDE_FS, DOMAIN
 from .coordinator import FoodsharingCoordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -55,7 +55,8 @@ async def async_setup_entry(
             async_add_entities(new_entities)
 
     # Register listener
-    coordinator.async_add_listener(async_update_entities)
+    unsub = coordinator.async_add_listener(async_update_entities)
+    entry.async_on_unload(unsub)
 
     # Initial load
     async_update_entities()
@@ -80,9 +81,9 @@ class FoodsharingRequestButton(CoordinatorEntity[FoodsharingCoordinator], Button
         self._attr_icon = "mdi:cart-plus"
 
         # Get coordinates for device mapping
-        lat = self.entry.data.get("latitude_fs", "")
-        lon = self.entry.data.get("longitude_fs", "")
-        email = self.entry.data.get("email", "")
+        lat = self.entry.data.get(CONF_LATITUDE_FS, "")
+        lon = self.entry.data.get(CONF_LONGITUDE_FS, "")
+        email = self.entry.data.get(CONF_EMAIL, "")
 
         # Location Device
         self._attr_device_info = {
@@ -151,9 +152,9 @@ class FoodsharingCloseOwnBasketButton(CoordinatorEntity[FoodsharingCoordinator],
         )
         self._attr_icon = "mdi:cart-off"
 
-        lat = self.entry.data.get("latitude_fs", "")
-        lon = self.entry.data.get("longitude_fs", "")
-        email = self.entry.data.get("email", "")
+        lat = self.entry.data.get(CONF_LATITUDE_FS, "")
+        lon = self.entry.data.get(CONF_LONGITUDE_FS, "")
+        email = self.entry.data.get(CONF_EMAIL, "")
 
         # Use same device grouping
         self._attr_device_info = {

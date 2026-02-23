@@ -1,12 +1,13 @@
 import asyncio
 import logging
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import async_timeout
 from homeassistant import config_entries
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.issue_registry import IssueSeverity, async_create_issue, async_delete_issue
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .const import (
@@ -83,13 +84,22 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
             _LOGGER.warning("AuthenticationFailed: %s, attempting re-login.", err)
             # Try to login and fetch again
             if await self.login():
+                async_delete_issue(self.hass, DOMAIN, "auth_failed")
                 return await self._fetch_all_data()
+            async_create_issue(
+                self.hass,
+                DOMAIN,
+                "auth_failed",
+                is_fixable=False,
+                severity=IssueSeverity.ERROR,
+                translation_key="auth_failed",
+            )
             raise UpdateFailed("Authentication failed during retry.") from err
         except UpdateFailed:
             raise
         except Exception as err:
             raise UpdateFailed(
-                "Unexpected error communicating with API: %s", err
+                f"Unexpected error communicating with API: {err}"
             ) from err
 
     async def _fetch_all_data(self) -> dict[str, Any]:
@@ -217,6 +227,14 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
                 elif response.status == 401:
                     raise AuthenticationFailed("Unauthorized access, token might be expired.")
                 elif response.status == 503:
+                    async_create_issue(
+                        self.hass,
+                        DOMAIN,
+                        "api_offline",
+                        is_fixable=False,
+                        severity=IssueSeverity.WARNING,
+                        translation_key="api_offline",
+                    )
                     raise UpdateFailed("Foodsharing API is offline (503).")
                 else:
                     raise UpdateFailed(
@@ -252,7 +270,7 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
             until_str = "Unknown"
             if "until" in basket:
                 try:
-                    until_str = datetime.fromtimestamp(basket["until"]).strftime("%c")
+                    until_str = datetime.fromtimestamp(basket["until"], tz=UTC).strftime("%c")
                 except Exception:
                     pass
 

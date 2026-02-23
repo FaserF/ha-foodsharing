@@ -54,5 +54,15 @@
         }
       }
     }
+  },
+  "issues": {
+    "auth_failed": {
+      "title": "Foodsharing authentication failed",
+      "description": "Your Foodsharing credentials are no longer valid. Please update your email and password in the integration options under Settings > Devices & Services > Foodsharing > Configure."
+    },
+    "api_offline": {
+      "title": "Foodsharing API is offline",
+      "description": "The Foodsharing.de API returned a 503 error. The service may be temporarily unavailable. Data will update automatically once the API is back online."
+    }
   }
 }

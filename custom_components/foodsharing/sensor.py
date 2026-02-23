@@ -13,6 +13,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import (
     ATTRIBUTION,
+    CONF_EMAIL,
     CONF_LATITUDE_FS,
     CONF_LONGITUDE_FS,
     DOMAIN,
@@ -65,7 +66,7 @@ class FoodsharingSensor(CoordinatorEntity[FoodsharingCoordinator], SensorEntity)
         self._attr_icon = "mdi:basket-unfill"
         self._attr_native_unit_of_measurement = "baskets"
 
-        email = entry.data.get("email", "")
+        email = entry.data.get(CONF_EMAIL, "")
         # Location Device
         self._attr_device_info = DeviceInfo(
             identifiers={
@@ -90,14 +91,19 @@ class FoodsharingSensor(CoordinatorEntity[FoodsharingCoordinator], SensorEntity)
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return the state attributes."""
-        attrs = {
+        attrs: dict[str, Any] = {
             CONF_LATITUDE_FS: self.latitude_fs,
             CONF_LONGITUDE_FS: self.longitude_fs,
             ATTR_ATTRIBUTION: ATTRIBUTION,
         }
 
         if self.coordinator.data is not None and "baskets" in self.coordinator.data:
-            attrs["basket_count"] = len(self.coordinator.data["baskets"])
+            baskets = self.coordinator.data["baskets"]
+            attrs["basket_count"] = len(baskets)
+            attrs["baskets"] = baskets
+        else:
+            attrs["basket_count"] = 0
+            attrs["baskets"] = []
 
         return attrs
 
@@ -113,7 +119,7 @@ class FoodsharingMessagesSensor(CoordinatorEntity[FoodsharingCoordinator], Senso
         self._attr_icon = "mdi:message"
         self._attr_native_unit_of_measurement = "messages"
 
-        email = entry.data.get("email", "")
+        email = entry.data.get(CONF_EMAIL, "")
         # Account Device
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, email)},

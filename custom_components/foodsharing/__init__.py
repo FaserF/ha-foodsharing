@@ -7,7 +7,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 
-from .const import DOMAIN
+from .const import CONF_LATITUDE_FS, CONF_LONGITUDE_FS, DOMAIN
 from .coordinator import FoodsharingCoordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -20,9 +20,31 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data.setdefault(DOMAIN, {})
 
     coordinator = FoodsharingCoordinator(hass, entry)
+    await coordinator.login()
     await coordinator.async_config_entry_first_refresh()
 
     hass.data[DOMAIN][entry.entry_id] = {"coordinator": coordinator}
+
+    # Register service
+    async def handle_request_basket(call: Any) -> None:
+        """Handle the request_basket service call."""
+        basket_id = call.data.get("basket_id")
+        if not basket_id:
+            return
+        url = f"https://foodsharing.de/api/baskets/{basket_id}/request"
+        try:
+            async with coordinator.session.post(url) as response:
+                if response.status == 200:
+                    _LOGGER.info("Successfully requested basket %s", basket_id)
+                    await coordinator.async_request_refresh()
+                else:
+                    _LOGGER.error(
+                        "Failed to request basket %s: HTTP %s", basket_id, response.status
+                    )
+        except Exception as err:
+            _LOGGER.error("Error requesting basket %s: %s", basket_id, err)
+
+    hass.services.async_register(DOMAIN, "request_basket", handle_request_basket)
 
     # Registers update listener to update config entry when options are updated.
     unsub_options_update_listener = entry.add_update_listener(options_update_listener)
@@ -67,15 +89,15 @@ async def async_migrate_entry(hass: HomeAssistant, config_entry: ConfigEntry) ->
 
         if config_entry.version == 1:
             # Existing configs from V1 lack coordinates. Default to Home Assistant core coordinates.
-            if "latitude_fs" not in new:
-                new["latitude_fs"] = hass.config.latitude
-            if "longitude_fs" not in new:
-                new["longitude_fs"] = hass.config.longitude
+            if CONF_LATITUDE_FS not in new:
+                new[CONF_LATITUDE_FS] = hass.config.latitude
+            if CONF_LONGITUDE_FS not in new:
+                new[CONF_LONGITUDE_FS] = hass.config.longitude
 
             # Recalculate unique_id for Multi-Location support
             email = new.get("email", "")
-            lat = new.get("latitude_fs", "")
-            lon = new.get("longitude_fs", "")
+            lat = new.get(CONF_LATITUDE_FS, "")
+            lon = new.get(CONF_LONGITUDE_FS, "")
             new_unique_id = f"{email}_{lat}_{lon}"
 
         if config_entry.version == 1:

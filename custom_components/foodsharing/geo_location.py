@@ -1,6 +1,7 @@
 """Geo-location platform for Foodsharing."""
 
 import logging
+import math
 from typing import Any
 
 from homeassistant.components.geo_location import GeolocationEvent
@@ -14,6 +15,18 @@ from .const import CONF_EMAIL, CONF_LATITUDE_FS, CONF_LONGITUDE_FS, DOMAIN
 from .coordinator import FoodsharingCoordinator
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def _haversine(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """Calculate the great-circle distance between two points in km."""
+    r = 6371.0  # Earth radius in km
+    dlat = math.radians(lat2 - lat1)
+    dlon = math.radians(lon2 - lon1)
+    a = (
+        math.sin(dlat / 2) ** 2
+        + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon / 2) ** 2
+    )
+    return r * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
 
 async def async_setup_entry(
@@ -95,6 +108,14 @@ class FoodsharingBasketGeoLocation(CoordinatorEntity[FoodsharingCoordinator], Ge
         self._attr_unique_id = f"foodsharing_basket_{self._basket_id}"
         self._attr_icon = "mdi:basket"
 
+        # Store home coordinates for distance calculation
+        try:
+            self._home_lat = float(entry.data.get(CONF_LATITUDE_FS, 0))
+            self._home_lon = float(entry.data.get(CONF_LONGITUDE_FS, 0))
+        except (ValueError, TypeError):
+            self._home_lat = 0.0
+            self._home_lon = 0.0
+
         # Initial data
         self._update_from_basket(basket)
 
@@ -137,8 +158,10 @@ class FoodsharingBasketGeoLocation(CoordinatorEntity[FoodsharingCoordinator], Ge
 
     @property
     def distance(self) -> float | None:
-        """Return distance to center. (HA core calculates if lat/lon are set)"""
-        return None  # Let HomeAssistant calculate it using the zone
+        """Return distance from configured search center in km."""
+        if self._attr_latitude is not None and self._attr_longitude is not None:
+            return round(_haversine(self._home_lat, self._home_lon, self._attr_latitude, self._attr_longitude), 1)
+        return None
 
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
@@ -204,6 +227,14 @@ class FoodsharingFairteilerGeoLocation(CoordinatorEntity[FoodsharingCoordinator]
             via_device=(DOMAIN, email),
         )
 
+        # Store home coordinates for distance calculation
+        try:
+            self._home_lat = float(lat) if lat else 0.0
+            self._home_lon = float(lon) if lon else 0.0
+        except (ValueError, TypeError):
+            self._home_lat = 0.0
+            self._home_lon = 0.0
+
         # Initial data
         self._update_from_fp(fp)
 
@@ -221,7 +252,9 @@ class FoodsharingFairteilerGeoLocation(CoordinatorEntity[FoodsharingCoordinator]
 
     @property
     def distance(self) -> float | None:
-        """Return distance to center."""
+        """Return distance from configured search center in km."""
+        if self._attr_latitude is not None and self._attr_longitude is not None:
+            return round(_haversine(self._home_lat, self._home_lon, self._attr_latitude, self._attr_longitude), 1)
         return None
 
     def _handle_coordinator_update(self) -> None:

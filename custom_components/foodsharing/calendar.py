@@ -10,7 +10,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
 
-from .const import DOMAIN
+from .const import CONF_EMAIL, DOMAIN
 from .coordinator import FoodsharingCoordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -43,8 +43,8 @@ class FoodsharingCalendar(CoordinatorEntity[FoodsharingCoordinator], CalendarEnt
 
         # Account Device
         self._attr_device_info = {
-            "identifiers": {(DOMAIN, entry.data.get("email", ""))},
-            "name": f"Foodsharing Account ({entry.data.get('email', '')})",
+            "identifiers": {(DOMAIN, entry.data.get(CONF_EMAIL, ""))},
+            "name": f"Foodsharing Account ({entry.data.get(CONF_EMAIL, '')})",
             "manufacturer": "Foodsharing.de",
             "model": "Account",
         }

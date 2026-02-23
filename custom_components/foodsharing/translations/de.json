@@ -54,5 +54,15 @@
         }
       }
     }
+  },
+  "issues": {
+    "auth_failed": {
+      "title": "Foodsharing Anmeldung fehlgeschlagen",
+      "description": "Deine Foodsharing-Zugangsdaten sind nicht mehr gültig. Bitte aktualisiere E-Mail und Passwort in den Integrationseinstellungen unter Einstellungen > Geräte & Dienste > Foodsharing > Konfigurieren."
+    },
+    "api_offline": {
+      "title": "Foodsharing API ist offline",
+      "description": "Die Foodsharing.de API hat einen 503-Fehler zurückgegeben. Der Dienst ist möglicherweise vorübergehend nicht verfügbar. Die Daten werden automatisch aktualisiert, sobald die API wieder erreichbar ist."
+    }
   }
 }

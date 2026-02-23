@@ -15,6 +15,7 @@ def test_sensor_init():
     sensor = FoodsharingSensor(mock_coordinator, mock_entry)
     assert sensor.name == "Foodsharing Baskets 50.0, 10.0"
 
+
 def test_messages_sensor():
     """Test messages sensor."""
     mock_coordinator = MagicMock()
@@ -22,7 +23,8 @@ def test_messages_sensor():
     mock_coordinator.data = {"messages": 5}
 
     sensor = FoodsharingMessagesSensor(mock_coordinator, mock_entry)
-    assert sensor.state == 5
+    assert sensor.native_value == 5
+
 
 def test_bells_sensor():
     """Test bells sensor."""
@@ -31,4 +33,4 @@ def test_bells_sensor():
     mock_coordinator.data = {"bells": 2}
 
     sensor = FoodsharingBellsSensor(mock_coordinator, mock_entry)
-    assert sensor.state == 2
+    assert sensor.native_value == 2
