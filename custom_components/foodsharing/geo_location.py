@@ -46,9 +46,9 @@ async def async_setup_entry(
             current_ids.add(basket_id)
 
             if basket_id not in active_entities:
-                entity = FoodsharingBasketGeoLocation(coordinator, entry, basket)
-                active_entities[basket_id] = entity
-                new_entities.append(entity)
+                basket_entity = FoodsharingBasketGeoLocation(coordinator, entry, basket)
+                active_entities[basket_id] = basket_entity
+                new_entities.append(basket_entity)
 
         # Fairteiler (Food Share Points)
         for i, fp in enumerate(coordinator.data.get("fairteiler", [])):
@@ -57,9 +57,9 @@ async def async_setup_entry(
             current_ids.add(fp_id)
 
             if fp_id not in active_entities:
-                entity = FoodsharingFairteilerGeoLocation(coordinator, entry, fp, fp_id)
-                active_entities[fp_id] = entity
-                new_entities.append(entity)
+                fp_entity = FoodsharingFairteilerGeoLocation(coordinator, entry, fp, fp_id)
+                active_entities[fp_id] = fp_entity
+                new_entities.append(fp_entity)
 
         if new_entities:
             async_add_entities(new_entities)
