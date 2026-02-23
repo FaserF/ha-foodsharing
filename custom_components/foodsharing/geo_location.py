@@ -27,14 +27,14 @@ async def async_setup_entry(
     # Maintain a registry of active locations to map dynamic updates from the API.
 
     # We will use a dictionary to track active entities
-    active_entities: dict[str, Any] = {}
+    active_entities: dict[str, GeolocationEvent] = {}
 
     def async_update_entities() -> None:
         """Update active geo-locations."""
         if not coordinator.data:
             return
 
-        new_entities = []
+        new_entities: list[GeolocationEvent] = []
         current_ids = set()
 
         # Baskets

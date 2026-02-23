@@ -23,14 +23,14 @@ async def async_setup_entry(
         "coordinator"
     ]
 
-    active_baskets = {}
+    active_baskets: dict[str, ButtonEntity] = {}
 
     def async_update_entities() -> None:
         """Update active buttons."""
         if not coordinator.data:
             return
 
-        new_entities = []
+        new_entities: list[ButtonEntity] = []
 
         # Baskets to Request
         for basket in coordinator.data.get("baskets", []):
