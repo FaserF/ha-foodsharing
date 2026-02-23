@@ -19,7 +19,7 @@
       "unknown": "Unexpected error occurred."
     },
     "abort": {
-      "already_configured": "This location is already configured for your account."
+      "already_configured": "This Foodsharing account is already configured"
     }
   },
   "options": {
@@ -38,13 +38,14 @@
     },
     "error": {
       "invalid_auth": "Invalid email or password.",
+      "cannot_connect": "Cannot connect",
       "unknown": "Unexpected error occurred."
     }
   },
   "services": {
     "request_basket": {
       "name": "Request Basket",
-      "description": "Requests a specific foodsharing basket",
+      "description": "Requests a specific Foodsharing basket",
       "fields": {
         "basket_id": {
           "name": "Basket ID",

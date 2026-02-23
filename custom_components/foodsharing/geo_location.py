@@ -250,34 +250,3 @@ class FoodsharingFairteilerGeoLocation(CoordinatorEntity[FoodsharingCoordinator]
                 return True
 
         return False
-
-    @property
-    def distance(self) -> float | None:
-        """Return distance to center."""
-        return None
-
-    def _handle_coordinator_update(self) -> None:
-        """Handle updated data from the coordinator."""
-        if self.coordinator.data and "fairteiler" in self.coordinator.data:
-            for fp in self.coordinator.data["fairteiler"]:
-                if str(fp["id"]) == self._fp_id:
-                    self._update_from_fp(fp)
-                    self.async_write_ha_state()
-                    return
-
-        self.async_write_ha_state()
-
-    @property
-    def available(self) -> bool:
-        """Return if entity is available."""
-        if not self.coordinator.last_update_success:
-            return False
-
-        if self.coordinator.data is None or "fairteiler" not in self.coordinator.data:
-            return False
-
-        for fp in self.coordinator.data["fairteiler"]:
-            if str(fp["id"]) == self._fp_id:
-                return True
-
-        return False

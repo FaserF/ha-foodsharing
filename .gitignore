@@ -12,6 +12,7 @@ venv/
 dist/
 *.egg-info/
 *.txt
+!requirements_test.txt
 test_api_isolated.py
 test_api_isolated_v2.py
 test_api_signature.py

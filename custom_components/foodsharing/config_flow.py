@@ -50,7 +50,6 @@ async def validate_credentials(
     except Exception as err:
         _LOGGER.error("Unexpected error validating credentials: %s", err)
         return False
-    return False
 
 
 class FoodsharingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # type: ignore[call-arg, misc]
@@ -98,8 +97,10 @@ class FoodsharingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # type: 
                     user_input[CONF_LATITUDE_FS] = location.get("latitude", 0)
                     user_input[CONF_LONGITUDE_FS] = location.get("longitude", 0)
                     # Use radius from location selector if available, converted to km
-                    radius_meters = location.get("radius", 7000)
-                    user_input[CONF_DISTANCE] = round(radius_meters / 1000)
+                    # Only set it if it's not already explicitly provided in user_input
+                    if CONF_DISTANCE not in user_input:
+                        radius_meters = location.get("radius", 7000)
+                        user_input[CONF_DISTANCE] = round(radius_meters / 1000)
                     # Update local lat/lon for title
                     lat = round(user_input[CONF_LATITUDE_FS], 4)
                     lon = round(user_input[CONF_LONGITUDE_FS], 4)
@@ -171,7 +172,8 @@ class OptionsFlowHandler(config_entries.OptionsFlow):  # type: ignore[misc]
                     location = user_input.pop(CONF_LOCATION)
                     user_input[CONF_LATITUDE_FS] = location.get("latitude", 0)
                     user_input[CONF_LONGITUDE_FS] = location.get("longitude", 0)
-                    user_input[CONF_DISTANCE] = round(location.get("radius", 7000) / 1000)
+                    if CONF_DISTANCE not in user_input:
+                        user_input[CONF_DISTANCE] = round(location.get("radius", 7000) / 1000)
 
                 return self.async_create_entry(title="", data=user_input)
 
