@@ -16,6 +16,7 @@
     },
     "error": {
       "invalid_auth": "Ungültige E-Mail oder Passwort.",
+      "cannot_connect": "Verbindung zum Server fehlgeschlagen, bitte überprüfe dein Netzwerk und versuche es erneut.",
       "unknown": "Ein unerwarteter Fehler ist aufgetreten."
     },
     "abort": {
@@ -38,6 +39,7 @@
     },
     "error": {
       "invalid_auth": "Ungültige E-Mail oder Passwort.",
+      "cannot_connect": "Verbindung fehlgeschlagen.",
       "unknown": "Ein unerwarteter Fehler ist aufgetreten."
     }
   },

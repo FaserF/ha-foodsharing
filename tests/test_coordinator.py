@@ -3,23 +3,31 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-# Remove importorskip to surface error
 from custom_components.foodsharing.coordinator import FoodsharingCoordinator
+
+
+def _make_entry(data_overrides=None):
+    """Create a mock ConfigEntry with all required keys."""
+    base_data = {
+        "email": "test@test.com",
+        "password": "pass",
+        "latitude": "50.0",
+        "longitude": "10.0",
+        "distance": 7,
+        "keywords": "",
+    }
+    if data_overrides:
+        base_data.update(data_overrides)
+    mock_entry = MagicMock()
+    mock_entry.data = base_data
+    mock_entry.options = {}
+    return mock_entry
 
 
 @pytest.mark.asyncio
 async def test_coordinator_fetch_pickups(mock_session):
     """Test fetching pickups handles different data structures and the correct endpoint."""
-
-    mock_entry = MagicMock()
-    mock_entry.data = {
-        "email": "test@test.com",
-        "password": "pass",
-        "latitude_fs": "50.0",
-        "longitude_fs": "10.0",
-        "distance": 7,
-    }
-    mock_entry.options = {}
+    mock_entry = _make_entry()
 
     with patch(
         "homeassistant.helpers.aiohttp_client.async_get_clientsession",
@@ -53,14 +61,16 @@ async def test_coordinator_fetch_pickups(mock_session):
         assert len(pickups) == 1
         assert pickups[0]["id"] == 3
 
+
 @pytest.mark.asyncio
 async def test_coordinator_fetch_conversations(mock_session):
     """Test fetching unread messages handles list format."""
-    mock_entry = MagicMock()
-    mock_entry.data = {"latitude_fs": "50", "longitude_fs": "10"}
-    mock_entry.options = {}
+    mock_entry = _make_entry()
 
-    with patch("homeassistant.helpers.aiohttp_client.async_get_clientsession", return_value=mock_session):
+    with patch(
+        "homeassistant.helpers.aiohttp_client.async_get_clientsession",
+        return_value=mock_session,
+    ):
         coordinator = FoodsharingCoordinator(MagicMock(), mock_entry)
 
         # Test conversation list json
@@ -72,20 +82,22 @@ async def test_coordinator_fetch_conversations(mock_session):
         mock_count.status = 200
         mock_count.json.return_value = {"unread": 1}
 
-        # Need to handle consecutive get calls if possible or just assume it catches errors safely
+        # Need to handle consecutive get calls
         mock_session.get.return_value.__aenter__.side_effect = [mock_count, mock_response]
 
         unread = await coordinator.fetch_unread_messages()
         assert unread == 1
 
+
 @pytest.mark.asyncio
 async def test_coordinator_fetch_bells(mock_session):
     """Test fetching bells."""
-    mock_entry = MagicMock()
-    mock_entry.data = {"latitude_fs": "50", "longitude_fs": "10"}
-    mock_entry.options = {}
+    mock_entry = _make_entry()
 
-    with patch("homeassistant.helpers.aiohttp_client.async_get_clientsession", return_value=mock_session):
+    with patch(
+        "homeassistant.helpers.aiohttp_client.async_get_clientsession",
+        return_value=mock_session,
+    ):
         coordinator = FoodsharingCoordinator(MagicMock(), mock_entry)
 
         mock_response = AsyncMock()

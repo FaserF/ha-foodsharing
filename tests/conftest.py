@@ -6,13 +6,16 @@ import pytest
 
 @pytest.fixture(autouse=True)
 def auto_mock_ha():
-    """Mock the Home Assistant core imports to run tests without starting HA."""
-    with patch("homeassistant.core.HomeAssistant") as mock_hass:
-        yield mock_hass
+    """Mock the Home Assistant helpers that require a running instance."""
+    with (
+        patch("homeassistant.core.HomeAssistant"),
+        patch("homeassistant.helpers.frame.report_usage"),
+    ):
+        yield
+
 
 @pytest.fixture()
 def mock_session():
     """Mock an aiohttp ClientSession."""
     mock = MagicMock()
-    # Basic mocking if needed
     return mock
