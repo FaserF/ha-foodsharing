@@ -19,8 +19,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          if [ -f requirements_test.txt ]; then pip install -r requirements_test.txt; fi
-          pip install ruff==0.9.7 mypy==1.15.0 pytest==8.3.4 pytest-asyncio==0.25.3 pytest-homeassistant-custom-component==0.13.316 pytest-cov==6.0.0 voluptuous==0.15.2 aiohttp==3.11.12
+          pip install -r requirements_test.txt
       - name: Run Ruff
         run: ruff check .
       - name: Run Mypy
@@ -37,4 +36,4 @@ jobs:
         with:
           category: integration
       - name: Hassfest validation
-        uses: home-assistant/actions/hassfest@1.0.0
+        uses: home-assistant/actions/hassfest@master

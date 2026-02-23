@@ -1,7 +1,9 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
-    "config:base"
+    "config:base",
+    ":enablePreCommit",
+    ":rebaseStalePrs"
   ],
   "packageRules": [
     {
@@ -13,5 +15,8 @@
       ],
       "automerge": true
     }
-  ]
+  ],
+  "homeAssistant": {
+    "enabled": true
+  }
 }
