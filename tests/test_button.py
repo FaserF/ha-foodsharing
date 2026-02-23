@@ -3,7 +3,6 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-
 # Removed importorskip to surface error
 from custom_components.foodsharing.button import (
     FoodsharingCloseOwnBasketButton,

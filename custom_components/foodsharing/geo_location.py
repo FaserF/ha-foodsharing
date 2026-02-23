@@ -10,7 +10,7 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import CONF_LATITUDE_FS, CONF_LONGITUDE_FS, DOMAIN
+from .const import CONF_EMAIL, CONF_LATITUDE_FS, CONF_LONGITUDE_FS, DOMAIN
 from .coordinator import FoodsharingCoordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -68,7 +68,7 @@ async def async_setup_entry(
         stale_ids = set(active_entities.keys()) - current_ids
         for stale_id in stale_ids:
             entity = active_entities.pop(stale_id)
-            hass.async_create_task(entity.async_remove())
+            hass.async_create_task(entity.async_remove(force_remove=True))
 
     # Register listener
     unsub = coordinator.async_add_listener(async_update_entities)
@@ -193,7 +193,7 @@ class FoodsharingFairteilerGeoLocation(CoordinatorEntity[FoodsharingCoordinator]
         # Get coordinates for device mapping
         lat = self.entry.data.get(CONF_LATITUDE_FS, "")
         lon = self.entry.data.get(CONF_LONGITUDE_FS, "")
-        email = self.entry.data.get("email", "")
+        email = self.entry.data.get(CONF_EMAIL, "")
 
         # Location Device
         self._attr_device_info = DeviceInfo(

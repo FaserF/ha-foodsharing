@@ -16,6 +16,7 @@
     },
     "error": {
       "invalid_auth": "Invalid email or password.",
+      "cannot_connect": "Cannot connect to the server, please check your network and try again.",
       "unknown": "Unexpected error occurred."
     },
     "abort": {
@@ -38,7 +39,7 @@
     },
     "error": {
       "invalid_auth": "Invalid email or password.",
-      "cannot_connect": "Cannot connect",
+      "cannot_connect": "Cannot connect.",
       "unknown": "Unexpected error occurred."
     }
   },

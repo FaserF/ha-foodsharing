@@ -1,4 +1,3 @@
-import pytest
 
 
 # Removed importorskip to surface error

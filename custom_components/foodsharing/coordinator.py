@@ -35,8 +35,12 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
         self.entry = entry
         self.email = entry.data[CONF_EMAIL]
         self.password = entry.data[CONF_PASSWORD]
-        self.latitude = entry.data[CONF_LATITUDE_FS]
-        self.longitude = entry.data[CONF_LONGITUDE_FS]
+        self.latitude = entry.options.get(
+            CONF_LATITUDE_FS, entry.data.get(CONF_LATITUDE_FS)
+        )
+        self.longitude = entry.options.get(
+            CONF_LONGITUDE_FS, entry.data.get(CONF_LONGITUDE_FS)
+        )
         self.distance = entry.options.get(
             CONF_DISTANCE, entry.data.get(CONF_DISTANCE, 7)
         )
@@ -52,6 +56,8 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
         self._seen_fairteiler_posts: set[int] = set()
         self._seen_baskets: set[int] = set()
         self._is_first_update = True
+        self.user_id: str | None = None
+        self.csrf_token: str | None = None
 
         scan_interval = timedelta(
             minutes=entry.options.get(
@@ -80,7 +86,7 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
             raise
         except Exception as err:
             raise UpdateFailed(
-                f"Unexpected error communicating with API: {err}"
+                "Unexpected error communicating with API: %s", err
             ) from err
 
     async def _fetch_all_data(self) -> dict[str, Any]:
@@ -120,14 +126,17 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
                 async with self.session.post(login_url, json=login_payload) as response:
                     if response.status == 200:
                         data = await response.json()
-                        return "id" in data
+                        if "id" in data:
+                            self.user_id = str(data["id"])
+                            self.csrf_token = data.get("csrf")
+                            return True
+                        return False
                     else:
                         _LOGGER.error("Login failed with status %s", response.status)
                         return False
         except Exception as e:
             _LOGGER.error("Error during login: %s", e)
             return False
-        return False
 
     async def fetch_unread_messages(self) -> int:
         """Fetch unread mailbox message count and detailed conversations."""
@@ -180,7 +189,7 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
                         unread_count = 0
                         for bell in data:
                             if isinstance(bell, dict) and bell.get("is_read") == 0:
-                                unread_count += 1
+                                unread_count = unread_count + 1
                                 bell_id = bell.get("id")
                                 if bell_id and bell_id not in self._seen_bells:
                                     self._seen_bells.add(bell_id)
@@ -213,7 +222,7 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
         except Exception as e:
             if isinstance(e, UpdateFailed):
                 raise
-            raise UpdateFailed(f"Error fetching data: {e}") from e
+            raise UpdateFailed("Error fetching data: %s", e) from e
 
     def _process_baskets(self, json_data: Any) -> list[dict[str, Any]]:
         """Process basket data to structured format."""
@@ -347,7 +356,9 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
                                                         )
                             except Exception as e:
                                 _LOGGER.debug(
-                                    f"Error fetching wall for fairteiler {fp_id}: {e}"
+                                    "Error fetching wall for fairteiler %s: %s",
+                                    fp_id,
+                                    e,
                                 )
 
                     wall_tasks = []
@@ -373,18 +384,30 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
 
                     return points
                 else:
-                    # Sometimes this endpoint doesn't exist, ignore failures gracefully
-                    _LOGGER.debug(f"Food Share Points fetch returned {response.status}")
+                    _LOGGER.debug(
+                        "Food Share Points fetch returned %s", response.status
+                    )
                     return []
+
+            if wall_tasks:
+                await asyncio.gather(*wall_tasks)
+
+            return points
         except Exception:
             return []
-        return []
 
     async def fetch_pickups(self) -> list[dict[str, Any]]:
         """Fetch upcoming pickups for the user."""
-        url = "https://foodsharing.de/api/pickup/registered"
+        user_id = self.user_id or "current"
+        url = f"https://foodsharing.de/api/users/{user_id}/pickups/registered"
+        headers = {}
+        if self.csrf_token:
+            headers["X-CSRF-Token"] = self.csrf_token
+
         try:
-            async with async_timeout.timeout(10), self.session.get(url) as response:
+            async with async_timeout.timeout(10), self.session.get(
+                url, headers=headers
+            ) as response:
                 if response.status == 200:
                     data = await response.json()
                     if isinstance(data, list):
@@ -398,7 +421,7 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
                         "Error fetching pickups: HTTP %s - %s", response.status, body
                     )
         except Exception as e:
-            _LOGGER.debug("Error fetching pickups: %s", e)
+            _LOGGER.error("Error fetching pickups: %s", e)
         return []
 
     async def fetch_own_baskets(self) -> list[dict[str, Any]]:

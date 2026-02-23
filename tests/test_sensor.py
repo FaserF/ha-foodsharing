@@ -1,7 +1,3 @@
-import pytest
-
-
-# Removed importorskip to surface error
 from unittest.mock import MagicMock
 
 from custom_components.foodsharing.sensor import FoodsharingBellsSensor, FoodsharingMessagesSensor, FoodsharingSensor

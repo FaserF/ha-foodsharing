@@ -130,7 +130,6 @@ class FoodsharingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # type: 
                 ): selector.LocationSelector(
                     selector.LocationSelectorConfig(radius=True)
                 ),
-                vol.Required(CONF_DISTANCE, default=7): cv.positive_int,
                 vol.Optional(CONF_KEYWORDS, default=""): str,
                 vol.Required(CONF_SCAN_INTERVAL, default=2): cv.positive_int,
             },
@@ -161,8 +160,13 @@ class OptionsFlowHandler(config_entries.OptionsFlow):  # type: ignore[misc]
             # Check if credentials changed
             new_email = user_input[CONF_EMAIL]
             new_password = user_input[CONF_PASSWORD]
-            old_email = self.config_entry.data.get(CONF_EMAIL)
-            old_password = self.config_entry.data.get(CONF_PASSWORD)
+            # Use options first, then data fallback
+            old_email = self.config_entry.options.get(
+                CONF_EMAIL, self.config_entry.data.get(CONF_EMAIL)
+            )
+            old_password = self.config_entry.options.get(
+                CONF_PASSWORD, self.config_entry.data.get(CONF_PASSWORD)
+            )
 
             if new_email != old_email or new_password != old_password:
                 is_valid = await validate_credentials(
@@ -209,9 +213,6 @@ class OptionsFlowHandler(config_entries.OptionsFlow):  # type: ignore[misc]
                 ): selector.LocationSelector(
                     selector.LocationSelectorConfig(radius=True)
                 ),
-                vol.Required(
-                    CONF_DISTANCE, default=options.get(CONF_DISTANCE, 7)
-                ): cv.positive_int,
                 vol.Optional(
                     CONF_KEYWORDS, default=options.get(CONF_KEYWORDS, "")
                 ): str,
