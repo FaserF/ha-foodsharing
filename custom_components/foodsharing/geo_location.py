@@ -9,7 +9,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN
+from .const import CONF_LATITUDE_FS, CONF_LONGITUDE_FS, DOMAIN
 from .coordinator import FoodsharingCoordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -38,6 +38,8 @@ async def async_setup_entry(
 
         # Baskets
         for basket in coordinator.data.get("baskets", []):
+            if not basket.get("id"):
+                continue
             basket_id = f"basket_{basket['id']}"
             current_ids.add(basket_id)
 
@@ -47,23 +49,22 @@ async def async_setup_entry(
                 new_entities.append(entity)
 
         # Fairteiler (Food Share Points)
-        for fp in coordinator.data.get("fairteiler", []):
-            fp_id = f"fp_{fp['id']}"
+        for i, fp in enumerate(coordinator.data.get("fairteiler", [])):
+            raw_id = fp.get("id")
+            fp_id = f"fp_{raw_id}" if raw_id is not None else f"fp_noid_{i}"
             current_ids.add(fp_id)
 
             if fp_id not in active_entities:
-                entity = FoodsharingFairteilerGeoLocation(coordinator, entry, fp)
+                entity = FoodsharingFairteilerGeoLocation(coordinator, entry, fp, fp_id)
                 active_entities[fp_id] = entity
                 new_entities.append(entity)
 
         if new_entities:
             async_add_entities(new_entities)
 
-        # We also need to remove entities that are no longer available.
-        # CoordinatorEntity doesn't dynamically remove themselves, but available=False will handle that.
-
     # Register listener
-    coordinator.async_add_listener(async_update_entities)
+    unsub = coordinator.async_add_listener(async_update_entities)
+    entry.async_on_unload(unsub)
 
     # Initial load
     async_update_entities()
@@ -107,13 +108,19 @@ class FoodsharingBasketGeoLocation(CoordinatorEntity[FoodsharingCoordinator], Ge
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return the extra state attributes."""
-        if not self.coordinator.data:
+        data = self.coordinator.data
+        if not data or not isinstance(data, dict):
             return {"keyword_match": False}
+
+        baskets = data.get("baskets")
+        if not isinstance(baskets, list):
+            return {"keyword_match": False}
+
         basket = next(
             (
                 b
-                for b in self.coordinator.data.get("baskets", [])
-                if str(b["id"]) == self._basket_id
+                for b in baskets
+                if isinstance(b, dict) and str(b.get("id")) == self._basket_id
             ),
             None,
         )
@@ -128,9 +135,9 @@ class FoodsharingBasketGeoLocation(CoordinatorEntity[FoodsharingCoordinator], Ge
 
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
-        if self.coordinator.data and "baskets" in self.coordinator.data:
+        if self.coordinator.data and isinstance(self.coordinator.data.get("baskets"), list):
             for basket in self.coordinator.data["baskets"]:
-                if str(basket["id"]) == self._basket_id:
+                if isinstance(basket, dict) and str(basket.get("id")) == self._basket_id:
                     self._update_from_basket(basket)
                     self.async_write_ha_state()
                     return
@@ -143,11 +150,16 @@ class FoodsharingBasketGeoLocation(CoordinatorEntity[FoodsharingCoordinator], Ge
         if not self.coordinator.last_update_success:
             return False
 
-        if self.coordinator.data is None or "baskets" not in self.coordinator.data:
+        data = self.coordinator.data
+        if not data or not isinstance(data, dict):
             return False
 
-        for basket in self.coordinator.data["baskets"]:
-            if str(basket["id"]) == self._basket_id:
+        baskets = data.get("baskets")
+        if not isinstance(baskets, list):
+            return False
+
+        for basket in baskets:
+            if isinstance(basket, dict) and str(basket.get("id")) == self._basket_id:
                 return True
 
         return False
@@ -161,11 +173,12 @@ class FoodsharingFairteilerGeoLocation(CoordinatorEntity[FoodsharingCoordinator]
         coordinator: FoodsharingCoordinator,
         entry: ConfigEntry,
         fp: dict[str, Any],
+        unique_id: str,
     ) -> None:
         """Initialize entity."""
         super().__init__(coordinator)
         self.entry = entry
-        self._fp_id = str(fp["id"])
+        self._fp_id = unique_id
 
         self._attr_unique_id = f"foodsharing_fairteiler_{self._fp_id}"
         self._attr_icon = "mdi:storefront"
@@ -185,8 +198,8 @@ class FoodsharingFairteilerGeoLocation(CoordinatorEntity[FoodsharingCoordinator]
             self._attr_longitude = None  # type: ignore[assignment]
 
         # Get coordinates for device mapping
-        lat = self.entry.data.get("latitude_fs", "")
-        lon = self.entry.data.get("longitude_fs", "")
+        lat = self.entry.data.get(CONF_LATITUDE_FS, "")
+        lon = self.entry.data.get(CONF_LONGITUDE_FS, "")
         email = self.entry.data.get("email", "")
 
         # Location Device
@@ -197,6 +210,46 @@ class FoodsharingFairteilerGeoLocation(CoordinatorEntity[FoodsharingCoordinator]
             "model": "Location Tracker",
             "via_device": (DOMAIN, email),
         }
+
+    @property
+    def distance(self) -> float | None:
+        """Return distance to center."""
+        return None
+
+    def _handle_coordinator_update(self) -> None:
+        """Handle updated data from the coordinator."""
+        if self.coordinator.data and isinstance(self.coordinator.data.get("fairteiler"), list):
+            for i, fp in enumerate(self.coordinator.data["fairteiler"]):
+                raw_id = fp.get("id")
+                fp_id = f"fp_{raw_id}" if raw_id is not None else f"fp_noid_{i}"
+                if fp_id == self._fp_id:
+                    self._update_from_fp(fp)
+                    self.async_write_ha_state()
+                    return
+
+        self.async_write_ha_state()
+
+    @property
+    def available(self) -> bool:
+        """Return if entity is available."""
+        if not self.coordinator.last_update_success:
+            return False
+
+        data = self.coordinator.data
+        if not data or not isinstance(data, dict):
+            return False
+
+        fairteilers = data.get("fairteiler")
+        if not isinstance(fairteilers, list):
+            return False
+
+        for i, fp in enumerate(fairteilers):
+            raw_id = fp.get("id")
+            fp_id = f"fp_{raw_id}" if raw_id is not None else f"fp_noid_{i}"
+            if fp_id == self._fp_id:
+                return True
+
+        return False
 
     @property
     def distance(self) -> float | None:

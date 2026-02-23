@@ -33,7 +33,7 @@ async def validate_credentials(
     login_url = "https://foodsharing.de/api/user/login"
     timeout = aiohttp.ClientTimeout(total=10)
     try:
-        login_payload = {"email": email, "password": password, "remember_me": "true"}
+        login_payload = {"email": email, "password": password, "rememberMe": True}
         async with session.post(
             login_url, json=login_payload, timeout=timeout
         ) as response:
@@ -47,18 +47,16 @@ async def validate_credentials(
     except (TimeoutError, aiohttp.ClientError) as err:
         _LOGGER.error("Error validating credentials (network/timeout): %s", err)
         return False
-    except asyncio.CancelledError:
-        raise
     except Exception as err:
         _LOGGER.error("Unexpected error validating credentials: %s", err)
         return False
+    return False
 
 
 class FoodsharingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # type: ignore[call-arg, misc]
     """Handle a config flow for Foodsharing."""
 
     VERSION = 3
-    CONNECTION_CLASS = config_entries.CONN_CLASS_CLOUD_POLL
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
@@ -77,8 +75,8 @@ class FoodsharingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # type: 
             else:
                 # Expand unique ID to include location so one email can have multiple locations
                 # We round to 4 decimals to allow minor fuzzing but distinct areas
-                lat = ""
-                lon = ""
+                lat = None
+                lon = None
                 if CONF_LOCATION in user_input:
                     location = user_input[CONF_LOCATION]
                     lat = round(location.get("latitude", 0), 4)
@@ -97,9 +95,12 @@ class FoodsharingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # type: 
                 # Transform Location Selector output into simple latitude and longitude
                 if CONF_LOCATION in user_input:
                     location = user_input.pop(CONF_LOCATION)
-                    user_input[CONF_LATITUDE_FS] = location.get("latitude")
-                    user_input[CONF_LONGITUDE_FS] = location.get("longitude")
-                    # Update local lat/lon for title if they were changed by pop
+                    user_input[CONF_LATITUDE_FS] = location.get("latitude", 0)
+                    user_input[CONF_LONGITUDE_FS] = location.get("longitude", 0)
+                    # Use radius from location selector if available, converted to km
+                    radius_meters = location.get("radius", 7000)
+                    user_input[CONF_DISTANCE] = round(radius_meters / 1000)
+                    # Update local lat/lon for title
                     lat = round(user_input[CONF_LATITUDE_FS], 4)
                     lon = round(user_input[CONF_LONGITUDE_FS], 4)
 
@@ -107,7 +108,7 @@ class FoodsharingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # type: 
                     "Initialized new foodsharing sensor with id: %s", unique_id
                 )
                 title = f"{email}"
-                if lat != "" and lon != "":
+                if lat is not None and lon is not None:
                     title = f"{email} ({lat}, {lon})"
 
                 return self.async_create_entry(title=title, data=user_input)
@@ -115,7 +116,9 @@ class FoodsharingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # type: 
         data_schema = vol.Schema(
             {
                 vol.Required(CONF_EMAIL): str,
-                vol.Required(CONF_PASSWORD): str,
+                vol.Required(CONF_PASSWORD): selector.TextSelector(
+                    selector.TextSelectorConfig(type=selector.TextSelectorType.PASSWORD)
+                ),
                 vol.Required(
                     CONF_LOCATION,
                     default={
@@ -166,8 +169,9 @@ class OptionsFlowHandler(config_entries.OptionsFlow):  # type: ignore[misc]
             else:
                 if CONF_LOCATION in user_input:
                     location = user_input.pop(CONF_LOCATION)
-                    user_input[CONF_LATITUDE_FS] = location.get("latitude")
-                    user_input[CONF_LONGITUDE_FS] = location.get("longitude")
+                    user_input[CONF_LATITUDE_FS] = location.get("latitude", 0)
+                    user_input[CONF_LONGITUDE_FS] = location.get("longitude", 0)
+                    user_input[CONF_DISTANCE] = round(location.get("radius", 7000) / 1000)
 
                 return self.async_create_entry(title="", data=user_input)
 
@@ -179,7 +183,9 @@ class OptionsFlowHandler(config_entries.OptionsFlow):  # type: ignore[misc]
                 vol.Required(CONF_EMAIL, default=options.get(CONF_EMAIL, "")): str,
                 vol.Required(
                     CONF_PASSWORD, default=options.get(CONF_PASSWORD, "")
-                ): str,
+                ): selector.TextSelector(
+                    selector.TextSelectorConfig(type=selector.TextSelectorType.PASSWORD)
+                ),
                 vol.Required(
                     CONF_LOCATION,
                     default={

@@ -35,6 +35,10 @@
           "scan_interval": "Aktualisierungsintervall (Minuten)"
         }
       }
+    },
+    "error": {
+      "invalid_auth": "Ungültige E-Mail oder Passwort.",
+      "unknown": "Ein unerwarteter Fehler ist aufgetreten."
     }
   },
   "services": {

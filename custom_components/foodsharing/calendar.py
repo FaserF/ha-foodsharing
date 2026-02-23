@@ -61,8 +61,11 @@ class FoodsharingCalendar(CoordinatorEntity[FoodsharingCoordinator], CalendarEnt
         for pickup in self.coordinator.data["pickups"]:
             # Pickups usually have 'time' or 'date', parsing dependent on API format
             # In absence of exact structure, we'll try to extract timestamp blocks.
-            start_ts = pickup.get("time") or pickup.get("date")
-            if not start_ts:
+            start_ts = pickup.get("time")
+            if start_ts is None:
+                start_ts = pickup.get("date")
+
+            if start_ts is None:
                 continue
 
             try:
@@ -110,5 +113,5 @@ class FoodsharingCalendar(CoordinatorEntity[FoodsharingCoordinator], CalendarEnt
         return [
             event
             for event in self._events
-            if event.start >= start_date and event.start < end_date
+            if event.end > start_date and event.start < end_date
         ]

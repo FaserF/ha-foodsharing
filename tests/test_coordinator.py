@@ -9,7 +9,7 @@ from custom_components.foodsharing.coordinator import FoodsharingCoordinator
 
 @pytest.mark.asyncio
 async def test_coordinator_fetch_pickups(mock_session):
-    """Test fetching pickups handles different data structures safely."""
+    """Test fetching pickups handles different data structures and the correct endpoint."""
 
     mock_entry = MagicMock()
     mock_entry.data = {
@@ -17,14 +17,17 @@ async def test_coordinator_fetch_pickups(mock_session):
         "password": "pass",
         "latitude_fs": "50.0",
         "longitude_fs": "10.0",
-        "distance": 5
+        "distance": 7,
     }
     mock_entry.options = {}
 
-    with patch("homeassistant.helpers.aiohttp_client.async_get_clientsession", return_value=mock_session):
+    with patch(
+        "homeassistant.helpers.aiohttp_client.async_get_clientsession",
+        return_value=mock_session,
+    ):
         coordinator = FoodsharingCoordinator(MagicMock(), mock_entry)
 
-        # Test successful array return
+        # 1. Test successful array return from correct endpoint
         mock_response = AsyncMock()
         mock_response.status = 200
         mock_response.json.return_value = [{"id": 1, "store_name": "Test Store"}]
@@ -35,6 +38,20 @@ async def test_coordinator_fetch_pickups(mock_session):
         assert isinstance(pickups, list)
         assert len(pickups) == 1
         assert pickups[0]["store_name"] == "Test Store"
+        # Verify endpoint used
+        mock_session.get.assert_called_with("https://foodsharing.de/api/pickup/registered")
+
+        # 2. Test successful dictionary return ("pickups" key)
+        mock_response.json.return_value = {"pickups": [{"id": 2, "store_name": "Store 2"}]}
+        pickups = await coordinator.fetch_pickups()
+        assert len(pickups) == 1
+        assert pickups[0]["id"] == 2
+
+        # 3. Test successful dictionary return ("data" key)
+        mock_response.json.return_value = {"data": [{"id": 3, "store_name": "Store 3"}]}
+        pickups = await coordinator.fetch_pickups()
+        assert len(pickups) == 1
+        assert pickups[0]["id"] == 3
 
 @pytest.mark.asyncio
 async def test_coordinator_fetch_conversations(mock_session):
