@@ -44,9 +44,10 @@ async def validate_credentials(
                 return True
             else:
                 return False
+        return False
     except (TimeoutError, aiohttp.ClientError) as err:
         _LOGGER.error("Error validating credentials (network/timeout): %s", err)
-        return False
+        return "cannot_connect"
     except Exception as err:
         _LOGGER.error("Unexpected error validating credentials: %s", err)
         return False
@@ -69,7 +70,9 @@ class FoodsharingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # type: 
 
             # Validate credentials
             user_id = await validate_credentials(self.hass, email, password)
-            if not user_id:
+            if user_id == "cannot_connect":
+                errors["base"] = "cannot_connect"
+            elif not user_id:
                 errors["base"] = "invalid_auth"
             else:
                 # Expand unique ID to include location so one email can have multiple locations
@@ -96,11 +99,9 @@ class FoodsharingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # type: 
                     location = user_input.pop(CONF_LOCATION)
                     user_input[CONF_LATITUDE_FS] = location.get("latitude", 0)
                     user_input[CONF_LONGITUDE_FS] = location.get("longitude", 0)
-                    # Use radius from location selector if available, converted to km
-                    # Only set it if it's not already explicitly provided in user_input
-                    if CONF_DISTANCE not in user_input:
-                        radius_meters = location.get("radius", 7000)
-                        user_input[CONF_DISTANCE] = round(radius_meters / 1000)
+                    # Radius from map selector always wins
+                    radius_meters = location.get("radius", 7000)
+                    user_input[CONF_DISTANCE] = round(radius_meters / 1000)
                     # Update local lat/lon for title
                     lat = round(user_input[CONF_LATITUDE_FS], 4)
                     lon = round(user_input[CONF_LONGITUDE_FS], 4)
@@ -146,15 +147,11 @@ class FoodsharingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # type: 
         config_entry: config_entries.ConfigEntry,
     ) -> config_entries.OptionsFlow:
         """Create the options flow."""
-        return OptionsFlowHandler(config_entry)
+        return OptionsFlowHandler()
 
 
 class OptionsFlowHandler(config_entries.OptionsFlow):  # type: ignore[misc]
     """Handle an options flow"""
-
-    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
-        """Initialize options flow."""
-        self.config_entry = config_entry
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
@@ -162,18 +159,29 @@ class OptionsFlowHandler(config_entries.OptionsFlow):  # type: ignore[misc]
         """Handle options flow."""
         errors = {}
         if user_input is not None:
-            is_valid = await validate_credentials(
-                self.hass, user_input[CONF_EMAIL], user_input[CONF_PASSWORD]
-            )
-            if not is_valid:
-                errors["base"] = "invalid_auth"
-            else:
+            # Check if credentials changed
+            new_email = user_input[CONF_EMAIL]
+            new_password = user_input[CONF_PASSWORD]
+            old_email = self.config_entry.data.get(CONF_EMAIL)
+            old_password = self.config_entry.data.get(CONF_PASSWORD)
+
+            if new_email != old_email or new_password != old_password:
+                is_valid = await validate_credentials(
+                    self.hass, new_email, new_password
+                )
+                if is_valid == "cannot_connect":
+                    errors["base"] = "cannot_connect"
+                elif not is_valid:
+                    errors["base"] = "invalid_auth"
+
+            if not errors:
                 if CONF_LOCATION in user_input:
                     location = user_input.pop(CONF_LOCATION)
                     user_input[CONF_LATITUDE_FS] = location.get("latitude", 0)
                     user_input[CONF_LONGITUDE_FS] = location.get("longitude", 0)
-                    if CONF_DISTANCE not in user_input:
-                        user_input[CONF_DISTANCE] = round(location.get("radius", 7000) / 1000)
+                    # Radius from map selector always wins
+                    radius_meters = location.get("radius", 7000)
+                    user_input[CONF_DISTANCE] = round(radius_meters / 1000)
 
                 return self.async_create_entry(title="", data=user_input)
 

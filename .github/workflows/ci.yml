@@ -36,4 +36,4 @@ jobs:
         with:
           category: integration
       - name: Hassfest validation
-        uses: home-assistant/actions/hassfest@master
+        uses: home-assistant/actions/hassfest@v2025.2.0

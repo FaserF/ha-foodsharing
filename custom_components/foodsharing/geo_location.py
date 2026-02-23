@@ -6,6 +6,7 @@ from typing import Any
 from homeassistant.components.geo_location import GeolocationEvent
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -38,9 +39,10 @@ async def async_setup_entry(
 
         # Baskets
         for basket in coordinator.data.get("baskets", []):
-            if not basket.get("id"):
+            raw_id = basket.get("id")
+            if raw_id is None:
                 continue
-            basket_id = f"basket_{basket['id']}"
+            basket_id = f"basket_{raw_id}"
             current_ids.add(basket_id)
 
             if basket_id not in active_entities:
@@ -61,6 +63,12 @@ async def async_setup_entry(
 
         if new_entities:
             async_add_entities(new_entities)
+
+        # Remove stale entities
+        stale_ids = set(active_entities.keys()) - current_ids
+        for stale_id in stale_ids:
+            entity = active_entities.pop(stale_id)
+            hass.async_create_task(entity.async_remove())
 
     # Register listener
     unsub = coordinator.async_add_listener(async_update_entities)
@@ -98,12 +106,11 @@ class FoodsharingBasketGeoLocation(CoordinatorEntity[FoodsharingCoordinator], Ge
         try:
             self._attr_latitude = float(basket["latitude"])
             self._attr_longitude = float(basket["longitude"])
-
-            # Simple distance calculation if available, GeolocationEvent allows source
-            self._attr_source = DOMAIN
         except (ValueError, TypeError, KeyError):
             self._attr_latitude = None  # type: ignore[assignment]
             self._attr_longitude = None  # type: ignore[assignment]
+
+        self._attr_source = DOMAIN
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
@@ -183,6 +190,20 @@ class FoodsharingFairteilerGeoLocation(CoordinatorEntity[FoodsharingCoordinator]
         self._attr_unique_id = f"foodsharing_fairteiler_{self._fp_id}"
         self._attr_icon = "mdi:storefront"
 
+        # Get coordinates for device mapping
+        lat = self.entry.data.get(CONF_LATITUDE_FS, "")
+        lon = self.entry.data.get(CONF_LONGITUDE_FS, "")
+        email = self.entry.data.get("email", "")
+
+        # Location Device
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, f"{email}_{lat}_{lon}")},
+            name=f"Foodsharing Location ({lat}, {lon})",
+            manufacturer="Foodsharing.de",
+            model="Location Tracker",
+            via_device=(DOMAIN, email),
+        )
+
         # Initial data
         self._update_from_fp(fp)
 
@@ -192,24 +213,11 @@ class FoodsharingFairteilerGeoLocation(CoordinatorEntity[FoodsharingCoordinator]
         try:
             self._attr_latitude = float(fp["latitude"])
             self._attr_longitude = float(fp["longitude"])
-            self._attr_source = DOMAIN
         except (ValueError, TypeError, KeyError):
             self._attr_latitude = None  # type: ignore[assignment]
             self._attr_longitude = None  # type: ignore[assignment]
 
-        # Get coordinates for device mapping
-        lat = self.entry.data.get(CONF_LATITUDE_FS, "")
-        lon = self.entry.data.get(CONF_LONGITUDE_FS, "")
-        email = self.entry.data.get("email", "")
-
-        # Location Device
-        self._attr_device_info = {
-            "identifiers": {(DOMAIN, f"{email}_{lat}_{lon}")},
-            "name": f"Foodsharing Location ({lat}, {lon})",
-            "manufacturer": "Foodsharing.de",
-            "model": "Location Tracker",
-            "via_device": (DOMAIN, email),
-        }
+        self._attr_source = DOMAIN
 
     @property
     def distance(self) -> float | None:

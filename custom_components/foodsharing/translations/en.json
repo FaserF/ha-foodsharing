@@ -19,7 +19,7 @@
       "unknown": "Unexpected error occurred."
     },
     "abort": {
-      "already_configured": "This Foodsharing account is already configured"
+      "already_configured": "This Foodsharing account is already configured."
     }
   },
   "options": {
@@ -45,11 +45,11 @@
   "services": {
     "request_basket": {
       "name": "Request Basket",
-      "description": "Requests a specific Foodsharing basket",
+      "description": "Requests a specific Foodsharing basket.",
       "fields": {
         "basket_id": {
           "name": "Basket ID",
-          "description": "The numeric ID of the basket to request"
+          "description": "The numeric ID of the basket to request."
         }
       }
     }

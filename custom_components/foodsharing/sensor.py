@@ -34,9 +34,7 @@ async def async_setup_entry(
     messages_sensor = FoodsharingMessagesSensor(coordinator, entry)
     bells_sensor = FoodsharingBellsSensor(coordinator, entry)
 
-    async_add_entities(
-        [baskets_sensor, messages_sensor, bells_sensor], update_before_add=True
-    )
+    async_add_entities([baskets_sensor, messages_sensor, bells_sensor])
 
 
 class FoodsharingSensor(CoordinatorEntity[FoodsharingCoordinator], SensorEntity):  # type: ignore[misc]
@@ -47,12 +45,14 @@ class FoodsharingSensor(CoordinatorEntity[FoodsharingCoordinator], SensorEntity)
         super().__init__(coordinator)
         self.entry = entry
 
+        self.latitude_fs = entry.data.get(CONF_LATITUDE_FS)
         if self.latitude_fs is None:
             self.latitude_fs = (
                 coordinator.hass.config.latitude
                 if hasattr(coordinator.hass, "config")
                 else ""
             )
+        self.longitude_fs = entry.data.get(CONF_LONGITUDE_FS)
         if self.longitude_fs is None:
             self.longitude_fs = (
                 coordinator.hass.config.longitude

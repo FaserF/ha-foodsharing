@@ -11,10 +11,14 @@ venv/
 .vscode/
 dist/
 *.egg-info/
-*.txt
+!requirements*.txt
+!requirements.txt
 !requirements_test.txt
 test_api_isolated.py
 test_api_isolated_v2.py
 test_api_signature.py
 /.mypy_cache
 *.log
+*details.txt
+*test*.txt
+*output*.txt
