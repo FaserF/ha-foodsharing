@@ -100,7 +100,7 @@ class FoodsharingBasketGeoLocation(CoordinatorEntity[FoodsharingCoordinator], Ge
 
             # Simple distance calculation if available, GeolocationEvent allows source
             self._attr_source = DOMAIN
-        except ValueError, TypeError, KeyError:
+        except (ValueError, TypeError, KeyError):
             self._attr_latitude = None  # type: ignore[assignment]
             self._attr_longitude = None  # type: ignore[assignment]
 
@@ -178,7 +178,7 @@ class FoodsharingFairteilerGeoLocation(CoordinatorEntity[FoodsharingCoordinator]
             self._attr_latitude = float(fp["latitude"])
             self._attr_longitude = float(fp["longitude"])
             self._attr_source = DOMAIN
-        except ValueError, TypeError, KeyError:
+        except (ValueError, TypeError, KeyError):
             self._attr_latitude = None  # type: ignore[assignment]
             self._attr_longitude = None  # type: ignore[assignment]
 

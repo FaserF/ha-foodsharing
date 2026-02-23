@@ -27,3 +27,14 @@ jobs:
         run: mypy custom_components/foodsharing
       - name: Run Tests
         run: pytest --cov=custom_components.foodsharing tests/
+
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: HACS validation
+        uses: hacs/action@main
+        with:
+          category: integration
+      - name: Hassfest validation
+        uses: home-assistant/actions/hassfest@master
