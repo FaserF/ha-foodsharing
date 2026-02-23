@@ -30,7 +30,7 @@ async def test_coordinator_fetch_pickups(mock_session):
     mock_entry = _make_entry()
 
     with patch(
-        "homeassistant.helpers.aiohttp_client.async_get_clientsession",
+        "custom_components.foodsharing.coordinator.async_get_clientsession",
         return_value=mock_session,
     ):
         coordinator = FoodsharingCoordinator(MagicMock(), mock_entry)
@@ -46,8 +46,11 @@ async def test_coordinator_fetch_pickups(mock_session):
         assert isinstance(pickups, list)
         assert len(pickups) == 1
         assert pickups[0]["store_name"] == "Test Store"
-        # Verify endpoint used
-        mock_session.get.assert_called_with("https://foodsharing.de/api/pickup/registered")
+        # Verify endpoint and headers
+        mock_session.get.assert_called_with(
+            "https://foodsharing.de/api/users/current/pickups/registered",
+            headers={},
+        )
 
         # 2. Test successful dictionary return ("pickups" key)
         mock_response.json.return_value = {"pickups": [{"id": 2, "store_name": "Store 2"}]}
@@ -68,7 +71,7 @@ async def test_coordinator_fetch_conversations(mock_session):
     mock_entry = _make_entry()
 
     with patch(
-        "homeassistant.helpers.aiohttp_client.async_get_clientsession",
+        "custom_components.foodsharing.coordinator.async_get_clientsession",
         return_value=mock_session,
     ):
         coordinator = FoodsharingCoordinator(MagicMock(), mock_entry)
@@ -95,7 +98,7 @@ async def test_coordinator_fetch_bells(mock_session):
     mock_entry = _make_entry()
 
     with patch(
-        "homeassistant.helpers.aiohttp_client.async_get_clientsession",
+        "custom_components.foodsharing.coordinator.async_get_clientsession",
         return_value=mock_session,
     ):
         coordinator = FoodsharingCoordinator(MagicMock(), mock_entry)

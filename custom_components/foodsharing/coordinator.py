@@ -44,9 +44,12 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
         self.distance = entry.options.get(
             CONF_DISTANCE, entry.data.get(CONF_DISTANCE, 7)
         )
+        keywords_raw = entry.options.get(
+            CONF_KEYWORDS, entry.data.get(CONF_KEYWORDS, "")
+        )
         self.keywords = [
             k.strip().lower()
-            for k in entry.options.get(CONF_KEYWORDS, "").split(",")
+            for k in keywords_raw.split(",")
             if k.strip()
         ]
         self.session = async_get_clientsession(hass)
@@ -219,10 +222,12 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
                     raise UpdateFailed(
                         f"Error fetching baskets: HTTP {response.status}"
                     )
+        except UpdateFailed:
+            raise
+        except AuthenticationFailed:
+            raise
         except Exception as e:
-            if isinstance(e, UpdateFailed):
-                raise
-            raise UpdateFailed("Error fetching data: %s", e) from e
+            raise UpdateFailed(f"Error fetching data: {e}") from e
 
     def _process_baskets(self, json_data: Any) -> list[dict[str, Any]]:
         """Process basket data to structured format."""
@@ -300,12 +305,55 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
 
     async def fetch_food_share_points(self) -> list[dict[str, Any]]:
         """Fetch nearby Fairteiler (Food Share Points)."""
-        # Note: The api endpoint requires bounds or lat/lon distance. The website uses api/maps/blabla
-        # To be safe, we'll try something similar to baskets.
-        # Actually from the api/doc earlier, it might be /api/foodSharePoints/nearby
-        # If it doesn't exist we'll just handle 404 cleanly.
         url = f"https://foodsharing.de/api/foodSharePoints/nearby?lat={self.latitude}&lon={self.longitude}&distance={self.distance}"
+        points: list[dict[str, Any]] = []
+        wall_tasks: list = []
+
         try:
+            semaphore = asyncio.Semaphore(5)
+
+            async def fetch_wall(fp_id: int, fp_name: str) -> None:
+                async with semaphore:
+                    wall_url = (
+                        f"https://foodsharing.de/api/fairteiler/{fp_id}/wall"
+                    )
+                    try:
+                        async with async_timeout.timeout(5), self.session.get(
+                            wall_url
+                        ) as wall_res:
+                            if wall_res.status == 200:
+                                wall_data = await wall_res.json()
+                                if (
+                                    isinstance(wall_data, list)
+                                    and len(wall_data) > 0
+                                ):
+                                    latest_post = wall_data[0]
+                                    post_id = latest_post.get("id")
+                                    if (
+                                        post_id
+                                        and post_id
+                                        not in self._seen_fairteiler_posts
+                                    ):
+                                        self._seen_fairteiler_posts.add(
+                                            post_id
+                                        )
+                                        if not self._is_first_update:
+                                            self.hass.bus.async_fire(
+                                                f"{DOMAIN}_fairteiler_post",
+                                                {
+                                                    "fairteiler_id": fp_id,
+                                                    "fairteiler_name": fp_name,
+                                                    "post": latest_post,
+                                                },
+                                            )
+                    except Exception as e:
+                        _LOGGER.debug(
+                            "Error fetching wall for fairteiler %s: %s",
+                            fp_id,
+                            e,
+                        )
+
+            # Fetch the list of food share points within the timeout
             async with async_timeout.timeout(10), self.session.get(url) as response:
                 if response.status == 200:
                     json_data = await response.json()
@@ -317,51 +365,6 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
                     if not isinstance(fairteiler_data, list):
                         return []
 
-                    points = []
-                    semaphore = asyncio.Semaphore(5)
-
-                    async def fetch_wall(fp_id: int, fp_name: str) -> None:
-                        async with semaphore:
-                            wall_url = (
-                                f"https://foodsharing.de/api/fairteiler/{fp_id}/wall"
-                            )
-                            try:
-                                async with async_timeout.timeout(5), self.session.get(
-                                    wall_url
-                                ) as wall_res:
-                                        if wall_res.status == 200:
-                                            wall_data = await wall_res.json()
-                                            if (
-                                                isinstance(wall_data, list)
-                                                and len(wall_data) > 0
-                                            ):
-                                                latest_post = wall_data[0]
-                                                post_id = latest_post.get("id")
-                                                if (
-                                                    post_id
-                                                    and post_id
-                                                    not in self._seen_fairteiler_posts
-                                                ):
-                                                    self._seen_fairteiler_posts.add(
-                                                        post_id
-                                                    )
-                                                    if not self._is_first_update:
-                                                        self.hass.bus.async_fire(
-                                                            f"{DOMAIN}_fairteiler_post",
-                                                            {
-                                                                "fairteiler_id": fp_id,
-                                                                "fairteiler_name": fp_name,
-                                                                "post": latest_post,
-                                                            },
-                                                        )
-                            except Exception as e:
-                                _LOGGER.debug(
-                                    "Error fetching wall for fairteiler %s: %s",
-                                    fp_id,
-                                    e,
-                                )
-
-                    wall_tasks = []
                     for fp in fairteiler_data:
                         if not isinstance(fp, dict):
                             continue
@@ -378,23 +381,20 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
 
                         if fp_id:
                             wall_tasks.append(fetch_wall(fp_id, fp_name))
-
-                    if wall_tasks:
-                        await asyncio.gather(*wall_tasks)
-
-                    return points
                 else:
                     _LOGGER.debug(
                         "Food Share Points fetch returned %s", response.status
                     )
                     return []
 
+            # Gather wall tasks OUTSIDE the main timeout
             if wall_tasks:
                 await asyncio.gather(*wall_tasks)
 
-            return points
         except Exception:
             return []
+
+        return points
 
     async def fetch_pickups(self) -> list[dict[str, Any]]:
         """Fetch upcoming pickups for the user."""

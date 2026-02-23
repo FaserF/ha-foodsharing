@@ -43,7 +43,6 @@ async def validate_credentials(
                 return True
             else:
                 return False
-        return False
     except (TimeoutError, aiohttp.ClientError) as err:
         _LOGGER.error("Error validating credentials (network/timeout): %s", err)
         return "cannot_connect"
