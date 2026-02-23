@@ -1,43 +1,112 @@
 import logging
+from typing import Any
+
+import homeassistant.helpers.config_validation as cv
 import voluptuous as vol
 from homeassistant import config_entries
-from homeassistant.core import callback
-import homeassistant.helpers.config_validation as cv
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers import selector
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
+
 from .const import (
-    CONF_EMAIL,
-    CONF_PASSWORD,
-    CONF_LATITUDE_FS,
-    CONF_LONGITUDE_FS,
     CONF_DISTANCE,
+    CONF_EMAIL,
+    CONF_KEYWORDS,
+    CONF_LATITUDE_FS,
+    CONF_LOCATION,
+    CONF_LONGITUDE_FS,
+    CONF_PASSWORD,
     CONF_SCAN_INTERVAL,
     DOMAIN,
 )
 
 _LOGGER = logging.getLogger(__name__)
 
-class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
-    """Handle a config flow"""
 
-    VERSION = 2
+async def validate_credentials(
+    hass: HomeAssistant, email: str, password: str
+) -> str | bool:
+    """Validate the user credentials against the foodsharing.de API."""
+    session = async_get_clientsession(hass)
+    login_url = "https://foodsharing.de/api/user/login"
+    try:
+        login_payload = {"email": email, "password": password, "remember_me": "true"}
+        async with session.post(login_url, json=login_payload) as response:
+            if response.status == 200:
+                data = await response.json()
+                if "id" in data:
+                    return str(data["id"])
+                return True
+            else:
+                return False
+    except Exception as err:
+        _LOGGER.error("Error validating credentials: %s", err)
+        return False
+
+
+class FoodsharingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # type: ignore[call-arg, misc]
+    """Handle a config flow for Foodsharing."""
+
+    VERSION = 3
     CONNECTION_CLASS = config_entries.CONN_CLASS_CLOUD_POLL
 
-    async def async_step_user(self, user_input=None):
+    async def async_step_user(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.ConfigFlowResult:
         """Handle the initial step."""
         errors = {}
 
         if user_input is not None:
-            await self.async_set_unique_id(user_input[CONF_LATITUDE_FS])
-            self._abort_if_unique_id_configured()
-            _LOGGER.debug("Initialized new foodsharing sensor with id: {unique_id}")
-            return self.async_create_entry(title=user_input[CONF_LATITUDE_FS], data=user_input)
+            email = user_input[CONF_EMAIL]
+            password = user_input[CONF_PASSWORD]
+
+            # Validate credentials
+            user_id = await validate_credentials(self.hass, email, password)
+            if not user_id:
+                errors["base"] = "invalid_auth"
+            else:
+                # Expand unique ID to include location so one email can have multiple locations
+                # We round to 4 decimals to allow minor fuzzing but distinct areas
+                if CONF_LOCATION in user_input:
+                    location = user_input[CONF_LOCATION]
+                    lat = round(location.get("latitude", 0), 4)
+                    lon = round(location.get("longitude", 0), 4)
+                    unique_id = f"{email}_{lat}_{lon}"
+                else:
+                    unique_id = str(user_id) if isinstance(user_id, int) else email
+
+                await self.async_set_unique_id(unique_id.lower())
+                self._abort_if_unique_id_configured()
+
+                # Transform Location Selector output into simple latitude and longitude
+                if CONF_LOCATION in user_input:
+                    location = user_input.pop(CONF_LOCATION)
+                    user_input[CONF_LATITUDE_FS] = location.get("latitude")
+                    user_input[CONF_LONGITUDE_FS] = location.get("longitude")
+
+                _LOGGER.debug(
+                    "Initialized new foodsharing sensor with id: %s", unique_id
+                )
+                return self.async_create_entry(
+                    title=f"{email} ({lat}, {lon})", data=user_input
+                )
 
         data_schema = vol.Schema(
             {
-                vol.Required(CONF_LATITUDE_FS, default=self.hass.config.latitude): cv.string,
-                vol.Required(CONF_LONGITUDE_FS, default=self.hass.config.longitude): cv.string,
-                vol.Required(CONF_DISTANCE, default=7): cv.positive_int,
                 vol.Required(CONF_EMAIL): str,
                 vol.Required(CONF_PASSWORD): str,
+                vol.Required(
+                    CONF_LOCATION,
+                    default={
+                        "latitude": self.hass.config.latitude,
+                        "longitude": self.hass.config.longitude,
+                        "radius": 7000,  # 7km default
+                    },
+                ): selector.LocationSelector(
+                    selector.LocationSelectorConfig(radius=True)
+                ),
+                vol.Required(CONF_DISTANCE, default=7): cv.positive_int,
+                vol.Optional(CONF_KEYWORDS, default=""): str,
                 vol.Required(CONF_SCAN_INTERVAL, default=2): cv.positive_int,
             },
         )
@@ -47,51 +116,75 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
     @staticmethod
-    @callback
-    def async_get_options_flow(config_entry: config_entries.ConfigEntry) -> config_entries.OptionsFlow:
+    @callback  # type: ignore[untyped-decorator]
+    def async_get_options_flow(
+        config_entry: config_entries.ConfigEntry,
+    ) -> config_entries.OptionsFlow:
         """Create the options flow."""
         return OptionsFlowHandler(config_entry)
 
-class OptionsFlowHandler(config_entries.OptionsFlow):
+
+class OptionsFlowHandler(config_entries.OptionsFlow):  # type: ignore[misc]
     """Handle an options flow"""
 
-    def __init__(self, config_entry: config_entries.ConfigEntry):
+    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
         """Initialize options flow."""
         self.config_entry = config_entry
 
-    async def async_step_init(self, user_input=None):
+    async def async_step_init(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.ConfigFlowResult:
         """Handle options flow."""
         errors = {}
         if user_input is not None:
-            validate_options(user_input, errors)
-            if not errors:
+            is_valid = await validate_credentials(
+                self.hass, user_input[CONF_EMAIL], user_input[CONF_PASSWORD]
+            )
+            if not is_valid:
+                errors["base"] = "invalid_auth"
+            else:
+                if CONF_LOCATION in user_input:
+                    location = user_input.pop(CONF_LOCATION)
+                    user_input[CONF_LATITUDE_FS] = location.get("latitude")
+                    user_input[CONF_LONGITUDE_FS] = location.get("longitude")
+
                 return self.async_create_entry(title="", data=user_input)
 
         # Use self.config_entry.data to get the current values
-        options = self.config_entry.data
+        options = self.config_entry.options or self.config_entry.data
 
-        options_schema = vol.Schema({
-            vol.Optional(CONF_DISTANCE, default=options.get(CONF_DISTANCE, 7)): cv.positive_int,
-            vol.Optional(CONF_SCAN_INTERVAL, default=options.get(CONF_SCAN_INTERVAL, 2)): cv.positive_int,
-            vol.Optional(CONF_EMAIL, default=options.get(CONF_EMAIL, "")): str,
-            vol.Optional(CONF_PASSWORD, default=options.get(CONF_PASSWORD, "")): str,
-        })
+        options_schema = vol.Schema(
+            {
+                vol.Required(CONF_EMAIL, default=options.get(CONF_EMAIL, "")): str,
+                vol.Required(
+                    CONF_PASSWORD, default=options.get(CONF_PASSWORD, "")
+                ): str,
+                vol.Required(
+                    CONF_LOCATION,
+                    default={
+                        "latitude": options.get(
+                            CONF_LATITUDE_FS, self.hass.config.latitude
+                        ),
+                        "longitude": options.get(
+                            CONF_LONGITUDE_FS, self.hass.config.longitude
+                        ),
+                        "radius": options.get(CONF_DISTANCE, 7) * 1000,
+                    },
+                ): selector.LocationSelector(
+                    selector.LocationSelectorConfig(radius=True)
+                ),
+                vol.Required(
+                    CONF_DISTANCE, default=options.get(CONF_DISTANCE, 7)
+                ): cv.positive_int,
+                vol.Optional(
+                    CONF_KEYWORDS, default=options.get(CONF_KEYWORDS, "")
+                ): str,
+                vol.Required(
+                    CONF_SCAN_INTERVAL, default=options.get(CONF_SCAN_INTERVAL, 2)
+                ): cv.positive_int,
+            }
+        )
 
         return self.async_show_form(
             step_id="init", data_schema=options_schema, errors=errors
         )
-
-def validate_options(user_input, errors):
-    """Validate the options in the OptionsFlow."""
-    for key in [CONF_DISTANCE, CONF_SCAN_INTERVAL, CONF_EMAIL, CONF_PASSWORD]:
-        value = user_input.get(key)
-        if key in [CONF_DISTANCE, CONF_SCAN_INTERVAL]:
-            try:
-                if value is not None:
-                    vol.PositiveInt()(value)
-            except vol.Invalid:
-                _LOGGER.exception("Configuration option %s=%s is incorrect", key, value)
-                errors["base"] = "option_error"
-        elif key in [CONF_EMAIL, CONF_PASSWORD]:
-            if not isinstance(value, str) or not value.strip():
-                errors[key] = "invalid_format"

@@ -1,0 +1,30 @@
+blueprint:
+  name: Foodsharing - Pickup Reminder
+  description: Alert users 1 hour before their scheduled pickup time.
+  domain: automation
+  input:
+    foodsharing_calendar:
+      name: Foodsharing Calendar
+      description: The calendar entity for foodsharing pickups
+      selector:
+        entity:
+          domain: calendar
+    notify_device:
+      name: Notification Device
+      description: Device that should receive the notification
+      selector:
+        device:
+          integration: mobile_app
+
+trigger:
+  - platform: calendar
+    event: start
+    offset: "-01:00:00"
+    entity_id: !input foodsharing_calendar
+
+action:
+  - domain: mobile_app
+    type: notify
+    device_id: !input notify_device
+    message: "Don't forget your bags! Pickup '{{ trigger.calendar_event.summary }}' starts in 1 hour."
+    title: "Upcoming Foodsharing Pickup"

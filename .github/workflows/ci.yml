@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+          cache: 'pip'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements_test.txt || echo "No requirements_test.txt"
+          pip install ruff mypy pytest pytest-asyncio pytest-homeassistant-custom-component pytest-cov voluptuous aiohttp
+      - name: Run Ruff
+        run: ruff check .
+      - name: Run Mypy
+        run: mypy custom_components/foodsharing
+      - name: Run Tests
+        run: pytest --cov=custom_components.foodsharing tests/

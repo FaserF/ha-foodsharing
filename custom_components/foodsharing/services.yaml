@@ -1,0 +1,10 @@
+request_basket:
+  name: Request Basket
+  description: Requests a specific basket by its ID directly.
+  fields:
+    basket_id:
+      name: Basket ID
+      description: The ID of the foodsharing basket you want to request.
+      required: true
+      selector:
+        text:

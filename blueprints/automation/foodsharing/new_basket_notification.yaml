@@ -1,0 +1,24 @@
+blueprint:
+  name: Foodsharing - Smart Alarm (Keyword Match)
+  description: Send a notification when a new Foodsharing basket matches your keywords.
+  domain: automation
+  input:
+    notify_device:
+      name: Notification Device
+      description: Device that should receive the notification
+      selector:
+        device:
+          integration: mobile_app
+
+trigger:
+  - platform: event
+    event_type: foodsharing_keyword_match
+
+action:
+  - domain: mobile_app
+    type: notify
+    device_id: !input notify_device
+    message: "New Basket nearby! '{{ trigger.event.data.description }}' until {{ trigger.event.data.available_until }}"
+    title: "Foodsharing: Keyword Match!"
+    data:
+      url: "{{ trigger.event.data.maps }}"

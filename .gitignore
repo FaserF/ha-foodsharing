@@ -1,3 +1,19 @@
-# Ignore folders.
 megalinter-reports/
 github_conf/
+tmp_*.py
+__pycache__/
+*.py[cod]
+.DS_Store
+.env
+.venv
+venv/
+.idea/
+.vscode/
+dist/
+*.egg-info/
+*.txt
+test_api_isolated.py
+test_api_isolated_v2.py
+test_api_signature.py
+/.mypy_cache
+*.log
