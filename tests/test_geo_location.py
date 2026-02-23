@@ -3,7 +3,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-pytest.importorskip("custom_components.foodsharing.geo_location")
+
+# Removed importorskip to surface error
 from custom_components.foodsharing.geo_location import (
     FoodsharingBasketGeoLocation,
     FoodsharingFairteilerGeoLocation,

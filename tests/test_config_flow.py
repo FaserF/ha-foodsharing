@@ -1,6 +1,7 @@
 import pytest
 
-pytest.importorskip("custom_components.foodsharing.config_flow")
+
+# Removed importorskip to surface error
 from custom_components.foodsharing.config_flow import FoodsharingConfigFlow
 
 

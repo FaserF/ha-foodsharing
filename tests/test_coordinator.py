@@ -3,7 +3,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-pytest.importorskip("custom_components.foodsharing.coordinator")
+
+# Remove importorskip to surface error
 from custom_components.foodsharing.coordinator import FoodsharingCoordinator
 
 
