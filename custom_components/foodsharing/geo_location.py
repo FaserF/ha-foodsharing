@@ -6,7 +6,7 @@ from typing import Any
 
 from homeassistant.components.geo_location import GeolocationEvent
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -42,7 +42,8 @@ async def async_setup_entry(
     # Track active entities by (loc_idx, entity_id) composite key
     active_entities: dict[str, GeolocationEvent] = {}
 
-    async def async_update_entities() -> None:
+    @callback
+    def async_update_entities() -> None:
         """Update active geo-locations for all locations in this entry."""
         if not coordinator.data:
             return
@@ -124,7 +125,7 @@ async def async_setup_entry(
     entry.async_on_unload(unsub)
 
     # Initial load
-    await async_update_entities()
+    async_update_entities()
 
 
 class FoodsharingBasketGeoLocation(CoordinatorEntity[FoodsharingCoordinator], GeolocationEvent):  # type: ignore[misc]

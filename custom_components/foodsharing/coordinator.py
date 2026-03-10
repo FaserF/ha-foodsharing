@@ -105,7 +105,10 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
                 return await self._fetch_all_data()
 
             if login_res == "2fa_required":
-                _LOGGER.info("2FA required for %s, starting re-auth flow.", self.email)
+                _LOGGER.info(
+                    "2FA required for %s, starting re-auth flow.",
+                    f"{self.email[:1]}***@{self.email.split('@')[-1]}" if "@" in self.email else "***",
+                )
                 for entry in self.entries.values():
                     entry.async_start_reauth(self.hass)
                 raise ConfigEntryAuthFailed("2FA required for Foodsharing account") from err
@@ -239,7 +242,10 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
                     elif response.status == 400:
                         body = await response.json()
                         if body.get("code") == "2fa_required":
-                            _LOGGER.info("2FA required for user %s", self.email)
+                            _LOGGER.info(
+                                "2FA required for user %s",
+                                f"{self.email[:1]}***@{self.email.split('@')[-1]}" if "@" in self.email else "***",
+                            )
                             return "2fa_required"
 
                         _LOGGER.error("Login failed with status 400: %s", body)
@@ -249,7 +255,11 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
                         _LOGGER.error("Login failed with status %s: %s", response.status, body)
                         return False
         except Exception as e:
-            _LOGGER.error("Error during login for %s: %s", self.email, e)
+            _LOGGER.error(
+                "Error during login for %s: %s",
+                f"{self.email[:1]}***@{self.email.split('@')[-1]}" if "@" in self.email else "***",
+                e,
+            )
             return False
 
     async def fetch_unread_messages(self) -> int:

@@ -81,6 +81,7 @@
       "invalid_auth": "Invalid email or password.",
       "invalid_totp": "The TOTP code entered is incorrect or expired.",
       "cannot_connect": "Cannot connect.",
+      "2fa_required": "Two-factor authentication required.",
       "unknown": "Unexpected error occurred."
     }
   },

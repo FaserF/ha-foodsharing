@@ -110,15 +110,19 @@ async def test_coordinator_fetch_bells(mock_session):
 async def test_coordinator_beta_api_url(mock_session):
     """Test that coordinator switch base_url when Beta API is enabled."""
     hass = MagicMock()
-    # 1. Start with no beta
-    coordinator = FoodsharingCoordinator(hass, "test@test.com", "pass")
-    assert coordinator.base_url == "https://foodsharing.de"
+    with patch(
+        "custom_components.foodsharing.coordinator.async_get_clientsession",
+        return_value=mock_session,
+    ):
+        # 1. Start with no beta
+        coordinator = FoodsharingCoordinator(hass, "test@test.com", "pass")
+        assert coordinator.base_url == "https://foodsharing.de"
 
-    # 2. Add entry with beta enabled
-    mock_entry = _make_entry({"use_beta_api": True})
-    mock_entry.entry_id = "beta_entry"
-    coordinator.add_entry(mock_entry)
-    assert coordinator.base_url == "https://beta.foodsharing.de"
+        # 2. Add entry with beta enabled
+        mock_entry = _make_entry({"use_beta_api": True})
+        mock_entry.entry_id = "beta_entry"
+        coordinator.add_entry(mock_entry)
+        assert coordinator.base_url == "https://beta.foodsharing.de"
 
     # 3. Remove entry
     coordinator.remove_entry("beta_entry")
@@ -128,15 +132,19 @@ async def test_coordinator_beta_api_url(mock_session):
 async def test_coordinator_refresh_interval_update(mock_session):
     """Test that coordinator updates its refresh interval correctly."""
     hass = MagicMock()
-    coordinator = FoodsharingCoordinator(hass, "test@test.com", "pass")
+    with patch(
+        "custom_components.foodsharing.coordinator.async_get_clientsession",
+        return_value=mock_session,
+    ):
+        coordinator = FoodsharingCoordinator(hass, "test@test.com", "pass")
 
-    # Default is 2 minutes (set in __init__)
-    # After add_entry, it should take the value from data/options
-    mock_entry = _make_entry({"scan_interval": 5})
-    mock_entry.entry_id = "test_entry"
+        # Default is 2 minutes (set in __init__)
+        # After add_entry, it should take the value from data/options
+        mock_entry = _make_entry({"scan_interval": 5})
+        mock_entry.entry_id = "test_entry"
 
-    coordinator.add_entry(mock_entry)
-    assert coordinator.update_interval == timedelta(minutes=5)
+        coordinator.add_entry(mock_entry)
+        assert coordinator.update_interval == timedelta(minutes=5)
 
 @pytest.mark.asyncio
 async def test_coordinator_fetch_bells_fires_event(mock_session):

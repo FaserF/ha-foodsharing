@@ -20,12 +20,27 @@
         "data": {
           "code": "6-stelliger TOTP-Code"
         }
+      },
+      "add_location": {
+        "title": "Zusätzliche Standorte",
+        "description": "Du kannst mehrere Standorte überwachen. Möchtest du einen weiteren Standort hinzufügen?",
+        "data": {
+          "add_another": "Weiteren Standort hinzufügen"
+        }
+      },
+      "extra_location": {
+        "title": "Standort hinzufügen",
+        "description": "Wähle einen zusätzlichen Standort auf der Karte aus.",
+        "data": {
+          "location": "Standort (Pin auf Karte)"
+        }
       }
     },
     "error": {
       "invalid_auth": "Ungültige E-Mail oder Passwort.",
       "invalid_totp": "Der eingegebene TOTP-Code ist falsch oder abgelaufen. Bitte versuche es erneut.",
       "cannot_connect": "Verbindung zum Server fehlgeschlagen, bitte überprüfe dein Netzwerk und versuche es erneut.",
+      "2fa_required": "Authentifizierung erfordert einen zweiten Faktor (2FA)",
       "unknown": "Ein unerwarteter Fehler ist aufgetreten."
     },
     "abort": {
@@ -40,11 +55,25 @@
         "data": {
           "email": "E-Mail",
           "password": "Passwort",
-          "location": "Standort (Pin auf Karte)",
+          "location": "Hauptstandort (Pin auf Karte)",
           "distance": "Suchradius (km)",
           "keywords": "Schlüsselwörter (kommagetrennt)",
           "scan_interval": "Aktualisierungsintervall (Minuten)",
           "use_beta_api": "Beta API nutzen (beta.foodsharing.de)"
+        }
+      },
+      "manage_locations": {
+        "title": "Standorte verwalten",
+        "description": "Du hast derzeit {count} Standort(e) konfiguriert. Möchtest du einen weiteren hinzufügen?",
+        "data": {
+          "add_another": "Weiteren Standort hinzufügen"
+        }
+      },
+      "extra_location_option": {
+        "title": "Standort hinzufügen",
+        "description": "Wähle einen zusätzlichen Standort auf der Karte aus.",
+        "data": {
+          "location": "Standort (Pin auf Karte)"
         }
       }
     },
@@ -52,6 +81,7 @@
       "invalid_auth": "Ungültige E-Mail oder Passwort.",
       "invalid_totp": "Der eingegebene TOTP-Code ist falsch oder abgelaufen.",
       "cannot_connect": "Verbindung fehlgeschlagen.",
+      "2fa_required": "Zwei-Faktor-Authentisierung erforderlich.",
       "unknown": "Ein unerwarteter Fehler ist aufgetreten."
     }
   },

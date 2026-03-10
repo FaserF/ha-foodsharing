@@ -76,15 +76,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
             if target_email:
                 if target_email not in accounts:
-                    _LOGGER.error("Foodsharing account %s not found", target_email)
+                    _LOGGER.error(
+                        "Foodsharing account %s not found",
+                        f"{target_email[:1]}***@{target_email.split('@')[-1]}" if "@" in target_email else "***",
+                    )
                     return
                 coordinator = accounts[target_email]
             else:
                 if len(accounts) > 1:
+                    first_email = next(iter(accounts))
                     _LOGGER.warning(
                         "Multiple Foodsharing accounts found, using the first one (%s). "
                         "Specify 'email' in service call to target a specific account.",
-                        next(iter(accounts))
+                        f"{first_email[:1]}***@{first_email.split('@')[-1]}" if "@" in first_email else "***",
                     )
                 coordinator = next(iter(accounts.values()))
 
@@ -92,7 +96,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             try:
                 async with coordinator.session.post(url, headers=coordinator._headers) as response:
                     if response.status == 200:
-                        _LOGGER.info("Successfully requested basket %s using account %s", basket_id, coordinator.email)
+                        _LOGGER.info(
+                            "Successfully requested basket %s using account %s",
+                            basket_id,
+                            f"{coordinator.email[:1]}***@{coordinator.email.split('@')[-1]}" if "@" in coordinator.email else "***",
+                        )
                         await coordinator.async_request_refresh()
                     else:
                         _LOGGER.error(
@@ -120,15 +128,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
             if email:
                 if email not in accounts:
-                    _LOGGER.error("Foodsharing account %s not found", email)
+                    _LOGGER.error(
+                        "Foodsharing account %s not found",
+                        f"{email[:1]}***@{email.split('@')[-1]}" if "@" in email else "***",
+                    )
                     return
                 coordinator = accounts[email]
             else:
                 if len(accounts) > 1:
+                    first_email = next(iter(accounts))
                     _LOGGER.warning(
                         "Multiple Foodsharing accounts found, using the first one (%s). "
                         "Specify 'email' in service call to target a specific account.",
-                        next(iter(accounts))
+                        f"{first_email[:1]}***@{first_email.split('@')[-1]}" if "@" in first_email else "***",
                     )
                 coordinator = next(iter(accounts.values()))
 
@@ -136,7 +148,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             try:
                 async with coordinator.session.post(url, headers=coordinator._headers) as response:
                     if response.status == 200:
-                        _LOGGER.info("Successfully closed own basket %s using account %s", basket_id, coordinator.email)
+                        _LOGGER.info(
+                            "Successfully closed own basket %s using account %s",
+                            basket_id,
+                            f"{coordinator.email[:1]}***@{coordinator.email.split('@')[-1]}" if "@" in coordinator.email else "***",
+                        )
                         await coordinator.async_request_refresh()
                     else:
                         _LOGGER.error(

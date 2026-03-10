@@ -38,3 +38,13 @@ def test_translations_synchronized():
         if "issues" in strings:
             for issue in strings["issues"]:
                 assert issue in translations["issues"], f"Issue '{issue}' missing in {lang_file}"
+
+        # Check options steps
+        if "options" in strings and "step" in strings["options"]:
+            for step in strings["options"]["step"]:
+                assert step in translations["options"]["step"], f"Options step '{step}' missing in {lang_file}"
+
+        # Check options errors
+        if "options" in strings and "error" in strings["options"]:
+            for err in strings["options"]["error"]:
+                assert err in translations["options"]["error"], f"Options error '{err}' missing in {lang_file}"

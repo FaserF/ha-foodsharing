@@ -78,11 +78,11 @@ async def async_setup_entry(
             current_unique_ids.add(unique_id)
 
             if unique_id not in active_buttons:
-                button = FoodsharingCloseSlotButton(
+                close_button = FoodsharingCloseSlotButton(
                     coordinator, email, slot_idx
                 )
-                active_buttons[unique_id] = button
-                new_entities.append(button)
+                active_buttons[unique_id] = close_button
+                new_entities.append(close_button)
 
         if new_entities:
             async_add_entities(new_entities)
@@ -92,9 +92,9 @@ async def async_setup_entry(
         if stale_ids:
             registry = er.async_get(hass)
             for uid in stale_ids:
-                button = active_buttons.pop(uid)
+                stale_button = active_buttons.pop(uid)
                 # Remove from HASS
-                hass.async_create_task(button.async_remove())
+                hass.async_create_task(stale_button.async_remove())
                 # Also remove from registry so it doesn't show up as 'restored'
                 entity_id = registry.async_get_entity_id("button", DOMAIN, uid)
                 if entity_id:

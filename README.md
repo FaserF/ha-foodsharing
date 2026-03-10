@@ -449,4 +449,4 @@ This integration is built on the **official Foodsharing.de API**. For more infor
 
 ## Thanks to 🙏
 
-A huge thanks to the great IT Team from [Foodsharing](https://devdocs.foodsharing.de) for their easy to use API and great docs, which made this integration possible!
+A huge thanks to the great IT Team from [Foodsharing](https://devdocs.foodsharing.de) for their easy-to-use API and great docs, which made this integration possible!

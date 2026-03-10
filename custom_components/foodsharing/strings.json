@@ -83,6 +83,7 @@
       "cannot_connect": "Cannot connect",
       "invalid_auth": "Invalid authentication credentials",
       "invalid_totp": "Invalid TOTP code",
+      "2fa_required": "Two-factor authentication required",
       "unknown": "Unknown error"
     }
   },

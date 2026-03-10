@@ -33,6 +33,11 @@ async def test_config_flow_user_step_success(mock_session):
         }
 
         result = await flow.async_step_user(user_input)
+        assert result["type"] == "form"
+        assert result["step_id"] == "add_location"
+
+        # Submit add_location form
+        result = await flow.async_step_add_location({"add_another": False})
 
         assert result["type"] == "create_entry"
         assert result["title"] == "test@example.com"
@@ -81,8 +86,13 @@ async def test_config_flow_2fa_required(mock_session):
         mock_session.post.return_value.__aenter__.return_value = mock_response_success
 
         result_totp = await flow.async_step_totp({"code": "123456"})
-        assert result_totp["type"] == "create_entry"
-        assert result_totp["data"]["totp"] == "123456"
+        assert result_totp["type"] == "form"
+        assert result_totp["step_id"] == "add_location"
+
+        # Submit add_location form
+        result = await flow.async_step_add_location({"add_another": False})
+        assert result["type"] == "create_entry"
+        assert result["data"]["totp"] == "123456"
 
 @pytest.mark.asyncio
 async def test_config_flow_user_step_beta_success(mock_session):
@@ -106,6 +116,11 @@ async def test_config_flow_user_step_beta_success(mock_session):
         }
 
         result = await flow.async_step_user(user_input)
+        assert result["type"] == "form"
+        assert result["step_id"] == "add_location"
+
+        # Submit add_location form
+        result = await flow.async_step_add_location({"add_another": False})
 
         assert result["type"] == "create_entry"
         # Verify that BETA endpoint was used

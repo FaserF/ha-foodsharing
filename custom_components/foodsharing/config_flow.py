@@ -50,7 +50,11 @@ async def validate_credentials(
                         # to be safe, OR we check if the ID matches what we expect if we had it.
                         # For simplicity and correctness as requested:
                         # we will skip the short-circuit if we want to be absolutely sure.
-                        _LOGGER.debug("Found existing session for user %s, but proceeding with login to validate %s", current_data["id"], email)
+                        _LOGGER.debug(
+                            "Found existing session for user %s, but proceeding with login to validate %s",
+                            current_data["id"],
+                            f"{email[:1]}***@{email.split('@')[-1]}" if "@" in email else "***",
+                        )
         except Exception as err:
             _LOGGER.debug("Session check failed (ignoring): %s", err)
 
@@ -59,7 +63,12 @@ async def validate_credentials(
         if totp:
             login_payload["code"] = totp
 
-        _LOGGER.debug("Attempting login for %s (TOTP: %s, Beta: %s)", email, "Yes" if totp else "No", use_beta)
+        _LOGGER.debug(
+            "Attempting login for %s (TOTP: %s, Beta: %s)",
+            f"{email[:1]}***@{email.split('@')[-1]}" if "@" in email else "***",
+            "Yes" if totp else "No",
+            use_beta,
+        )
         async with session.post(
             login_url, json=login_payload, timeout=timeout, headers=headers
         ) as response:
@@ -69,29 +78,57 @@ async def validate_credentials(
                 if isinstance(data, dict):
                     user_id = data.get("id") or (data.get("user") or {}).get("id")
 
-                _LOGGER.debug("Login successful for %s, user_id: %s", email, user_id)
+                _LOGGER.debug(
+                    "Login successful for %s, user_id: %s",
+                    f"{email[:1]}***@{email.split('@')[-1]}" if "@" in email else "***",
+                    user_id,
+                )
                 return str(user_id) if user_id else True
 
             elif response.status == 400:
                 try:
                     body = await response.json()
                     if isinstance(body, dict) and body.get("code") == "2fa_required":
-                        _LOGGER.debug("2FA required for %s", email)
+                        _LOGGER.debug(
+                            "2FA required for %s",
+                            f"{email[:1]}***@{email.split('@')[-1]}" if "@" in email else "***",
+                        )
                         return {"2fa_required": True}
-                    _LOGGER.warning("Login failed (400) for %s: %s", email, body)
+                    _LOGGER.warning(
+                        "Login failed (400) for %s: %s",
+                        f"{email[:1]}***@{email.split('@')[-1]}" if "@" in email else "***",
+                        body,
+                    )
                 except Exception:
                     text = await response.text()
-                    _LOGGER.warning("Login failed (400) for %s with non-JSON body: %s", email, text)
+                    _LOGGER.warning(
+                        "Login failed (400) for %s with non-JSON body: %s",
+                        f"{email[:1]}***@{email.split('@')[-1]}" if "@" in email else "***",
+                        text,
+                    )
                 return False
             else:
                 body = await response.text()
-                _LOGGER.warning("Login failed with status %s for %s: %s", response.status, email, body)
+                _LOGGER.warning(
+                    "Login failed with status %s for %s: %s",
+                    response.status,
+                    f"{email[:1]}***@{email.split('@')[-1]}" if "@" in email else "***",
+                    body,
+                )
                 return False
     except (TimeoutError, aiohttp.ClientError) as err:
-        _LOGGER.error("Error validating credentials for %s (network/timeout): %s", email, err)
+        _LOGGER.error(
+            "Error validating credentials for %s (network/timeout): %s",
+            f"{email[:1]}***@{email.split('@')[-1]}" if "@" in email else "***",
+            err,
+        )
         return "cannot_connect"
     except Exception as err:
-        _LOGGER.exception("Unexpected error validating credentials for %s: %s", email, err)
+        _LOGGER.exception(
+            "Unexpected error validating credentials for %s: %s",
+            f"{email[:1]}***@{email.split('@')[-1]}" if "@" in email else "***",
+            err,
+        )
         return False
 
 
@@ -317,7 +354,10 @@ class FoodsharingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # type: 
             await self.async_set_unique_id(unique_id)
             self._abort_if_unique_id_configured()
 
-            _LOGGER.debug("Initialized new foodsharing entry for: %s", email)
+            _LOGGER.debug(
+                "Initialized new foodsharing entry for: %s",
+                f"{email[:1]}***@{email.split('@')[-1]}" if "@" in email else "***",
+            )
             return self.async_create_entry(title=email, data=user_input)
         except Exception as err:
             _LOGGER.exception("Unexpected error in _async_finish_setup: %s", err)
@@ -370,7 +410,16 @@ class OptionsFlowHandler(config_entries.OptionsFlow):  # type: ignore[misc]
             if not errors:
                 self._user_input = dict(user_input)
                 if CONF_LOCATION in user_input:
-                    self._locations = [_location_to_dict(user_input[CONF_LOCATION])]
+                    new_primary = _location_to_dict(user_input[CONF_LOCATION])
+                    # Merge primary location into existing CONF_LOCATIONS list
+                    existing_locs: list[dict[str, Any]] = list(
+                        self.config_entry.data.get(CONF_LOCATIONS, [])
+                    )
+                    if existing_locs:
+                        existing_locs[0] = new_primary
+                    else:
+                        existing_locs = [new_primary]
+                    self._locations = existing_locs
                 return await self.async_step_manage_locations()
 
         options = {**self.config_entry.data, **self.config_entry.options}
@@ -478,11 +527,33 @@ class OptionsFlowHandler(config_entries.OptionsFlow):  # type: ignore[misc]
         new_email = user_input.get(CONF_EMAIL)
 
         if new_email and new_email != current_email:
-            _LOGGER.debug("Email changed from %s to %s, updating config entry", current_email, new_email)
+            new_unique_id = new_email.lower()
+            # Check for unique_id collisions
+            existing_entry = next(
+                (
+                    e
+                    for e in self.hass.config_entries.async_entries(DOMAIN)
+                    if e.unique_id == new_unique_id and e.entry_id != self.config_entry.entry_id
+                ),
+                None,
+            )
+            if existing_entry:
+                _LOGGER.error(
+                    "Cannot change email to %s: another entry already exists for this account",
+                    f"{new_email[:1]}***@{new_email.split('@')[-1]}" if "@" in new_email else "***",
+                )
+                # We return an abort here because we can't update unique_id to a duplicate
+                return self.async_abort(reason="already_configured")
+
+            _LOGGER.debug(
+                "Email changed from %s to %s, updating config entry",
+                f"{current_email[:1]}***@{current_email.split('@')[-1]}" if current_email and "@" in current_email else "***",
+                f"{new_email[:1]}***@{new_email.split('@')[-1]}" if "@" in new_email else "***",
+            )
             self.hass.config_entries.async_update_entry(
                 self.config_entry,
                 data={**self.config_entry.data, **user_input},
-                unique_id=new_email.lower(),
+                unique_id=new_unique_id,
             )
             # We return an empty entry because we updated the main entry directly
             return self.async_create_entry(title="", data={})
