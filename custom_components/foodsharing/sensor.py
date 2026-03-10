@@ -76,7 +76,8 @@ class FoodsharingSensor(CoordinatorEntity[FoodsharingCoordinator], SensorEntity)
         self.latitude_fs = lat
         self.longitude_fs = lon
 
-        self._attr_name = f"Foodsharing Baskets {lat}, {lon}"
+        self._attr_has_entity_name = True
+        self._attr_name = "Baskets"
         self._attr_unique_id = f"Foodsharing-Baskets-{entry.entry_id}-{loc_idx}"
         self._attr_icon = "mdi:basket-unfill"
         self._attr_native_unit_of_measurement = "baskets"
@@ -125,7 +126,8 @@ class FoodsharingMessagesSensor(CoordinatorEntity[FoodsharingCoordinator], Senso
     def __init__(self, coordinator: FoodsharingCoordinator, email: str) -> None:
         super().__init__(coordinator)
         self.email = email
-        self._attr_name = "Foodsharing Unread Messages"
+        self._attr_has_entity_name = True
+        self._attr_name = "Unread Messages"
         self._attr_unique_id = f"Foodsharing-Messages-{email}"
         self._attr_icon = "mdi:message"
         self._attr_native_unit_of_measurement = "messages"
@@ -152,7 +154,8 @@ class FoodsharingBellsSensor(CoordinatorEntity[FoodsharingCoordinator], SensorEn
     def __init__(self, coordinator: FoodsharingCoordinator, email: str) -> None:
         super().__init__(coordinator)
         self.email = email
-        self._attr_name = "Foodsharing Notifications"
+        self._attr_has_entity_name = True
+        self._attr_name = "Notifications"
         self._attr_unique_id = f"Foodsharing-Bells-{email}"
         self._attr_icon = "mdi:bell"
         self._attr_native_unit_of_measurement = "notifications"
@@ -179,7 +182,8 @@ class FoodsharingPickupsSensor(CoordinatorEntity[FoodsharingCoordinator], Sensor
     def __init__(self, coordinator: FoodsharingCoordinator, email: str) -> None:
         super().__init__(coordinator)
         self.email = email
-        self._attr_name = "Foodsharing Upcoming Pickups"
+        self._attr_has_entity_name = True
+        self._attr_name = "Upcoming Pickups"
         self._attr_unique_id = f"Foodsharing-Pickups-{email}"
         self._attr_icon = "mdi:calendar-clock"
         self._attr_native_unit_of_measurement = "pickups"

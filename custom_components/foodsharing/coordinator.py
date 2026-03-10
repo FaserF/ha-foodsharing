@@ -141,7 +141,7 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
             if isinstance(res, AuthenticationFailed):
                 raise res
 
-        messages, bells, pickups, own_baskets = [(r if not isinstance(r, Exception) else (0 if i < 2 else [])) for i, r in enumerate(account_results)]
+        messages, bells, pickups, own_baskets = self._normalize_account_results(account_results)
 
         location_data: dict[str, list[dict[str, Any]]] = {}
         task_meta: list[tuple[str, int]] = []
@@ -162,12 +162,12 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
                 )
 
         location_results = await asyncio.gather(*location_tasks, return_exceptions=True)
-        for (entry_id, idx), res in zip(task_meta, location_results):
+        for (entry_id, idx), res in zip(task_meta, location_results, strict=True):
             if isinstance(res, AuthenticationFailed):
                 raise res
-            if not isinstance(res, Exception):
+            if isinstance(res, dict):
                 location_data[entry_id][idx] = res
-            else:
+            elif isinstance(res, Exception):
                 _LOGGER.error(
                     "Error fetching location data for entry %s location %d: %s",
                     entry_id, idx, res,
@@ -239,8 +239,8 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
                     elif response.status == 400:
                         body = await response.json()
                         if body.get("code") == "2fa_required":
-                             _LOGGER.info("2FA required for user %s", self.email)
-                             return "2fa_required"
+                            _LOGGER.info("2FA required for user %s", self.email)
+                            return "2fa_required"
 
                         _LOGGER.error("Login failed with status 400: %s", body)
                         return False
@@ -322,6 +322,8 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
                         return unread_count
                 elif response.status == 401:
                     raise AuthenticationFailed("Unauthorized access while fetching notifications.")
+        except (AuthenticationFailed, UpdateFailed):
+            raise
         except Exception as e:
             _LOGGER.debug("Error fetching bells: %s", e)
             return 0
@@ -485,6 +487,8 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
                                             )
                             elif wall_res.status == 401:
                                 raise AuthenticationFailed("Unauthorized access while fetching fairteiler wall.")
+                    except AuthenticationFailed:
+                        raise
                     except Exception as e:
                         _LOGGER.debug(
                             "Error fetching wall for fairteiler %s: %s",
@@ -544,6 +548,8 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
             if wall_tasks:
                 await asyncio.gather(*wall_tasks)
 
+        except (AuthenticationFailed, asyncio.CancelledError):
+            raise
         except Exception:
             return []
 
@@ -582,6 +588,8 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
                     _LOGGER.error(
                         "Error fetching pickups: HTTP %s - %s", response.status, body
                     )
+        except (AuthenticationFailed, UpdateFailed):
+            raise
         except Exception as e:
             _LOGGER.error("Error fetching pickups: %s", e)
         return []
@@ -612,6 +620,16 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
                         response.status
                     )
                     return []
+        except AuthenticationFailed:
+            raise
         except Exception as e:
             _LOGGER.debug("Error fetching own baskets: %s", e)
         return []
+
+    def _normalize_account_results(self, results: list[Any]) -> tuple[int, int, list[dict], list[dict]]:
+        """Normalize account results, using defaults for failures."""
+        messages = results[0] if not isinstance(results[0], Exception) else 0
+        bells = results[1] if not isinstance(results[1], Exception) else 0
+        pickups = results[2] if not isinstance(results[2], Exception) else []
+        own_baskets = results[3] if not isinstance(results[3], Exception) else []
+        return messages, bells, pickups, own_baskets

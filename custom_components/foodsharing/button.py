@@ -17,6 +17,10 @@ from .helpers import get_locations_from_entry
 
 _LOGGER = logging.getLogger(__name__)
 
+# Global registry to track active button entities across multiple config entries for the same account (email).
+# Format: { email: { unique_id: ButtonEntity } }
+ACTIVE_BUTTONS: dict[str, dict[str, ButtonEntity]] = {}
+
 
 async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
@@ -27,8 +31,10 @@ async def async_setup_entry(
     ]
     email = coordinator.email
 
-    # Keep track of active button entities by their unique_id
-    active_buttons: dict[str, ButtonEntity] = {}
+    # Get or create the account-wide button registry for this email
+    if email not in ACTIVE_BUTTONS:
+        ACTIVE_BUTTONS[email] = {}
+    active_buttons = ACTIVE_BUTTONS[email]
 
     @callback
     def async_update_entities() -> None:
@@ -48,7 +54,7 @@ async def async_setup_entry(
         for loc_idx, loc in enumerate(locations):
             if loc_idx >= len(entry_locs):
                 continue
-            
+
             baskets = entry_locs[loc_idx].get("baskets", [])
             lat = loc["latitude"]
             lon = loc["longitude"]
@@ -96,10 +102,18 @@ async def async_setup_entry(
 
     # Initial sync
     async_update_entities()
-    
+
     # Register listener
     unsub = coordinator.async_add_listener(async_update_entities)
     entry.async_on_unload(unsub)
+
+    # Ensure cleanup on unload from the global registry if this was the last entry
+    @callback
+    def async_on_unload() -> None:
+        if not coordinator.entries and email in ACTIVE_BUTTONS:
+            ACTIVE_BUTTONS.pop(email)
+
+    entry.async_on_unload(async_on_unload)
 
 
 class FoodsharingRequestSlotButton(CoordinatorEntity[FoodsharingCoordinator], ButtonEntity):  # type: ignore[misc]
@@ -151,7 +165,9 @@ class FoodsharingRequestSlotButton(CoordinatorEntity[FoodsharingCoordinator], Bu
 
         baskets = entry_locs[self._loc_idx].get("baskets", [])
         if self._slot_idx < len(baskets):
-            return baskets[self._slot_idx]
+            basket = baskets[self._slot_idx]
+            if isinstance(basket, dict):
+                return basket
         return None
 
     @property
@@ -188,7 +204,7 @@ class FoodsharingRequestSlotButton(CoordinatorEntity[FoodsharingCoordinator], Bu
         basket_id = str(basket["id"])
         _LOGGER.info("Button pressed to request basket %s (Slot %s)", basket_id, self._slot_idx)
 
-        url = f"https://foodsharing.de/api/baskets/{basket_id}/request"
+        url = f"{self.coordinator.base_url}/api/baskets/{basket_id}/request"
         try:
             async with self.coordinator.session.post(url, headers=self.coordinator._headers) as response:
                 if response.status == 200:
@@ -238,7 +254,9 @@ class FoodsharingCloseSlotButton(CoordinatorEntity[FoodsharingCoordinator], Butt
         account_data = self.coordinator.data.get("account", {})
         own_baskets = account_data.get("own_baskets", [])
         if self._slot_idx < len(own_baskets):
-            return own_baskets[self._slot_idx]
+            basket = own_baskets[self._slot_idx]
+            if isinstance(basket, dict):
+                return basket
         return None
 
     @property
@@ -271,7 +289,7 @@ class FoodsharingCloseSlotButton(CoordinatorEntity[FoodsharingCoordinator], Butt
         basket_id = str(basket["id"])
         _LOGGER.info("Button pressed to close own basket %s (Slot %s)", basket_id, self._slot_idx)
 
-        url = f"https://foodsharing.de/api/baskets/{basket_id}/close"
+        url = f"{self.coordinator.base_url}/api/baskets/{basket_id}/close"
         try:
             async with self.coordinator.session.post(url, headers=self.coordinator._headers) as response:
                 if response.status == 200:

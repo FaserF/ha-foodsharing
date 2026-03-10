@@ -22,3 +22,5 @@ test_api_signature.py
 *details.txt
 *test*.txt
 *output*.txt
+*mypy*.txt
+*ruff*.txt

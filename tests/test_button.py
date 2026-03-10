@@ -1,12 +1,10 @@
 """Test button platform for Foodsharing."""
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
 from custom_components.foodsharing.button import (
-    BASKET_SLOTS,
-    OWN_BASKET_SLOTS,
     FoodsharingCloseSlotButton,
     FoodsharingRequestSlotButton,
 )

@@ -8,7 +8,15 @@ from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr
 
-from .const import CONF_EMAIL, CONF_LATITUDE_FS, CONF_LONGITUDE_FS, CONF_PASSWORD, CONF_DISTANCE, CONF_LOCATIONS, DOMAIN
+from .const import (
+    CONF_DISTANCE,
+    CONF_EMAIL,
+    CONF_LATITUDE_FS,
+    CONF_LOCATIONS,
+    CONF_LONGITUDE_FS,
+    CONF_PASSWORD,
+    DOMAIN,
+)
 from .coordinator import FoodsharingCoordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -55,7 +63,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         async def handle_request_basket(call: Any) -> None:
             """Handle the request_basket service call."""
             basket_id = call.data.get("basket_id")
-            email = call.data.get("email")
+            target_email = call.data.get("email")
 
             if not basket_id:
                 _LOGGER.error("Service request_basket called without basket_id")
@@ -66,11 +74,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 _LOGGER.error("No Foodsharing accounts configured")
                 return
 
-            if email:
-                if email not in accounts:
-                    _LOGGER.error("Feedsharing account %s not found", email)
+            if target_email:
+                if target_email not in accounts:
+                    _LOGGER.error("Foodsharing account %s not found", target_email)
                     return
-                coordinator = accounts[email]
+                coordinator = accounts[target_email]
             else:
                 if len(accounts) > 1:
                     _LOGGER.warning(
@@ -80,7 +88,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                     )
                 coordinator = next(iter(accounts.values()))
 
-            url = f"https://foodsharing.de/api/baskets/{basket_id}/request"
+            url = f"{coordinator.base_url}/api/baskets/{basket_id}/request"
             try:
                 async with coordinator.session.post(url, headers=coordinator._headers) as response:
                     if response.status == 200:
@@ -124,7 +132,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                     )
                 coordinator = next(iter(accounts.values()))
 
-            url = f"https://foodsharing.de/api/baskets/{basket_id}/close"
+            url = f"{coordinator.base_url}/api/baskets/{basket_id}/close"
             try:
                 async with coordinator.session.post(url, headers=coordinator._headers) as response:
                     if response.status == 200:
@@ -174,9 +182,11 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         # Remove entry from coordinator
         coordinator.remove_entry(entry.entry_id)
 
-        # If no more entries for this account, remove coordinator
+        # If no more entries for this account, remove coordinator and sentinels
         if not coordinator.entries:
             hass.data[DOMAIN]["accounts"].pop(email)
+            hass.data[DOMAIN].pop(f"account_sensors_{email}", None)
+            hass.data[DOMAIN].pop(f"calendars_{email}", None)
 
     return unload_ok
 

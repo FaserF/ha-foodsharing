@@ -3,6 +3,7 @@
     "flow_title": "Setup Foodsharing",
     "step": {
       "user": {
+        "title": "Connect to Foodsharing.de",
         "description": "Select the location on the map to search for baskets within the selected radius. Your email address and password will be used to authenticate with the API.",
         "data": {
           "email": "Email address from your Foodsharing account",
@@ -15,9 +16,24 @@
         }
       },
       "totp": {
+        "title": "Two-Factor Authentication (2FA)",
         "description": "Your account has Two-Factor Authentication enabled. Please enter the matching 6-digit TOTP code from your authenticator app (e.g., Google Authenticator, Authy or your Foodsharing App).",
         "data": {
           "code": "6-digit TOTP Code"
+        }
+      },
+      "add_location": {
+        "title": "Additional Locations",
+        "description": "You can monitor multiple locations. Would you like to add another location?",
+        "data": {
+          "add_another": "Add another location"
+        }
+      },
+      "extra_location": {
+        "title": "Add Location",
+        "description": "Select an additional location on the map.",
+        "data": {
+          "location": "Location (Pin on map)"
         }
       }
     },
@@ -36,6 +52,7 @@
     "flow_title": "Setup Foodsharing Options",
     "step": {
       "init": {
+        "title": "Configure Foodsharing Options",
         "description": "Change the options for the Foodsharing integration.",
         "data": {
           "email": "Email address from your Foodsharing account",
@@ -45,6 +62,20 @@
           "keywords": "Search keywords (comma-separated, optional)",
           "scan_interval": "Scan interval in minutes",
           "use_beta_api": "Use Beta API (beta.foodsharing.de)"
+        }
+      },
+      "manage_locations": {
+        "title": "Manage Locations",
+        "description": "You currently have {count} location(s) configured. Would you like to add another?",
+        "data": {
+          "add_another": "Add another location"
+        }
+      },
+      "extra_location_option": {
+        "title": "Add Location",
+        "description": "Select an additional location on the map.",
+        "data": {
+          "location": "Location (Pin on map)"
         }
       }
     },
@@ -66,4 +97,3 @@
     }
   }
 }
-

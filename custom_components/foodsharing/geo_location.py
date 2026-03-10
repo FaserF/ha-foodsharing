@@ -7,8 +7,8 @@ from typing import Any
 from homeassistant.components.geo_location import GeolocationEvent
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -148,7 +148,7 @@ class FoodsharingBasketGeoLocation(CoordinatorEntity[FoodsharingCoordinator], Ge
         self._home_lat = home_lat
         self._home_lon = home_lon
 
-        self._attr_unique_id = f"foodsharing_basket_{self._basket_id}"
+        self._attr_unique_id = f"foodsharing_basket_{entry.entry_id}_{self._basket_id}"
         self._attr_icon = "mdi:basket"
         self._attr_source = DOMAIN
 
@@ -239,7 +239,7 @@ class FoodsharingFairteilerGeoLocation(CoordinatorEntity[FoodsharingCoordinator]
         self._home_lat = home_lat
         self._home_lon = home_lon
 
-        self._attr_unique_id = f"foodsharing_fairteiler_{loc_idx}_{unique_id}"
+        self._attr_unique_id = f"foodsharing_{entry.entry_id}_fairteiler_{loc_idx}_{unique_id}"
         self._attr_icon = "mdi:storefront"
         self._attr_source = DOMAIN
 
@@ -279,7 +279,7 @@ class FoodsharingFairteilerGeoLocation(CoordinatorEntity[FoodsharingCoordinator]
         for i, fp in enumerate(entry_locs[self._loc_idx].get("fairteiler", [])):
             raw_id = fp.get("id")
             fp_id = f"fp_{raw_id}" if raw_id is not None else f"fp_noid_{i}"
-            if fp_id == self._fp_id:
+            if fp_id == self._fp_id and isinstance(fp, dict):
                 return fp
         return None
 

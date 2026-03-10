@@ -1,4 +1,4 @@
-"""Tests for FoodsharingCoordinator."""
+from datetime import timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -27,8 +27,6 @@ def _make_entry(data_overrides=None):
 @pytest.mark.asyncio
 async def test_coordinator_fetch_pickups(mock_session):
     """Test fetching pickups handles different data structures and the correct endpoint."""
-    mock_entry = _make_entry()
-
     with patch(
         "custom_components.foodsharing.coordinator.async_get_clientsession",
         return_value=mock_session,
@@ -131,19 +129,19 @@ async def test_coordinator_refresh_interval_update(mock_session):
     """Test that coordinator updates its refresh interval correctly."""
     hass = MagicMock()
     coordinator = FoodsharingCoordinator(hass, "test@test.com", "pass")
-    
+
     # Default is 2 minutes (set in __init__)
     # After add_entry, it should take the value from data/options
     mock_entry = _make_entry({"scan_interval": 5})
     mock_entry.entry_id = "test_entry"
-    
+
     coordinator.add_entry(mock_entry)
-    from datetime import timedelta
     assert coordinator.update_interval == timedelta(minutes=5)
 
 @pytest.mark.asyncio
-async def test_coordinator_fetch_bells_fires_event(mock_session, hass):
+async def test_coordinator_fetch_bells_fires_event(mock_session):
     """Test that fetch_bells fires an event for new notifications."""
+    hass = MagicMock(bus=MagicMock())
     with patch(
         "custom_components.foodsharing.coordinator.async_get_clientsession",
         return_value=mock_session,
@@ -162,7 +160,7 @@ async def test_coordinator_fetch_bells_fires_event(mock_session, hass):
         hass.bus.async_fire = MagicMock()
 
         await coordinator.fetch_bells()
-        
+
         # Verify event was fired
         hass.bus.async_fire.assert_called_once()
         args, _ = hass.bus.async_fire.call_args

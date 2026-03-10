@@ -44,8 +44,13 @@ async def validate_credentials(
                 if current_resp.status == 200:
                     current_data = await current_resp.json()
                     if isinstance(current_data, dict) and "id" in current_data:
-                        _LOGGER.debug("Already logged in as user %s", current_data["id"])
-                        return str(current_data["id"])
+                        # Validate that the current session belongs to the requested email
+                        # The API doesn't always return the email in /user/current,
+                        # so if we are provided a password, we should probably just login anyway
+                        # to be safe, OR we check if the ID matches what we expect if we had it.
+                        # For simplicity and correctness as requested:
+                        # we will skip the short-circuit if we want to be absolutely sure.
+                        _LOGGER.debug("Found existing session for user %s, but proceeding with login to validate %s", current_data["id"], email)
         except Exception as err:
             _LOGGER.debug("Session check failed (ignoring): %s", err)
 
@@ -229,6 +234,11 @@ class FoodsharingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # type: 
                     errors["base"] = "invalid_totp"
                 else:
                     self._user_input[CONF_TOTP] = code
+                    if self.context.get("source") == config_entries.SOURCE_REAUTH:
+                        entry = self._get_reauth_entry()
+                        new_data = {**self._user_input}
+                        return self.async_update_reload_and_abort(entry, data=new_data)
+
                     if CONF_LOCATION in self._user_input:
                         self._locations = [_location_to_dict(self._user_input[CONF_LOCATION])]
                     return await self.async_step_add_location()
@@ -349,6 +359,11 @@ class OptionsFlowHandler(config_entries.OptionsFlow):  # type: ignore[misc]
                 )
                 if is_valid == "cannot_connect":
                     errors["base"] = "cannot_connect"
+                elif isinstance(is_valid, dict) and is_valid.get("2fa_required"):
+                    errors["base"] = "2fa_required"
+                    # We don't have a dedicated TOTP step for options yet,
+                    # but we should at least block and show the error.
+                    # Actually the prompt says "invoke the 2FA handling flow ... or set errors['base']='2fa_required'"
                 elif not is_valid:
                     errors["base"] = "invalid_auth"
 
@@ -457,4 +472,19 @@ class OptionsFlowHandler(config_entries.OptionsFlow):  # type: ignore[misc]
             user_input[CONF_DISTANCE] = primary["distance"]
 
         user_input[CONF_LOCATIONS] = self._locations
+
+        # Check if email changed and update config entry data/unique_id
+        current_email = self.config_entry.data.get(CONF_EMAIL)
+        new_email = user_input.get(CONF_EMAIL)
+
+        if new_email and new_email != current_email:
+            _LOGGER.debug("Email changed from %s to %s, updating config entry", current_email, new_email)
+            self.hass.config_entries.async_update_entry(
+                self.config_entry,
+                data={**self.config_entry.data, **user_input},
+                unique_id=new_email.lower(),
+            )
+            # We return an empty entry because we updated the main entry directly
+            return self.async_create_entry(title="", data={})
+
         return self.async_create_entry(title="", data=user_input)

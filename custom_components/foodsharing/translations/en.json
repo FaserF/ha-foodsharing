@@ -40,6 +40,7 @@
       "invalid_auth": "Invalid email or password.",
       "invalid_totp": "The TOTP code entered is incorrect or expired. Please try again.",
       "cannot_connect": "Cannot connect to the server, please check your network and try again.",
+      "2fa_required": "Authentication requires a second factor (2FA)",
       "unknown": "Unexpected error occurred."
     },
     "abort": {
@@ -55,6 +56,7 @@
           "email": "Email",
           "password": "Password",
           "location": "Primary Location (Pin on map)",
+          "distance": "Search Radius (km)",
           "keywords": "Keywords (comma-separated)",
           "scan_interval": "Update Interval (minutes)",
           "use_beta_api": "Use Beta API (beta.foodsharing.de)"

@@ -123,8 +123,8 @@ All options can be changed later via **Settings → Devices & Services → Foods
 
 | Entity | Type | Description |
 |--------|------|-------------|
-| `button.foodsharing_*_request_basket_*` | Button | Static slots (1-10) to request nearby baskets for a specific location. Name updates dynamically. |
-| `button.foodsharing_*_close_basket_*` | Button | Static slots (1-5) to close your own active baskets. Name updates dynamically. |
+| `button.foodsharing_<entry_id>_loc_<idx>_request_basket_<slot>` | Button | **Dynamic**: Requests the N-th available basket at the location. These entities are created dynamically based on the current number of nearby baskets. |
+| `button.foodsharing_<email>_close_basket_<slot>` | Button | **Dynamic**: Closes the N-th own active basket. These entities are created dynamically based on your own active baskets. |
 
 ### Services
 

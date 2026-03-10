@@ -23,3 +23,23 @@ def get_locations_from_entry(entry: ConfigEntry) -> list[dict]:
     if lat is not None and lon is not None:
         return [{"latitude": lat, "longitude": lon, "distance": dist}]
     return []
+
+
+def parse_extra_locations(text: str) -> list[dict[str, float]]:
+    """Parse extra locations from a semicolon-separated string of lat,lon,dist."""
+    locations: list[dict[str, float]] = []
+    if not text:
+        return locations
+
+    for part in text.split(";"):
+        try:
+            coords = [p.strip() for p in part.split(",") if p.strip()]
+            if len(coords) < 2:
+                continue
+            lat = float(coords[0])
+            lon = float(coords[1])
+            dist = float(coords[2]) if len(coords) > 2 else 7.0
+            locations.append({"latitude": lat, "longitude": lon, "distance": dist})
+        except (ValueError, IndexError):
+            continue
+    return locations
