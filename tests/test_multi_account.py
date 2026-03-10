@@ -21,6 +21,8 @@ def mock_hass():
     """Mock HomeAssistant."""
     hass = MagicMock(spec=HomeAssistant)
     hass.data = {DOMAIN: {"accounts": {}}}
+    hass.services = MagicMock()
+    hass.bus = MagicMock()
     return hass
 
 @pytest.mark.asyncio

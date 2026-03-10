@@ -17,6 +17,7 @@ def mock_coordinator():
     coordinator.email = "test@example.com"
     coordinator.last_update_success = True
     coordinator.session = AsyncMock()
+    coordinator.base_url = "https://foodsharing.de"
     coordinator._headers = {"Authorization": "Bearer test"}
 
     # Mock data structure
@@ -84,9 +85,10 @@ async def test_request_button_press(mock_coordinator, mock_entry):
     )
 
     # Mock response
-    mock_response = AsyncMock()
+    mock_response = MagicMock()
     mock_response.status = 200
-    mock_response.__aenter__.return_value = mock_response
+    mock_response.__aenter__ = AsyncMock(return_value=mock_response)
+    mock_response.__aexit__ = AsyncMock()
     mock_coordinator.session.post.return_value = mock_response
 
     await button.async_press()
@@ -124,9 +126,10 @@ async def test_close_button_press(mock_coordinator):
     )
 
     # Mock response
-    mock_response = AsyncMock()
+    mock_response = MagicMock()
     mock_response.status = 200
-    mock_response.__aenter__.return_value = mock_response
+    mock_response.__aenter__ = AsyncMock(return_value=mock_response)
+    mock_response.__aexit__ = AsyncMock()
     mock_coordinator.session.post.return_value = mock_response
 
     await button.async_press()

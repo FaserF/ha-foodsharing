@@ -17,7 +17,7 @@ def test_sensor_init():
     mock_coordinator.email = "test@example.com"
 
     sensor = FoodsharingSensor(mock_coordinator, mock_entry, loc_idx=0, lat=50.0, lon=10.0)
-    assert sensor.name == "Foodsharing Baskets 50.0, 10.0"
+    assert sensor.name == "Baskets"
     assert sensor._attr_unique_id == f"Foodsharing-Baskets-{mock_entry.entry_id}-0"
 
 

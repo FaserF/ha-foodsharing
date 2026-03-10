@@ -47,7 +47,7 @@ async def test_coordinator_fetch_pickups(mock_session):
         # Verify endpoint and headers
         mock_session.get.assert_called_with(
             "https://foodsharing.de/api/users/current/pickups/registered",
-            headers={},
+            headers={"User-Agent": "HomeAssistant-Foodsharing/1.0 (+https://github.com/FaserF/ha-foodsharing)"},
         )
 
         # 2. Test successful dictionary return ("pickups" key)

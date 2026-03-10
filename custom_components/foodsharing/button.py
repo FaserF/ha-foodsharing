@@ -171,6 +171,11 @@ class FoodsharingRequestSlotButton(CoordinatorEntity[FoodsharingCoordinator], Bu
         return None
 
     @property
+    def available(self) -> bool:
+        """Return True if the slot is occupied by a basket."""
+        return super().available and self._get_basket() is not None
+
+    @property
     def name(self) -> str:
         """Return the static name of the button."""
         basket = self._get_basket()
@@ -258,6 +263,10 @@ class FoodsharingCloseSlotButton(CoordinatorEntity[FoodsharingCoordinator], Butt
             if isinstance(basket, dict):
                 return basket
         return None
+    @property
+    def available(self) -> bool:
+        """Return True if the slot is occupied by a basket."""
+        return super().available and self._get_basket() is not None
 
     @property
     def name(self) -> str:

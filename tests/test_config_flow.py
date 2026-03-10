@@ -1,4 +1,4 @@
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -16,7 +16,8 @@ async def test_config_flow_version() -> None:
 async def test_config_flow_user_step_success(mock_session):
     """Test successful user step (no 2FA)."""
     flow = FoodsharingConfigFlow()
-    flow.hass = AsyncMock()
+    flow.hass = MagicMock() # Use MagicMock to avoid coroutine issues with sync methods
+    flow.hass.config_entries.flow.async_progress_by_handler.return_value = []
 
     with patch("custom_components.foodsharing.config_flow.async_get_clientsession", return_value=mock_session):
         # Mock successful login
@@ -52,7 +53,8 @@ async def test_config_flow_user_step_success(mock_session):
 async def test_config_flow_2fa_required(mock_session):
     """Test scenario where 2FA is required."""
     flow = FoodsharingConfigFlow()
-    flow.hass = AsyncMock()
+    flow.hass = MagicMock() # Use MagicMock to avoid coroutine issues with sync methods
+    flow.hass.config_entries.flow.async_progress_by_handler.return_value = []
 
     with patch("custom_components.foodsharing.config_flow.async_get_clientsession", return_value=mock_session):
         # Mock 2FA required response
@@ -98,7 +100,8 @@ async def test_config_flow_2fa_required(mock_session):
 async def test_config_flow_user_step_beta_success(mock_session):
     """Test successful user step with Beta API enabled."""
     flow = FoodsharingConfigFlow()
-    flow.hass = AsyncMock()
+    flow.hass = MagicMock() # Use MagicMock to avoid coroutine issues with sync methods
+    flow.hass.config_entries.flow.async_progress_by_handler.return_value = []
 
     with patch("custom_components.foodsharing.config_flow.async_get_clientsession", return_value=mock_session):
         # Mock successful login on BETA endpoint
@@ -136,7 +139,8 @@ async def test_config_flow_user_step_beta_success(mock_session):
 async def test_config_flow_totp_unknown_error(mock_session):
     """Test scenario where TOTP submission results in an unexpected error."""
     flow = FoodsharingConfigFlow()
-    flow.hass = AsyncMock()
+    flow.hass = MagicMock() # Use MagicMock to avoid coroutine issues with sync methods
+    flow.hass.config_entries.flow.async_progress_by_handler.return_value = []
     flow._user_input = {
         CONF_EMAIL: "test@example.com",
         CONF_PASSWORD: "password",
