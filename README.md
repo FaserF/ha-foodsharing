@@ -3,7 +3,7 @@
 
 # Foodsharing.de Home Assistant Integration 🧺
 
-A comprehensive [Home Assistant](https://www.home-assistant.io/) custom integration for [Foodsharing.de](https://foodsharing.de/) — monitor nearby food baskets, fairteiler locations, pickup schedules, messages, and notifications directly from your smart home dashboard.
+A comprehensive [Home Assistant](https://www.home-assistant.io/) custom integration for [Foodsharing.de](https://foodsharing.de/) — monitor nearby food baskets, fairteiler locations, pickup schedules, messages, and notifications directly from your smart home dashboard. This integration utilizes the official Foodsharing.de API.
 
 <p align="center">
   <img src="https://upload.wikimedia.org/wikipedia/commons/1/16/Foodsharing-Logo_dunkel_Gabel.png" alt="Foodsharing.de" width="280">
@@ -29,6 +29,23 @@ A comprehensive [Home Assistant](https://www.home-assistant.io/) custom integrat
 | 🩺 **HA Repairs** | Automatic repair notifications for authentication failures or API outages |
 | 📊 **Diagnostics** | Built-in diagnostics support with automatic redaction of sensitive data |
 | 🌐 **Translations** | Full English and German translations |
+
+---
+
+## ❤️ Support This Project
+
+> I maintain this integration in my **free time alongside my regular job** — bug hunting, new features, testing on real devices. Test hardware costs money, and every donation helps me stay independent and dedicate more time to open-source work.
+>
+> **This project is and will always remain 100% free.** There are no "Premium Upgrades", paid features, or subscriptions. Every feature is available to everyone.
+>
+> Donations are completely voluntary — but the more support I receive, the less I depend on other income sources and the more time I can realistically invest into these projects. 💪
+
+<div align="center">
+
+[![GitHub Sponsors](https://img.shields.io/badge/Sponsor%20on-GitHub-%23EA4AAA?style=for-the-badge&logo=github-sponsors&logoColor=white)](https://github.com/sponsors/FaserF)&nbsp;&nbsp;
+[![PayPal](https://img.shields.io/badge/Donate%20via-PayPal-%2300457C?style=for-the-badge&logo=paypal&logoColor=white)](https://paypal.me/FaserF)
+
+</div>
 
 ---
 
@@ -106,14 +123,15 @@ All options can be changed later via **Settings → Devices & Services → Foods
 
 | Entity | Type | Description |
 |--------|------|-------------|
-| `button.request_*` | Button | Request a nearby basket |
-| `button.close_own_basket_*` | Button | Close one of your own active baskets |
+| `button.foodsharing_*_request_basket_*` | Button | Static slots (1-10) to request nearby baskets for a specific location. Name updates dynamically. |
+| `button.foodsharing_*_close_basket_*` | Button | Static slots (1-5) to close your own active baskets. Name updates dynamically. |
 
 ### Services
 
 | Service | Description | Fields |
 |---------|-------------|--------|
-| `foodsharing.request_basket` | Request a basket by ID | `basket_id` (required) |
+| `foodsharing.request_basket` | Request a basket by ID | `basket_id` (required), `email` (optional) |
+| `foodsharing.close_basket` | Close your own active basket by ID | `basket_id` (required), `email` (optional) |
 
 ---
 
@@ -147,30 +165,71 @@ The integration fires custom events that you can use as automation triggers:
 
 ---
 
+## HA-Whatsapp Support
+
+> [!TIP]
+> This integration works perfectly with the [Home Assistant WhatsApp Integration](https://github.com/FaserF/ha-whatsapp) by the same author!
+
+---
+
 ## Automation Examples 🤖
 
 <details>
-<summary><b>📬 Notify when new baskets are available</b></summary>
+<summary><b>📬 Professional Basket Notification (Telegram/Mobile)</b></summary>
+
+This robust example triggers when the basket count *increases* and handles missing data gracefully. **Note:** For Telegram, the picture link is placed first to ensure it's used for the message preview.
 
 ```yaml
 automation:
-  - alias: "Foodsharing: New baskets nearby"
+  - alias: "Foodsharing: New baskets available"
     trigger:
-      - platform: numeric_state
+      - platform: state
         entity_id: sensor.foodsharing_baskets_48_1180_11_6833
-        above: 0
+    condition:
+      - condition: template
+        value_template: >
+          {% set to_state = trigger.to_state.state | int(0) %}
+          {% set from_state = trigger.from_state.state | int(0) if trigger.from_state is not none else 0 %}
+          {{ to_state > from_state }}
     action:
-      - service: notify.mobile_app_your_phone
+      - service: telegram_bot.send_message
         data:
-          title: "🧺 Foodsharing"
-          message: >-
-            {{ states('sensor.foodsharing_baskets_48_1180_11_6833') }} basket(s) available!
+          target: !secret telegram_group_id
+          parse_mode: html
+          message: |
+            {% set baskets = state_attr(trigger.entity_id, 'baskets') %}
+            {% if baskets and baskets | length > 0 %}
+              {% set b = baskets[0] %}
+              {% if b.picture %}
+              🖼️ <a href="{{ b.picture }}">Preview Image</a>
+              {% endif %}
+
+              🧺 <b>NEW FOOD BASKET {% if b.user_name %}FROM {{ b.user_name | upper | e }} {% endif %}AVAILABLE</b>
+
+              <b>Description:</b>
+              {{ b.description | e }}
+
+              {% if b.available_until and b.available_until != 'Unknown' %}
+              ⏰ <b>Available until:</b> {{ b.available_until | e }}
+              {% endif %}
+
+              ---
+              {% if b.maps and b.maps != 'unavailable' and b.latitude and b.longitude %}
+              📍 <a href="{{ b.maps }}">Open in Google Maps</a>
+              {% endif %}
+              
+              🔗 <a href="https://foodsharing.de/essenskoerbe/{{ b.id }}">Open on Foodsharing.de</a>
+
+              ⚖️ <a href="https://wiki.foodsharing.network/wiki/Verhaltensregeln:Verhaltensregeln_-_Erl%C3%A4uterungen#B)_Verhalten_bei_Abholungen">Foodsharing Conduct Rules</a>
+            {% endif %}
 ```
 
 </details>
 
 <details>
-<summary><b>🔑 Notify on keyword match</b></summary>
+<summary><b>🔑 Detailed Keyword Match Notification</b></summary>
+
+Reacts to the `foodsharing_keyword_match` event for instant notifications including all available data.
 
 ```yaml
 automation:
@@ -182,12 +241,16 @@ automation:
       - service: notify.mobile_app_your_phone
         data:
           title: "🎯 Foodsharing Keyword Match!"
-          message: >-
-            {{ trigger.event.data.description }}
-
-            Available until: {{ trigger.event.data.available_until }}
-
-            Link: https://foodsharing.de/essenskoerbe/{{ trigger.event.data.id }}
+          message: >
+            {% if trigger.event.data.user_name %}From {{ trigger.event.data.user_name }}: {% endif %}{{ trigger.event.data.description }}
+            {% if trigger.event.data.available_until and trigger.event.data.available_until != 'Unknown' %}
+            (Until {{ trigger.event.data.available_until }})
+            {% endif %}
+          data:
+            {% if trigger.event.data.picture %}
+            image: "{{ trigger.event.data.picture }}"
+            {% endif %}
+            clickAction: "https://foodsharing.de/essenskoerbe/{{ trigger.event.data.id }}"
 ```
 
 </details>
@@ -290,20 +353,33 @@ automation:
 </details>
 
 <details>
-<summary><b>🏪 New Fairteiler post</b></summary>
+<summary><b>🏪 Detailed Fairteiler Update</b></summary>
+
+Notifies you about new posts on a Fairteiler wall (e.g., "Fairteiler is full").
 
 ```yaml
 automation:
-  - alias: "Foodsharing: New Fairteiler post"
+  - alias: "Foodsharing: Fairteiler status update"
     trigger:
       - platform: event
         event_type: foodsharing_fairteiler_post
     action:
-      - service: notify.mobile_app_your_phone
+      - service: telegram_bot.send_message
         data:
-          title: "🏪 Fairteiler Update"
-          message: >-
-            New post at {{ trigger.event.data.fairteiler_name }}!
+          target: !secret telegram_group_id
+          parse_mode: html
+          message: |
+            📢 <b>NEW ENTRY AT FAIRTEILER</b>
+            
+            🏫 <b>Location:</b> {{ trigger.event.data.fairteiler_name | e }}
+            👤 <b>From:</b> {{ (trigger.event.data.post.user_name if trigger.event.data.post.user_name else 'Unknown') | e }}
+
+            <b>Message:</b>
+            {{ trigger.event.data.post.body | e }}
+
+            ---
+            🔗 <a href="https://foodsharing.de/fairteiler/{{ trigger.event.data.fairteiler_id }}">Open Fairteiler on Foodsharing.de</a>
+            ⚖️ <a href="https://wiki.foodsharing.network/wiki/Verhaltensregeln:Verhaltensregeln_-_Erl%C3%A4uterungen#B)_Verhalten_bei_Abholungen">Conduct Rules</a>
 ```
 
 </details>
@@ -365,6 +441,12 @@ Then find the log at **Settings → System → Logs** → search for `foodsharin
 
 ---
 
+## API Documentation 📖
+
+This integration is built on the **official Foodsharing.de API**. For more information, technical details, or to explore available endpoints for testing, visit the official [Foodsharing DevDocs](https://devdocs.foodsharing.de).
+
+---
+
 ## Thanks to 🙏
 
-Huge thanks to [@knorr3](https://github.com/knorr3) for his help and the [coronavirus integration](https://github.com/knorr3/coronavirus_germany), where this integration structure is based on!
+A huge thanks to the great IT Team from [Foodsharing](https://devdocs.foodsharing.de) for their easy to use API and great docs, which made this integration possible!

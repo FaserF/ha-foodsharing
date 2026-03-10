@@ -1,49 +1,140 @@
-"""Tests for Foodsharing buttons."""
-from unittest.mock import AsyncMock, MagicMock
+"""Test button platform for Foodsharing."""
+
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-# Removed importorskip to surface error
 from custom_components.foodsharing.button import (
-    FoodsharingCloseOwnBasketButton,
-    FoodsharingRequestButton,
+    BASKET_SLOTS,
+    OWN_BASKET_SLOTS,
+    FoodsharingCloseSlotButton,
+    FoodsharingRequestSlotButton,
 )
 
 
+@pytest.fixture
+def mock_coordinator():
+    """Mock coordinator."""
+    coordinator = MagicMock()
+    coordinator.email = "test@example.com"
+    coordinator.last_update_success = True
+    coordinator.session = AsyncMock()
+    coordinator._headers = {"Authorization": "Bearer test"}
+
+    # Mock data structure
+    coordinator.data = {
+        "account": {
+            "own_baskets": [
+                {"id": "own_1", "description": "My Basket 1"},
+                {"id": "own_2", "description": "My Basket 2"},
+            ]
+        },
+        "locations": {
+            "entry_1": [
+                {
+                    "latitude": 52.0,
+                    "longitude": 13.0,
+                    "baskets": [
+                        {"id": "basket_1", "description": "Fresh Bread"},
+                        {"id": "basket_2", "description": "Apples"},
+                    ],
+                }
+            ]
+        },
+    }
+    return coordinator
+
+
+@pytest.fixture
+def mock_entry():
+    """Mock config entry."""
+    entry = MagicMock()
+    entry.entry_id = "entry_1"
+    return entry
+
+
+def test_request_button_slot(mock_coordinator, mock_entry):
+    """Test the request basket slot button."""
+    # Test slot 0 (occupied)
+    button0 = FoodsharingRequestSlotButton(
+        mock_coordinator, mock_entry, loc_idx=0, lat=52.0, lon=13.0, slot_idx=0
+    )
+    assert button0.available is True
+    assert button0.name == "Request Basket 1: Fresh Bread..."
+    assert button0._attr_unique_id == "foodsharing_entry_1_loc_0_request_basket_0"
+
+    # Test slot 1 (occupied)
+    button1 = FoodsharingRequestSlotButton(
+        mock_coordinator, mock_entry, loc_idx=0, lat=52.0, lon=13.0, slot_idx=1
+    )
+    assert button1.available is True
+    assert button1.name == "Request Basket 2: Apples..."
+
+    # Test slot 2 (empty)
+    button2 = FoodsharingRequestSlotButton(
+        mock_coordinator, mock_entry, loc_idx=0, lat=52.0, lon=13.0, slot_idx=2
+    )
+    assert button2.available is False
+    assert button2.name == "Request Basket 3 (Empty Slot)"
+
+
 @pytest.mark.asyncio
-async def test_request_button_press():
-    """Test button triggers API call via coordinator."""
-    mock_coordinator = MagicMock()
-    mock_coordinator.session = MagicMock()
+async def test_request_button_press(mock_coordinator, mock_entry):
+    """Test pressing the request button."""
+    button = FoodsharingRequestSlotButton(
+        mock_coordinator, mock_entry, loc_idx=0, lat=52.0, lon=13.0, slot_idx=0
+    )
+
+    # Mock response
     mock_response = AsyncMock()
     mock_response.status = 200
-    mock_coordinator.session.post.return_value.__aenter__.return_value = mock_response
-    mock_coordinator.async_request_refresh = AsyncMock()
+    mock_response.__aenter__.return_value = mock_response
+    mock_coordinator.session.post.return_value = mock_response
 
-    mock_entry = MagicMock()
-    mock_entry.data = {}
-
-    basket = {"id": 123, "description": "Test"}
-    button = FoodsharingRequestButton(mock_coordinator, mock_entry, basket)
     await button.async_press()
-    mock_coordinator.session.post.assert_called_with("https://foodsharing.de/api/baskets/123/request")
+
+    mock_coordinator.session.post.assert_called_once_with(
+        "https://foodsharing.de/api/baskets/basket_1/request",
+        headers={"Authorization": "Bearer test"},
+    )
     mock_coordinator.async_request_refresh.assert_called_once()
 
+
+def test_close_button_slot(mock_coordinator):
+    """Test the close own basket slot button."""
+    # Test slot 0 (occupied)
+    button0 = FoodsharingCloseSlotButton(
+        mock_coordinator, email="test@example.com", slot_idx=0
+    )
+    assert button0.available is True
+    assert button0.name == "Close Own Basket 1: My Basket 1..."
+    assert button0._attr_unique_id == "foodsharing_test@example.com_close_basket_0"
+
+    # Test slot 2 (empty)
+    button2 = FoodsharingCloseSlotButton(
+        mock_coordinator, email="test@example.com", slot_idx=2
+    )
+    assert button2.available is False
+    assert button2.name == "Close Own Basket 3 (Empty Slot)"
+
+
 @pytest.mark.asyncio
-async def test_close_own_basket_button_press():
-    """Test close own basket button logic triggers correct API."""
-    mock_coordinator = MagicMock()
-    mock_coordinator.session = MagicMock()
+async def test_close_button_press(mock_coordinator):
+    """Test pressing the close button."""
+    button = FoodsharingCloseSlotButton(
+        mock_coordinator, email="test@example.com", slot_idx=0
+    )
+
+    # Mock response
     mock_response = AsyncMock()
     mock_response.status = 200
-    mock_coordinator.session.post.return_value.__aenter__.return_value = mock_response
-    mock_coordinator.async_request_refresh = AsyncMock()
+    mock_response.__aenter__.return_value = mock_response
+    mock_coordinator.session.post.return_value = mock_response
 
-    mock_entry = MagicMock()
-    mock_entry.data = {}
-
-    basket = {"id": 999, "description": "My Basket"}
-    button = FoodsharingCloseOwnBasketButton(mock_coordinator, mock_entry, basket)
     await button.async_press()
-    mock_coordinator.session.post.assert_called_with("https://foodsharing.de/api/baskets/999/close")
+
+    mock_coordinator.session.post.assert_called_once_with(
+        "https://foodsharing.de/api/baskets/own_1/close",
+        headers={"Authorization": "Bearer test"},
+    )
     mock_coordinator.async_request_refresh.assert_called_once()

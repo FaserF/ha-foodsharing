@@ -1,5 +1,6 @@
 name: Report an issue
 description: Report an issue with the unofficial Foodsharing Integration
+labels: ["bug"]
 body:
   - type: markdown
     attributes:

@@ -1,16 +1,19 @@
-"""Button platform for Foodsharing."""
+"""Button platform for Foodsharing, with dynamic entity management."""
 
 import logging
 from typing import Any
 
 from homeassistant.components.button import ButtonEntity
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import CONF_EMAIL, CONF_LATITUDE_FS, CONF_LONGITUDE_FS, DOMAIN
+from .const import DOMAIN
 from .coordinator import FoodsharingCoordinator
+from .helpers import get_locations_from_entry
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -18,183 +21,267 @@ _LOGGER = logging.getLogger(__name__)
 async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
-    """Set up the button platform."""
+    """Set up the foodsharing button platform."""
     coordinator: FoodsharingCoordinator = hass.data[DOMAIN][entry.entry_id][
         "coordinator"
     ]
+    email = coordinator.email
 
-    active_baskets: dict[str, ButtonEntity] = {}
+    # Keep track of active button entities by their unique_id
+    active_buttons: dict[str, ButtonEntity] = {}
 
+    @callback
     def async_update_entities() -> None:
-        """Update active buttons."""
+        """Update active buttons based on available baskets."""
         if not coordinator.data:
             return
 
         new_entities: list[ButtonEntity] = []
+        current_unique_ids: set[str] = set()
 
-        # Baskets to Request
-        for basket in coordinator.data.get("baskets", []):
-            basket_id = str(basket["id"])
-            key = f"near_{basket_id}"
+        # 1. Request Basket Buttons (per location)
+        locations = get_locations_from_entry(entry)
+        entry_locs: list[dict[str, Any]] = (
+            coordinator.data.get("locations", {}).get(entry.entry_id, [])
+        )
 
-            if key not in active_baskets:
-                req_entity = FoodsharingRequestButton(coordinator, entry, basket)
-                active_baskets[key] = req_entity
-                new_entities.append(req_entity)
+        for loc_idx, loc in enumerate(locations):
+            if loc_idx >= len(entry_locs):
+                continue
+            
+            baskets = entry_locs[loc_idx].get("baskets", [])
+            lat = loc["latitude"]
+            lon = loc["longitude"]
 
-        # Own Baskets to Close
-        for own in coordinator.data.get("own_baskets", []):
-            own_id = str(own["id"])
-            key = f"own_{own_id}"
-            if key not in active_baskets:
-                close_entity = FoodsharingCloseOwnBasketButton(coordinator, entry, own)
-                active_baskets[key] = close_entity
-                new_entities.append(close_entity)
+            for slot_idx in range(len(baskets)):
+                unique_id = f"foodsharing_{entry.entry_id}_loc_{loc_idx}_request_basket_{slot_idx}"
+                current_unique_ids.add(unique_id)
+
+                if unique_id not in active_buttons:
+                    button = FoodsharingRequestSlotButton(
+                        coordinator, entry, loc_idx, lat, lon, slot_idx
+                    )
+                    active_buttons[unique_id] = button
+                    new_entities.append(button)
+
+        # 2. Close Own Basket Buttons (account-wide)
+        account_data = coordinator.data.get("account", {})
+        own_baskets = account_data.get("own_baskets", [])
+        for slot_idx in range(len(own_baskets)):
+            unique_id = f"foodsharing_{email}_close_basket_{slot_idx}"
+            current_unique_ids.add(unique_id)
+
+            if unique_id not in active_buttons:
+                button = FoodsharingCloseSlotButton(
+                    coordinator, email, slot_idx
+                )
+                active_buttons[unique_id] = button
+                new_entities.append(button)
 
         if new_entities:
             async_add_entities(new_entities)
 
+        # 3. Remove stale buttons (if baskets decreased)
+        stale_ids = set(active_buttons.keys()) - current_unique_ids
+        if stale_ids:
+            registry = er.async_get(hass)
+            for uid in stale_ids:
+                button = active_buttons.pop(uid)
+                # Remove from HASS
+                hass.async_create_task(button.async_remove())
+                # Also remove from registry so it doesn't show up as 'restored'
+                entity_id = registry.async_get_entity_id("button", DOMAIN, uid)
+                if entity_id:
+                    registry.async_remove(entity_id)
+
+    # Initial sync
+    async_update_entities()
+    
     # Register listener
     unsub = coordinator.async_add_listener(async_update_entities)
     entry.async_on_unload(unsub)
 
-    # Initial load
-    async_update_entities()
 
+class FoodsharingRequestSlotButton(CoordinatorEntity[FoodsharingCoordinator], ButtonEntity):  # type: ignore[misc]
+    """A dynamic button slot that requests the N-th available basket for a location."""
 
-class FoodsharingRequestButton(CoordinatorEntity[FoodsharingCoordinator], ButtonEntity):  # type: ignore[misc]
-    """A button to request a foodsharing basket."""
+    _attr_has_entity_name = True
 
     def __init__(
         self,
         coordinator: FoodsharingCoordinator,
         entry: ConfigEntry,
-        basket: dict[str, Any],
+        loc_idx: int,
+        lat: float,
+        lon: float,
+        slot_idx: int,
     ) -> None:
         """Initialize the button."""
         super().__init__(coordinator)
         self.entry = entry
-        self._basket_id = str(basket["id"])
+        self._loc_idx = loc_idx
+        self._lat = lat
+        self._lon = lon
+        self._slot_idx = slot_idx
 
-        self._attr_unique_id = f"foodsharing_request_basket_{self._basket_id}"
-        self._attr_name = f"Request: {basket.get('description', 'Unknown Basket')}"
+        self._attr_unique_id = (
+            f"foodsharing_{entry.entry_id}_loc_{loc_idx}_request_basket_{slot_idx}"
+        )
         self._attr_icon = "mdi:cart-plus"
 
-        # Get coordinates for device mapping
-        lat = self.entry.data.get(CONF_LATITUDE_FS, "")
-        lon = self.entry.data.get(CONF_LONGITUDE_FS, "")
-        email = self.entry.data.get(CONF_EMAIL, "")
+        email = coordinator.email
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, f"{email}_{lat}_{lon}")},
+            name=f"Foodsharing Location ({lat}, {lon})",
+            manufacturer="Foodsharing.de",
+            model="Location Tracker",
+            via_device=(DOMAIN, email),
+        )
 
-        # Location Device
-        self._attr_device_info = {
-            "identifiers": {(DOMAIN, f"{email}_{lat}_{lon}")},
-            "name": f"Foodsharing Location ({lat}, {lon})",
-            "manufacturer": "Foodsharing.de",
-            "model": "Location Tracker",
-            "via_device": (DOMAIN, email),
+    def _get_basket(self) -> dict[str, Any] | None:
+        """Get the basket currently occupying this slot."""
+        if not self.coordinator.data:
+            return None
+
+        entry_locs: list[dict[str, Any]] = (
+            self.coordinator.data.get("locations", {}).get(self.entry.entry_id, [])
+        )
+        if self._loc_idx >= len(entry_locs):
+            return None
+
+        baskets = entry_locs[self._loc_idx].get("baskets", [])
+        if self._slot_idx < len(baskets):
+            return baskets[self._slot_idx]
+        return None
+
+    @property
+    def name(self) -> str:
+        """Return the static name of the button."""
+        basket = self._get_basket()
+        if basket:
+            return f"Request Basket {self._slot_idx + 1}: {basket.get('description', 'No description')[:20]}..."
+        return f"Request Basket {self._slot_idx + 1} (Empty Slot)"
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return extra state attributes for the basket."""
+        basket = self._get_basket()
+        if not basket:
+            return {}
+        return {
+            "basket_id": basket.get("id"),
+            "description": basket.get("description"),
+            "available_until": basket.get("available_until"),
+            "picture": basket.get("picture"),
+            "latitude": basket.get("latitude"),
+            "longitude": basket.get("longitude"),
+            "maps": basket.get("maps"),
         }
 
     async def async_press(self) -> None:
-        """Handle the button press to request a basket."""
-        _LOGGER.info("Button pressed to request basket %s", self._basket_id)
+        """Handle the button press."""
+        basket = self._get_basket()
+        if not basket:
+            _LOGGER.warning("Slot %s has no active basket to request.", self._slot_idx)
+            return
 
-        # Execute the REST call via the coordinator's authenticated session
-        url = f"https://foodsharing.de/api/baskets/{self._basket_id}/request"
+        basket_id = str(basket["id"])
+        _LOGGER.info("Button pressed to request basket %s (Slot %s)", basket_id, self._slot_idx)
+
+        url = f"https://foodsharing.de/api/baskets/{basket_id}/request"
         try:
-            # Execute POST request to request the basket
-            async with self.coordinator.session.post(url) as response:
+            async with self.coordinator.session.post(url, headers=self.coordinator._headers) as response:
                 if response.status == 200:
-                    _LOGGER.info("Successfully requested basket %s", self._basket_id)
-                    # Refresh data immediately
+                    _LOGGER.info("Successfully requested basket %s", basket_id)
                     await self.coordinator.async_request_refresh()
                 else:
                     _LOGGER.error(
                         "Failed to request basket %s. Status: %s",
-                        self._basket_id,
+                        basket_id,
                         response.status,
                     )
         except Exception as e:
             _LOGGER.error("Exception requesting basket: %s", e)
 
-    @property
-    def available(self) -> bool:
-        """Return if entity is available."""
-        if not self.coordinator.last_update_success:
-            return False
 
-        if self.coordinator.data is None or "baskets" not in self.coordinator.data:
-            return False
+class FoodsharingCloseSlotButton(CoordinatorEntity[FoodsharingCoordinator], ButtonEntity):  # type: ignore[misc]
+    """A dynamic button slot that closes the N-th active own basket for the account."""
 
-        for basket in self.coordinator.data["baskets"]:
-            if str(basket["id"]) == self._basket_id:
-                return True
-
-        return False
-
-
-class FoodsharingCloseOwnBasketButton(CoordinatorEntity[FoodsharingCoordinator], ButtonEntity):  # type: ignore[misc]
-    """A button to close a user's own active foodsharing basket."""
+    _attr_has_entity_name = True
 
     def __init__(
         self,
         coordinator: FoodsharingCoordinator,
-        entry: ConfigEntry,
-        basket: dict[str, Any],
+        email: str,
+        slot_idx: int,
     ) -> None:
         """Initialize the button."""
         super().__init__(coordinator)
-        self.entry = entry
-        self._basket_id = str(basket["id"])
+        self.email = email
+        self._slot_idx = slot_idx
 
-        self._attr_unique_id = f"foodsharing_close_basket_{self._basket_id}"
-        self._attr_name = (
-            f"Close Own Basket: {basket.get('description', 'Unknown Basket')}"
-        )
+        self._attr_unique_id = f"foodsharing_{email}_close_basket_{slot_idx}"
         self._attr_icon = "mdi:cart-off"
 
-        lat = self.entry.data.get(CONF_LATITUDE_FS, "")
-        lon = self.entry.data.get(CONF_LONGITUDE_FS, "")
-        email = self.entry.data.get(CONF_EMAIL, "")
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, email)},
+            name=f"Foodsharing Account ({email})",
+            manufacturer="Foodsharing.de",
+            model="Account",
+        )
 
-        # Use same device grouping
-        self._attr_device_info = {
-            "identifiers": {(DOMAIN, f"{email}_{lat}_{lon}")},
-            "name": f"Foodsharing Location ({lat}, {lon})",
-            "manufacturer": "Foodsharing.de",
-            "model": "Location Tracker",
-            "via_device": (DOMAIN, email),
+    def _get_basket(self) -> dict[str, Any] | None:
+        """Get the own-basket currently occupying this slot."""
+        if not self.coordinator.data:
+            return None
+
+        account_data = self.coordinator.data.get("account", {})
+        own_baskets = account_data.get("own_baskets", [])
+        if self._slot_idx < len(own_baskets):
+            return own_baskets[self._slot_idx]
+        return None
+
+    @property
+    def name(self) -> str:
+        """Return the static name of the button."""
+        basket = self._get_basket()
+        if basket:
+            return f"Close Own Basket {self._slot_idx + 1}: {basket.get('description', 'No description')[:20]}..."
+        return f"Close Own Basket {self._slot_idx + 1} (Empty Slot)"
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return extra state attributes for the own basket."""
+        basket = self._get_basket()
+        if not basket:
+            return {}
+        return {
+            "basket_id": basket.get("id"),
+            "description": basket.get("description"),
+            "picture": basket.get("picture"),
         }
 
     async def async_press(self) -> None:
-        """Handle the button press to close the basket."""
-        _LOGGER.info("Button pressed to close own basket %s", self._basket_id)
+        """Handle the button press."""
+        basket = self._get_basket()
+        if not basket:
+            _LOGGER.warning("Slot %s has no active own basket to close.", self._slot_idx)
+            return
 
-        url = f"https://foodsharing.de/api/baskets/{self._basket_id}/close"
+        basket_id = str(basket["id"])
+        _LOGGER.info("Button pressed to close own basket %s (Slot %s)", basket_id, self._slot_idx)
+
+        url = f"https://foodsharing.de/api/baskets/{basket_id}/close"
         try:
-            async with self.coordinator.session.post(url) as response:
+            async with self.coordinator.session.post(url, headers=self.coordinator._headers) as response:
                 if response.status == 200:
-                    _LOGGER.info("Successfully closed own basket %s", self._basket_id)
+                    _LOGGER.info("Successfully closed own basket %s", basket_id)
                     await self.coordinator.async_request_refresh()
                 else:
                     _LOGGER.error(
                         "Failed to close own basket %s. Status: %s",
-                        self._basket_id,
+                        basket_id,
                         response.status,
                     )
         except Exception as e:
             _LOGGER.error("Exception closing own basket: %s", e)
-
-    @property
-    def available(self) -> bool:
-        """Return if entity is available."""
-        if not self.coordinator.last_update_success:
-            return False
-
-        if self.coordinator.data is None or "own_baskets" not in self.coordinator.data:
-            return False
-
-        for basket in self.coordinator.data["own_baskets"]:
-            if str(basket["id"]) == self._basket_id:
-                return True
-
-        return False

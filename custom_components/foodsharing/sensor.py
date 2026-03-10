@@ -13,12 +13,12 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import (
     ATTRIBUTION,
-    CONF_EMAIL,
     CONF_LATITUDE_FS,
     CONF_LONGITUDE_FS,
     DOMAIN,
 )
 from .coordinator import FoodsharingCoordinator
+from .helpers import get_locations_from_entry
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -30,96 +30,106 @@ async def async_setup_entry(
     coordinator: FoodsharingCoordinator = hass.data[DOMAIN][entry.entry_id][
         "coordinator"
     ]
+    email = hass.data[DOMAIN][entry.entry_id]["email"]
 
-    baskets_sensor = FoodsharingSensor(coordinator, entry)
-    messages_sensor = FoodsharingMessagesSensor(coordinator, entry)
-    bells_sensor = FoodsharingBellsSensor(coordinator, entry)
+    locations = get_locations_from_entry(entry)
+    entities: list[SensorEntity] = []
 
-    async_add_entities([baskets_sensor, messages_sensor, bells_sensor])
+    for idx, loc in enumerate(locations):
+        entities.append(
+            FoodsharingSensor(
+                coordinator,
+                entry,
+                loc_idx=idx,
+                lat=loc["latitude"],
+                lon=loc["longitude"],
+            )
+        )
+
+    # Create account-wide sensors only once per email (even across multiple entries)
+    account_key = f"account_sensors_{email}"
+    if account_key not in hass.data[DOMAIN]:
+        hass.data[DOMAIN][account_key] = True
+        entities.append(FoodsharingMessagesSensor(coordinator, email))
+        entities.append(FoodsharingBellsSensor(coordinator, email))
+        entities.append(FoodsharingPickupsSensor(coordinator, email))
+
+    async_add_entities(entities)
 
 
 class FoodsharingSensor(CoordinatorEntity[FoodsharingCoordinator], SensorEntity):  # type: ignore[misc]
     """Collects and represents foodsharing baskets based on given coordinates."""
 
-    def __init__(self, coordinator: FoodsharingCoordinator, entry: ConfigEntry) -> None:
+    def __init__(
+        self,
+        coordinator: FoodsharingCoordinator,
+        entry: ConfigEntry,
+        loc_idx: int,
+        lat: float,
+        lon: float,
+    ) -> None:
         """Initialize the sensor."""
         super().__init__(coordinator)
         self.entry = entry
+        self.entry_id = entry.entry_id
+        self.loc_idx = loc_idx
+        self.latitude_fs = lat
+        self.longitude_fs = lon
 
-        self.latitude_fs = entry.data.get(CONF_LATITUDE_FS)
-        if self.latitude_fs is None:
-            self.latitude_fs = (
-                coordinator.hass.config.latitude
-                if hasattr(coordinator.hass, "config")
-                else ""
-            )
-        self.longitude_fs = entry.data.get(CONF_LONGITUDE_FS)
-        if self.longitude_fs is None:
-            self.longitude_fs = (
-                coordinator.hass.config.longitude
-                if hasattr(coordinator.hass, "config")
-                else ""
-            )
-
-        self._attr_name = f"Foodsharing Baskets {self.latitude_fs}, {self.longitude_fs}"
-        self._attr_unique_id = f"Foodsharing-Baskets-{entry.entry_id}"
+        self._attr_name = f"Foodsharing Baskets {lat}, {lon}"
+        self._attr_unique_id = f"Foodsharing-Baskets-{entry.entry_id}-{loc_idx}"
         self._attr_icon = "mdi:basket-unfill"
         self._attr_native_unit_of_measurement = "baskets"
 
-        email = entry.data.get(CONF_EMAIL, "")
-        # Location Device
+        email = coordinator.email
         self._attr_device_info = DeviceInfo(
-            identifiers={
-                (
-                    DOMAIN,
-                    f"{email}_{self.latitude_fs}_{self.longitude_fs}",
-                )
-            },
-            name=f"Foodsharing Location ({self.latitude_fs}, {self.longitude_fs})",
+            identifiers={(DOMAIN, f"{email}_{lat}_{lon}")},
+            name=f"Foodsharing Location ({lat}, {lon})",
             manufacturer="Foodsharing.de",
             model="Location Tracker",
             via_device=(DOMAIN, email),
         )
 
+    def _get_loc_data(self) -> dict[str, Any]:
+        """Return coordinator location data for this sensor's location slot."""
+        if self.coordinator.data:
+            entry_locs: list[dict[str, Any]] = (
+                self.coordinator.data.get("locations", {}).get(self.entry_id, [])
+            )
+            if self.loc_idx < len(entry_locs):
+                return entry_locs[self.loc_idx]
+        return {}
+
     @property
     def native_value(self) -> int:
         """Return the number of baskets."""
-        if self.coordinator.data is not None and "baskets" in self.coordinator.data:
-            return len(self.coordinator.data["baskets"])
-        return 0
+        return len(self._get_loc_data().get("baskets", []))
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return the state attributes."""
-        attrs: dict[str, Any] = {
+        loc_data = self._get_loc_data()
+        baskets = loc_data.get("baskets", [])
+        return {
             CONF_LATITUDE_FS: self.latitude_fs,
             CONF_LONGITUDE_FS: self.longitude_fs,
             ATTR_ATTRIBUTION: ATTRIBUTION,
+            "basket_count": len(baskets),
+            "baskets": baskets,
         }
-
-        if self.coordinator.data is not None and "baskets" in self.coordinator.data:
-            baskets = self.coordinator.data["baskets"]
-            attrs["basket_count"] = len(baskets)
-            attrs["baskets"] = baskets
-        else:
-            attrs["basket_count"] = 0
-            attrs["baskets"] = []
-
-        return attrs
 
 
 class FoodsharingMessagesSensor(CoordinatorEntity[FoodsharingCoordinator], SensorEntity):  # type: ignore[misc]
     """Represents unread messages on Foodsharing."""
 
-    def __init__(self, coordinator: FoodsharingCoordinator, entry: ConfigEntry) -> None:
+    def __init__(self, coordinator: FoodsharingCoordinator, email: str) -> None:
         super().__init__(coordinator)
-        self.entry = entry
+        self.email = email
         self._attr_name = "Foodsharing Unread Messages"
-        self._attr_unique_id = f"Foodsharing-Messages-{entry.entry_id}"
+        self._attr_unique_id = f"Foodsharing-Messages-{email}"
         self._attr_icon = "mdi:message"
         self._attr_native_unit_of_measurement = "messages"
 
-        email = entry.data.get(CONF_EMAIL, "")
         # Account Device
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, email)},
@@ -131,23 +141,22 @@ class FoodsharingMessagesSensor(CoordinatorEntity[FoodsharingCoordinator], Senso
     @property
     def native_value(self) -> int:
         """Return the number of unread messages."""
-        if self.coordinator.data is not None:
-            return int(self.coordinator.data.get("messages", 0))
+        if self.coordinator.data:
+            return int(self.coordinator.data.get("account", {}).get("messages", 0))
         return 0
 
 
 class FoodsharingBellsSensor(CoordinatorEntity[FoodsharingCoordinator], SensorEntity):  # type: ignore[misc]
     """Represents unread bell notifications on Foodsharing."""
 
-    def __init__(self, coordinator: FoodsharingCoordinator, entry: ConfigEntry) -> None:
+    def __init__(self, coordinator: FoodsharingCoordinator, email: str) -> None:
         super().__init__(coordinator)
-        self.entry = entry
+        self.email = email
         self._attr_name = "Foodsharing Notifications"
-        self._attr_unique_id = f"Foodsharing-Bells-{entry.entry_id}"
+        self._attr_unique_id = f"Foodsharing-Bells-{email}"
         self._attr_icon = "mdi:bell"
         self._attr_native_unit_of_measurement = "notifications"
 
-        email = entry.data.get("email", "")
         # Account Device
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, email)},
@@ -159,6 +168,42 @@ class FoodsharingBellsSensor(CoordinatorEntity[FoodsharingCoordinator], SensorEn
     @property
     def native_value(self) -> int:
         """Return the number of unread bell notifications."""
-        if self.coordinator.data is not None:
-            return int(self.coordinator.data.get("bells", 0))
+        if self.coordinator.data:
+            return int(self.coordinator.data.get("account", {}).get("bells", 0))
         return 0
+
+
+class FoodsharingPickupsSensor(CoordinatorEntity[FoodsharingCoordinator], SensorEntity):  # type: ignore[misc]
+    """Represents upcoming pickups on Foodsharing."""
+
+    def __init__(self, coordinator: FoodsharingCoordinator, email: str) -> None:
+        super().__init__(coordinator)
+        self.email = email
+        self._attr_name = "Foodsharing Upcoming Pickups"
+        self._attr_unique_id = f"Foodsharing-Pickups-{email}"
+        self._attr_icon = "mdi:calendar-clock"
+        self._attr_native_unit_of_measurement = "pickups"
+
+        # Account Device
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, email)},
+            name=f"Foodsharing Account ({email})",
+            manufacturer="Foodsharing.de",
+            model="Account",
+        )
+
+    @property
+    def native_value(self) -> int:
+        """Return the number of upcoming pickups."""
+        if self.coordinator.data:
+            pickups = self.coordinator.data.get("account", {}).get("pickups", [])
+            return len(pickups) if isinstance(pickups, list) else 0
+        return 0
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return extra state attributes for pickups."""
+        if self.coordinator.data:
+            pickups = self.coordinator.data.get("account", {}).get("pickups", [])
+            return {"pickups": pickups}
+        return {}

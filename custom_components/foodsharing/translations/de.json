@@ -3,66 +3,67 @@
     "step": {
       "user": {
         "title": "Verbinde Foodsharing.de",
-        "description": "Gib deine Anmeldedaten ein und wähle den Überwachungsstandort.",
+        "description": "Wähle den Standort auf der Karte aus, um im ausgewählten Radius nach Körben zu suchen. Deine E-Mail-Adresse und dein Passwort werden zur Authentifizierung bei der API verwendet.",
         "data": {
           "email": "E-Mail",
           "password": "Passwort",
           "location": "Standort (Pin auf Karte)",
           "distance": "Suchradius (km)",
           "keywords": "Schlüsselwörter (kommagetrennt)",
-          "scan_interval": "Aktualisierungsintervall (Minuten)"
+          "scan_interval": "Aktualisierungsintervall (Minuten)",
+          "use_beta_api": "Beta API nutzen (beta.foodsharing.de)"
+        }
+      },
+      "totp": {
+        "title": "Zwei-Faktor-Authentisierung (2FA)",
+        "description": "Für deinen Account ist die Zwei-Faktor-Authentisierung aktiviert. Bitte gib den passenden 6-stelligen TOTP-Code aus deiner Authenticator-App ein (z.B. Google Authenticator, Authy oder direkt aus deiner Foodsharing-App).",
+        "data": {
+          "code": "6-stelliger TOTP-Code"
         }
       }
     },
     "error": {
       "invalid_auth": "Ungültige E-Mail oder Passwort.",
+      "invalid_totp": "Der eingegebene TOTP-Code ist falsch oder abgelaufen. Bitte versuche es erneut.",
       "cannot_connect": "Verbindung zum Server fehlgeschlagen, bitte überprüfe dein Netzwerk und versuche es erneut.",
       "unknown": "Ein unerwarteter Fehler ist aufgetreten."
     },
     "abort": {
-      "already_configured": "Dieser Standort ist für deinen Account bereits eingerichtet."
+      "already_configured": "Dieser Foodsharing-Account-Standort ist bereits eingerichtet."
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "Foodsharing Optionen anpassen",
+        "title": "Foodsharing-Optionen anpassen",
+        "description": "Ändere die Optionen für die Foodsharing-Integration.",
         "data": {
           "email": "E-Mail",
           "password": "Passwort",
           "location": "Standort (Pin auf Karte)",
           "distance": "Suchradius (km)",
           "keywords": "Schlüsselwörter (kommagetrennt)",
-          "scan_interval": "Aktualisierungsintervall (Minuten)"
+          "scan_interval": "Aktualisierungsintervall (Minuten)",
+          "use_beta_api": "Beta API nutzen (beta.foodsharing.de)"
         }
       }
     },
     "error": {
       "invalid_auth": "Ungültige E-Mail oder Passwort.",
+      "invalid_totp": "Der eingegebene TOTP-Code ist falsch oder abgelaufen.",
       "cannot_connect": "Verbindung fehlgeschlagen.",
       "unknown": "Ein unerwarteter Fehler ist aufgetreten."
     }
   },
-  "services": {
-    "request_basket": {
-      "name": "Essenskorb anfragen",
-      "description": "Sendet eine Anfrage für einen spezifischen Essenskorb",
-      "fields": {
-        "basket_id": {
-          "name": "Korb ID",
-          "description": "Die numerische ID des Essenskorbs"
-        }
-      }
-    }
-  },
   "issues": {
     "auth_failed": {
-      "title": "Foodsharing Anmeldung fehlgeschlagen",
-      "description": "Deine Foodsharing-Zugangsdaten sind nicht mehr gültig. Bitte aktualisiere E-Mail und Passwort in den Integrationseinstellungen unter Einstellungen > Geräte & Dienste > Foodsharing > Konfigurieren."
+      "title": "Foodsharing-Anmeldung fehlgeschlagen für {email}",
+      "description": "Deine Foodsharing-Zugangsdaten für {email} sind nicht mehr gültig. Bitte aktualisiere E-Mail und Passwort in der Integrationskonfiguration."
     },
     "api_offline": {
-      "title": "Foodsharing API ist offline",
+      "title": "Foodsharing-API ist offline",
       "description": "Die Foodsharing.de API hat einen 503-Fehler zurückgegeben. Der Dienst ist möglicherweise vorübergehend nicht verfügbar. Die Daten werden automatisch aktualisiert, sobald die API wieder erreichbar ist."
     }
   }
 }
+
