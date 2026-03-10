@@ -137,7 +137,7 @@ def _location_to_dict(location: dict[str, Any]) -> dict[str, Any]:
     lat = location.get("latitude", 0)
     lon = location.get("longitude", 0)
     radius_meters = location.get("radius", 7000)
-    dist = round(radius_meters / 1000)
+    dist = round(radius_meters / 1000.0, 1)
     return {"latitude": lat, "longitude": lon, "distance": dist}
 
 
@@ -270,10 +270,10 @@ class FoodsharingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # type: 
                 elif not res or (isinstance(res, dict) and res.get("2fa_required")):
                     errors["base"] = "invalid_totp"
                 else:
-                    self._user_input[CONF_TOTP] = code
                     if self.context.get("source") == config_entries.SOURCE_REAUTH:
                         entry = self._get_reauth_entry()
                         new_data = {**self._user_input}
+                        new_data.pop(CONF_TOTP, None)
                         return self.async_update_reload_and_abort(entry, data=new_data)
 
                     if CONF_LOCATION in self._user_input:
@@ -349,6 +349,7 @@ class FoodsharingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # type: 
                 user_input[CONF_DISTANCE] = primary["distance"]
 
             user_input[CONF_LOCATIONS] = self._locations
+            user_input.pop(CONF_TOTP, None)
 
             unique_id = email.lower()
             await self.async_set_unique_id(unique_id)
@@ -411,9 +412,10 @@ class OptionsFlowHandler(config_entries.OptionsFlow):  # type: ignore[misc]
                 self._user_input = dict(user_input)
                 if CONF_LOCATION in user_input:
                     new_primary = _location_to_dict(user_input[CONF_LOCATION])
-                    # Merge primary location into existing CONF_LOCATIONS list
+                    # Merge primary location into existing options state
+                    options = {**self.config_entry.data, **self.config_entry.options}
                     existing_locs: list[dict[str, Any]] = list(
-                        self.config_entry.data.get(CONF_LOCATIONS, [])
+                        options.get(CONF_LOCATIONS, [])
                     )
                     if existing_locs:
                         existing_locs[0] = new_primary

@@ -24,6 +24,13 @@ _LOGGER = logging.getLogger(__name__)
 PLATFORMS = [Platform.SENSOR, Platform.GEO_LOCATION, Platform.BUTTON, Platform.CALENDAR]
 
 
+def mask_email(email: str) -> str:
+    """Mask email address for logging (e.g., u***@example.com)."""
+    if "@" in email:
+        return f"{email[:1]}***@{email.split('@')[-1]}"
+    return "***"
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Foodsharing from a config entry."""
     hass.data.setdefault(DOMAIN, {})
@@ -78,7 +85,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 if target_email not in accounts:
                     _LOGGER.error(
                         "Foodsharing account %s not found",
-                        f"{target_email[:1]}***@{target_email.split('@')[-1]}" if "@" in target_email else "***",
+                        mask_email(target_email),
                     )
                     return
                 coordinator = accounts[target_email]
@@ -88,7 +95,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                     _LOGGER.warning(
                         "Multiple Foodsharing accounts found, using the first one (%s). "
                         "Specify 'email' in service call to target a specific account.",
-                        f"{first_email[:1]}***@{first_email.split('@')[-1]}" if "@" in first_email else "***",
+                        mask_email(first_email),
                     )
                 coordinator = next(iter(accounts.values()))
 
@@ -99,7 +106,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                         _LOGGER.info(
                             "Successfully requested basket %s using account %s",
                             basket_id,
-                            f"{coordinator.email[:1]}***@{coordinator.email.split('@')[-1]}" if "@" in coordinator.email else "***",
+                            mask_email(coordinator.email),
                         )
                         await coordinator.async_request_refresh()
                     else:
@@ -130,7 +137,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 if email not in accounts:
                     _LOGGER.error(
                         "Foodsharing account %s not found",
-                        f"{email[:1]}***@{email.split('@')[-1]}" if "@" in email else "***",
+                        mask_email(email),
                     )
                     return
                 coordinator = accounts[email]
@@ -140,7 +147,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                     _LOGGER.warning(
                         "Multiple Foodsharing accounts found, using the first one (%s). "
                         "Specify 'email' in service call to target a specific account.",
-                        f"{first_email[:1]}***@{first_email.split('@')[-1]}" if "@" in first_email else "***",
+                        mask_email(first_email),
                     )
                 coordinator = next(iter(accounts.values()))
 
@@ -151,7 +158,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                         _LOGGER.info(
                             "Successfully closed own basket %s using account %s",
                             basket_id,
-                            f"{coordinator.email[:1]}***@{coordinator.email.split('@')[-1]}" if "@" in coordinator.email else "***",
+                            mask_email(coordinator.email),
                         )
                         await coordinator.async_request_refresh()
                     else:
@@ -248,6 +255,11 @@ async def async_migrate_entry(hass: HomeAssistant, config_entry: ConfigEntry) ->
         dist = new_options.get(CONF_DISTANCE, new.get(CONF_DISTANCE, 7))
         if lat is not None and lon is not None and CONF_LOCATIONS not in new:
             new[CONF_LOCATIONS] = [{"latitude": lat, "longitude": lon, "distance": dist}]
+
+        # Remove obsolete flat keys
+        for key in (CONF_LATITUDE_FS, CONF_LONGITUDE_FS, CONF_DISTANCE):
+            new.pop(key, None)
+            new_options.pop(key, None)
 
         # Normalise unique_id to just the email address
         email = new.get(CONF_EMAIL, "").lower()

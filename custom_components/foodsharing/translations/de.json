@@ -34,6 +34,13 @@
         "data": {
           "location": "Standort (Pin auf Karte)"
         }
+      },
+      "reauth_confirm": {
+        "title": "Authentifizierung erforderlich",
+        "description": "Deine Foodsharing-Zugangsdaten für {email} sind nicht mehr gültig. Bitte gib dein Passwort erneut ein, um dich zu authentifizieren.",
+        "data": {
+          "password": "Passwort"
+        }
       }
     },
     "error": {
@@ -83,6 +90,9 @@
       "cannot_connect": "Verbindung fehlgeschlagen.",
       "2fa_required": "Zwei-Faktor-Authentisierung erforderlich.",
       "unknown": "Ein unerwarteter Fehler ist aufgetreten."
+    },
+    "abort": {
+      "already_configured": "Dieser Foodsharing-Account-Standort ist bereits eingerichtet."
     }
   },
   "issues": {

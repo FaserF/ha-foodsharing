@@ -34,6 +34,13 @@
         "data": {
           "location": "Location (Pin on map)"
         }
+      },
+      "reauth_confirm": {
+        "title": "Authentication Required",
+        "description": "Your Foodsharing credentials for {email} are no longer valid. Please enter your password again to re-authenticate.",
+        "data": {
+          "password": "Password"
+        }
       }
     },
     "error": {
@@ -83,6 +90,9 @@
       "cannot_connect": "Cannot connect.",
       "2fa_required": "Two-factor authentication required.",
       "unknown": "Unexpected error occurred."
+    },
+    "abort": {
+      "already_configured": "This Foodsharing account is already configured."
     }
   },
   "issues": {

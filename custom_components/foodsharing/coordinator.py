@@ -132,19 +132,25 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
 
     async def _fetch_all_data(self) -> dict[str, Any]:
         """Fetch all data for all locations."""
+        account_tasks = {
+            "messages": self.fetch_unread_messages(),
+            "bells": self.fetch_bells(),
+            "pickups": self.fetch_pickups(),
+            "own_baskets": self.fetch_own_baskets(),
+        }
+        task_keys = list(account_tasks.keys())
         account_results = await asyncio.gather(
-            self.fetch_unread_messages(),
-            self.fetch_bells(),
-            self.fetch_pickups(),
-            self.fetch_own_baskets(),
+            *account_tasks.values(),
             return_exceptions=True
         )
+
+        keyed_results = dict(zip(task_keys, account_results, strict=True))
 
         for res in account_results:
             if isinstance(res, AuthenticationFailed):
                 raise res
 
-        messages, bells, pickups, own_baskets = self._normalize_account_results(account_results)
+        messages, bells, pickups, own_baskets = self._normalize_account_results(keyed_results)
 
         location_data: dict[str, list[dict[str, Any]]] = {}
         task_meta: list[tuple[str, int]] = []
@@ -636,10 +642,22 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
             _LOGGER.debug("Error fetching own baskets: %s", e)
         return []
 
-    def _normalize_account_results(self, results: list[Any]) -> tuple[int, int, list[dict], list[dict]]:
+    def _normalize_account_results(self, results: dict[str, Any]) -> tuple[int, int, list[dict[str, Any]], list[dict[str, Any]]]:
         """Normalize account results, using defaults for failures."""
-        messages = results[0] if not isinstance(results[0], Exception) else 0
-        bells = results[1] if not isinstance(results[1], Exception) else 0
-        pickups = results[2] if not isinstance(results[2], Exception) else []
-        own_baskets = results[3] if not isinstance(results[3], Exception) else []
+        messages = results.get("messages", 0)
+        if isinstance(messages, Exception):
+            messages = 0
+
+        bells = results.get("bells", 0)
+        if isinstance(bells, Exception):
+            bells = 0
+
+        pickups: list[dict[str, Any]] = results.get("pickups", [])
+        if isinstance(pickups, Exception) or not isinstance(pickups, list):
+            pickups = []
+
+        own_baskets: list[dict[str, Any]] = results.get("own_baskets", [])
+        if isinstance(own_baskets, Exception) or not isinstance(own_baskets, list):
+            own_baskets = []
+
         return messages, bells, pickups, own_baskets

@@ -23,28 +23,40 @@ def test_translations_synchronized():
         # but in this project they are in all files.
         for key in strings:
             assert key in translations, f"Key '{key}' missing in {lang_file}"
+        for key in translations:
+            assert key in strings, f"Extra key '{key}' found in {lang_file}"
 
         # Check config steps
         if "config" in strings and "step" in strings["config"]:
             for step in strings["config"]["step"]:
                 assert step in translations["config"]["step"], f"Config step '{step}' missing in {lang_file}"
+            for step in translations["config"]["step"]:
+                assert step in strings["config"]["step"], f"Extra config step '{step}' found in {lang_file}"
 
         # Check errors
         if "config" in strings and "error" in strings["config"]:
             for err in strings["config"]["error"]:
                 assert err in translations["config"]["error"], f"Config error '{err}' missing in {lang_file}"
+            for err in translations["config"]["error"]:
+                assert err in strings["config"]["error"], f"Extra config error '{err}' found in {lang_file}"
 
         # Check issues
         if "issues" in strings:
             for issue in strings["issues"]:
                 assert issue in translations["issues"], f"Issue '{issue}' missing in {lang_file}"
+            for issue in translations["issues"]:
+                assert issue in strings["issues"], f"Extra issue '{issue}' found in {lang_file}"
 
         # Check options steps
         if "options" in strings and "step" in strings["options"]:
             for step in strings["options"]["step"]:
                 assert step in translations["options"]["step"], f"Options step '{step}' missing in {lang_file}"
+            for step in translations["options"]["step"]:
+                assert step in strings["options"]["step"], f"Extra options step '{step}' found in {lang_file}"
 
         # Check options errors
         if "options" in strings and "error" in strings["options"]:
             for err in strings["options"]["error"]:
                 assert err in translations["options"]["error"], f"Options error '{err}' missing in {lang_file}"
+            for err in translations["options"]["error"]:
+                assert err in strings["options"]["error"], f"Extra options error '{err}' found in {lang_file}"

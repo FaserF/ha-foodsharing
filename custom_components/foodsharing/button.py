@@ -88,7 +88,12 @@ async def async_setup_entry(
             async_add_entities(new_entities)
 
         # 3. Remove stale buttons (if baskets decreased)
-        stale_ids = set(active_buttons.keys()) - current_unique_ids
+        # Only consider buttons that belong to THIS entry_id
+        entry_active_ids = {
+            uid for uid in active_buttons
+            if uid.startswith(f"foodsharing_{entry.entry_id}_")
+        }
+        stale_ids = entry_active_ids - current_unique_ids
         if stale_ids:
             registry = er.async_get(hass)
             for uid in stale_ids:

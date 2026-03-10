@@ -35,6 +35,13 @@
         "data": {
           "location": "Location (Pin on map)"
         }
+      },
+      "reauth_confirm": {
+        "title": "Authentication Required",
+        "description": "Your Foodsharing credentials for {email} are no longer valid. Please enter your password again to re-authenticate.",
+        "data": {
+          "password": "Password from your Foodsharing account"
+        }
       }
     },
     "abort": {
@@ -85,6 +92,9 @@
       "invalid_totp": "Invalid TOTP code",
       "2fa_required": "Two-factor authentication required",
       "unknown": "Unknown error"
+    },
+    "abort": {
+      "already_configured": "This Foodsharing account location is already configured"
     }
   },
   "issues": {
