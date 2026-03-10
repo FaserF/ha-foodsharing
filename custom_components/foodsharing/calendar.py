@@ -6,11 +6,12 @@ from datetime import datetime
 from homeassistant.components.calendar import CalendarEntity, CalendarEvent
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
 
-from .const import CONF_EMAIL, DOMAIN
+from .const import DOMAIN
 from .coordinator import FoodsharingCoordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -23,44 +24,47 @@ async def async_setup_entry(
     coordinator: FoodsharingCoordinator = hass.data[DOMAIN][entry.entry_id][
         "coordinator"
     ]
+    email = hass.data[DOMAIN][entry.entry_id]["email"]
 
-    async_add_entities(
-        [FoodsharingCalendar(coordinator, entry)], update_before_add=True
-    )
+    account_key = f"calendars_{email}"
+    if account_key not in hass.data[DOMAIN]:
+        hass.data[DOMAIN][account_key] = True
+        async_add_entities([FoodsharingCalendar(coordinator, email)])
 
 
 class FoodsharingCalendar(CoordinatorEntity[FoodsharingCoordinator], CalendarEntity):  # type: ignore[misc]
     """A calendar entity for foodsharing pickups."""
 
-    def __init__(self, coordinator: FoodsharingCoordinator, entry: ConfigEntry) -> None:
+    def __init__(self, coordinator: FoodsharingCoordinator, email: str) -> None:
         """Initialize the calendar."""
         super().__init__(coordinator)
-        self.entry = entry
+        self.email = email
 
         self._attr_name = "Foodsharing Pickups"
-        self._attr_unique_id = f"foodsharing_calendar_{entry.entry_id}"
+        self._attr_unique_id = f"foodsharing_calendar_{email}"
         self._events: list[CalendarEvent] = []
 
-        # Account Device
-        self._attr_device_info = {
-            "identifiers": {(DOMAIN, entry.data.get(CONF_EMAIL, ""))},
-            "name": f"Foodsharing Account ({entry.data.get(CONF_EMAIL, '')})",
-            "manufacturer": "Foodsharing.de",
-            "model": "Account",
-        }
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, email)},
+            name=f"Foodsharing Account ({email})",
+            manufacturer="Foodsharing.de",
+            model="Account",
+        )
 
-        # We process the events whenever coordinator updates
         self._process_events()
 
     def _process_events(self) -> None:
         """Process the events from the coordinator data."""
         self._events = []
-        if self.coordinator.data is None or "pickups" not in self.coordinator.data:
+        if self.coordinator.data is None:
             return
 
-        for pickup in self.coordinator.data["pickups"]:
-            # Pickups usually have 'time' or 'date', parsing dependent on API format
-            # In absence of exact structure, we'll try to extract timestamp blocks.
+        account_data = self.coordinator.data.get("account", {})
+        pickups = account_data.get("pickups", [])
+        if not isinstance(pickups, list):
+            return
+
+        for pickup in pickups:
             start_ts = pickup.get("time")
             if start_ts is None:
                 start_ts = pickup.get("date")
@@ -70,7 +74,6 @@ class FoodsharingCalendar(CoordinatorEntity[FoodsharingCoordinator], CalendarEnt
 
             try:
                 start_dt = dt_util.as_local(dt_util.utc_from_timestamp(start_ts))
-                # Assuming 1 hour slot
                 end_dt = dt_util.as_local(dt_util.utc_from_timestamp(start_ts + 3600))
 
                 event = CalendarEvent(
@@ -97,12 +100,10 @@ class FoodsharingCalendar(CoordinatorEntity[FoodsharingCoordinator], CalendarEnt
 
         now = dt_util.now()
 
-        # Find the first event that ends after 'now'
         upcoming_events = [e for e in self._events if e.end > now]
         if not upcoming_events:
             return None
 
-        # Return the earliest one
         upcoming_events.sort(key=lambda x: x.start)
         return upcoming_events[0]
 

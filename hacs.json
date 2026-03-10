@@ -1,5 +1,9 @@
 {
-    "name": "Foodsharing.de",
+    "name": "Foodsharing",
     "render_readme": true,
-    "country": ["DE", "AT", "CH"]
+    "country": [
+        "DE",
+        "AT",
+        "CH"
+    ]
 }

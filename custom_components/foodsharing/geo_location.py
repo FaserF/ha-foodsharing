@@ -6,13 +6,15 @@ from typing import Any
 
 from homeassistant.components.geo_location import GeolocationEvent
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import CONF_EMAIL, CONF_LATITUDE_FS, CONF_LONGITUDE_FS, DOMAIN
+from .const import DOMAIN
 from .coordinator import FoodsharingCoordinator
+from .helpers import get_locations_from_entry
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -37,51 +39,86 @@ async def async_setup_entry(
         "coordinator"
     ]
 
-    # Maintain a registry of active locations to map dynamic updates from the API.
-
-    # We will use a dictionary to track active entities
+    # Track active entities by (loc_idx, entity_id) composite key
     active_entities: dict[str, GeolocationEvent] = {}
 
+    @callback
     def async_update_entities() -> None:
-        """Update active geo-locations."""
+        """Update active geo-locations for all locations in this entry."""
         if not coordinator.data:
             return
 
+        locations = get_locations_from_entry(entry)
+        entry_locs: list[dict[str, Any]] = (
+            coordinator.data.get("locations", {}).get(entry.entry_id, [])
+        )
+
         new_entities: list[GeolocationEvent] = []
-        current_ids = set()
+        current_ids: set[str] = set()
 
-        # Baskets
-        for basket in coordinator.data.get("baskets", []):
-            raw_id = basket.get("id")
-            if raw_id is None:
+        for idx, loc in enumerate(locations):
+            if idx >= len(entry_locs):
                 continue
-            basket_id = f"basket_{raw_id}"
-            current_ids.add(basket_id)
+            loc_data = entry_locs[idx]
+            home_lat = loc["latitude"]
+            home_lon = loc["longitude"]
+            email = coordinator.email
 
-            if basket_id not in active_entities:
-                basket_entity = FoodsharingBasketGeoLocation(coordinator, entry, basket)
-                active_entities[basket_id] = basket_entity
-                new_entities.append(basket_entity)
+            # Baskets
+            for basket in loc_data.get("baskets", []):
+                raw_id = basket.get("id")
+                basket_lat = basket.get("latitude")
+                basket_lon = basket.get("longitude")
+                if raw_id is None or basket_lat is None or basket_lon is None:
+                    continue
+                basket_key = f"{idx}_basket_{raw_id}"
+                current_ids.add(basket_key)
 
-        # Fairteiler (Food Share Points)
-        for i, fp in enumerate(coordinator.data.get("fairteiler", [])):
-            raw_id = fp.get("id")
-            fp_id = f"fp_{raw_id}" if raw_id is not None else f"fp_noid_{i}"
-            current_ids.add(fp_id)
+                if basket_key not in active_entities:
+                    basket_entity = FoodsharingBasketGeoLocation(
+                        coordinator, entry, basket, idx, home_lat, home_lon, email
+                    )
+                    active_entities[basket_key] = basket_entity
+                    new_entities.append(basket_entity)
 
-            if fp_id not in active_entities:
-                fp_entity = FoodsharingFairteilerGeoLocation(coordinator, entry, fp, fp_id)
-                active_entities[fp_id] = fp_entity
-                new_entities.append(fp_entity)
+            # Fairteiler (Food Share Points)
+            for i, fp in enumerate(loc_data.get("fairteiler", [])):
+                raw_id = fp.get("id")
+                fp_lat = fp.get("latitude")
+                fp_lon = fp.get("longitude")
+                if fp_lat is None or fp_lon is None:
+                    continue
+                fp_unique = f"fp_{raw_id}" if raw_id is not None else f"fp_noid_{i}"
+                fp_key = f"{idx}_{fp_unique}"
+                current_ids.add(fp_key)
+
+                if fp_key not in active_entities:
+                    fp_entity = FoodsharingFairteilerGeoLocation(
+                        coordinator, entry, fp, idx, fp_unique, home_lat, home_lon, email
+                    )
+                    active_entities[fp_key] = fp_entity
+                    new_entities.append(fp_entity)
 
         if new_entities:
             async_add_entities(new_entities)
 
-        # Remove stale entities
+        # Remove stale entities only if we actually have data for this entry
+        # This prevents accidental deletion during startup race conditions
+        if entry.entry_id not in coordinator.data.get("locations", {}):
+            return
+
         stale_ids = set(active_entities.keys()) - current_ids
-        for stale_id in stale_ids:
-            entity = active_entities.pop(stale_id)
-            hass.async_create_task(entity.async_remove(force_remove=True))
+        if stale_ids:
+            registry = er.async_get(hass)
+            for stale_id in stale_ids:
+                entity = active_entities.pop(stale_id)
+                hass.async_create_task(entity.async_remove(force_remove=True))
+
+                # Also remove from registry so it doesn't show up as 'restored'
+                if entity.unique_id:
+                    entity_id = registry.async_get_entity_id("geo_location", DOMAIN, entity.unique_id)
+                    if entity_id:
+                        registry.async_remove(entity_id)
 
     # Register listener
     unsub = coordinator.async_add_listener(async_update_entities)
@@ -99,31 +136,37 @@ class FoodsharingBasketGeoLocation(CoordinatorEntity[FoodsharingCoordinator], Ge
         coordinator: FoodsharingCoordinator,
         entry: ConfigEntry,
         basket: dict[str, Any],
+        loc_idx: int,
+        home_lat: float,
+        home_lon: float,
+        email: str,
     ) -> None:
         """Initialize entity."""
         super().__init__(coordinator)
         self.entry = entry
         self._basket_id = str(basket["id"])
+        self._loc_idx = loc_idx
+        self._home_lat = home_lat
+        self._home_lon = home_lon
 
-        self._attr_unique_id = f"foodsharing_basket_{self._basket_id}"
+        self._attr_unique_id = f"foodsharing_basket_{entry.entry_id}_{self._basket_id}"
         self._attr_icon = "mdi:basket"
+        self._attr_source = DOMAIN
 
-        # Store home coordinates for distance calculation
-        try:
-            self._home_lat = float(entry.data.get(CONF_LATITUDE_FS, 0))
-            self._home_lon = float(entry.data.get(CONF_LONGITUDE_FS, 0))
-        except (ValueError, TypeError):
-            self._home_lat = 0.0
-            self._home_lon = 0.0
+        # Location Device
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, f"{email}_{home_lat}_{home_lon}")},
+            name=f"Foodsharing Location ({home_lat}, {home_lon})",
+            manufacturer="Foodsharing.de",
+            model="Location Tracker",
+            via_device=(DOMAIN, email),
+        )
 
-        # Initial data
         self._update_from_basket(basket)
 
     def _update_from_basket(self, basket: dict[str, Any]) -> None:
         """Update attributes from basket data."""
-        self._attr_name = (
-            f"Basket {self._basket_id}: {basket.get('available_until', '')}"
-        )
+        self._attr_name = f"Basket {self._basket_id}"
         try:
             self._attr_latitude = float(basket["latitude"])
             self._attr_longitude = float(basket["longitude"])
@@ -133,28 +176,25 @@ class FoodsharingBasketGeoLocation(CoordinatorEntity[FoodsharingCoordinator], Ge
 
         self._attr_source = DOMAIN
 
+    def _get_current_basket(self) -> dict[str, Any] | None:
+        """Return current basket dict from coordinator data."""
+        if not self.coordinator.data:
+            return None
+        entry_locs: list[dict] = (
+            self.coordinator.data.get("locations", {}).get(self.entry.entry_id, [])
+        )
+        if self._loc_idx >= len(entry_locs):
+            return None
+        for basket in entry_locs[self._loc_idx].get("baskets", []):
+            if isinstance(basket, dict) and str(basket.get("id")) == self._basket_id:
+                return basket
+        return None
+
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return the extra state attributes."""
-        data = self.coordinator.data
-        if not data or not isinstance(data, dict):
-            return {"keyword_match": False}
-
-        baskets = data.get("baskets")
-        if not isinstance(baskets, list):
-            return {"keyword_match": False}
-
-        basket = next(
-            (
-                b
-                for b in baskets
-                if isinstance(b, dict) and str(b.get("id")) == self._basket_id
-            ),
-            None,
-        )
-        if basket:
-            return {"keyword_match": basket.get("keyword_match", False)}
-        return {"keyword_match": False}
+        basket = self._get_current_basket()
+        return {"keyword_match": basket.get("keyword_match", False) if basket else False}
 
     @property
     def distance(self) -> float | None:
@@ -165,13 +205,9 @@ class FoodsharingBasketGeoLocation(CoordinatorEntity[FoodsharingCoordinator], Ge
 
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
-        if self.coordinator.data and isinstance(self.coordinator.data.get("baskets"), list):
-            for basket in self.coordinator.data["baskets"]:
-                if isinstance(basket, dict) and str(basket.get("id")) == self._basket_id:
-                    self._update_from_basket(basket)
-                    self.async_write_ha_state()
-                    return
-
+        basket = self._get_current_basket()
+        if basket:
+            self._update_from_basket(basket)
         self.async_write_ha_state()
 
     @property
@@ -179,20 +215,7 @@ class FoodsharingBasketGeoLocation(CoordinatorEntity[FoodsharingCoordinator], Ge
         """Return if entity is available."""
         if not self.coordinator.last_update_success:
             return False
-
-        data = self.coordinator.data
-        if not data or not isinstance(data, dict):
-            return False
-
-        baskets = data.get("baskets")
-        if not isinstance(baskets, list):
-            return False
-
-        for basket in baskets:
-            if isinstance(basket, dict) and str(basket.get("id")) == self._basket_id:
-                return True
-
-        return False
+        return self._get_current_basket() is not None
 
 
 class FoodsharingFairteilerGeoLocation(CoordinatorEntity[FoodsharingCoordinator], GeolocationEvent):  # type: ignore[misc]
@@ -203,39 +226,33 @@ class FoodsharingFairteilerGeoLocation(CoordinatorEntity[FoodsharingCoordinator]
         coordinator: FoodsharingCoordinator,
         entry: ConfigEntry,
         fp: dict[str, Any],
+        loc_idx: int,
         unique_id: str,
+        home_lat: float,
+        home_lon: float,
+        email: str,
     ) -> None:
         """Initialize entity."""
         super().__init__(coordinator)
         self.entry = entry
         self._fp_id = unique_id
+        self._loc_idx = loc_idx
+        self._home_lat = home_lat
+        self._home_lon = home_lon
 
-        self._attr_unique_id = f"foodsharing_fairteiler_{self._fp_id}"
+        self._attr_unique_id = f"foodsharing_{entry.entry_id}_fairteiler_{loc_idx}_{unique_id}"
         self._attr_icon = "mdi:storefront"
-
-        # Get coordinates for device mapping
-        lat = self.entry.data.get(CONF_LATITUDE_FS, "")
-        lon = self.entry.data.get(CONF_LONGITUDE_FS, "")
-        email = self.entry.data.get(CONF_EMAIL, "")
+        self._attr_source = DOMAIN
 
         # Location Device
         self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, f"{email}_{lat}_{lon}")},
-            name=f"Foodsharing Location ({lat}, {lon})",
+            identifiers={(DOMAIN, f"{email}_{home_lat}_{home_lon}")},
+            name=f"Foodsharing Location ({home_lat}, {home_lon})",
             manufacturer="Foodsharing.de",
             model="Location Tracker",
             via_device=(DOMAIN, email),
         )
 
-        # Store home coordinates for distance calculation
-        try:
-            self._home_lat = float(lat) if lat else 0.0
-            self._home_lon = float(lon) if lon else 0.0
-        except (ValueError, TypeError):
-            self._home_lat = 0.0
-            self._home_lon = 0.0
-
-        # Initial data
         self._update_from_fp(fp)
 
     def _update_from_fp(self, fp: dict[str, Any]) -> None:
@@ -249,6 +266,40 @@ class FoodsharingFairteilerGeoLocation(CoordinatorEntity[FoodsharingCoordinator]
             self._attr_longitude = None  # type: ignore[assignment]
 
         self._attr_source = DOMAIN
+        self._fp_data = fp
+
+    def _get_current_fp(self) -> dict[str, Any] | None:
+        """Return current fairteiler dict from coordinator data."""
+        if not self.coordinator.data:
+            return None
+        entry_locs: list[dict] = (
+            self.coordinator.data.get("locations", {}).get(self.entry.entry_id, [])
+        )
+        if self._loc_idx >= len(entry_locs):
+            return None
+        for i, fp in enumerate(entry_locs[self._loc_idx].get("fairteiler", [])):
+            raw_id = fp.get("id")
+            fp_id = f"fp_{raw_id}" if raw_id is not None else f"fp_noid_{i}"
+            if fp_id == self._fp_id and isinstance(fp, dict):
+                return fp
+        return None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return the extra state attributes."""
+        attrs = {
+            "description": self._fp_data.get("description"),
+            "address": self._fp_data.get("address"),
+            "picture": self._fp_data.get("picture"),
+        }
+
+        latest_post = self._fp_data.get("latest_post")
+        if latest_post:
+            attrs["latest_post"] = latest_post.get("body")
+            attrs["latest_post_time"] = latest_post.get("time")
+            attrs["latest_post_user"] = latest_post.get("user_name")
+
+        return attrs
 
     @property
     def distance(self) -> float | None:
@@ -259,15 +310,9 @@ class FoodsharingFairteilerGeoLocation(CoordinatorEntity[FoodsharingCoordinator]
 
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
-        if self.coordinator.data and isinstance(self.coordinator.data.get("fairteiler"), list):
-            for i, fp in enumerate(self.coordinator.data["fairteiler"]):
-                raw_id = fp.get("id")
-                fp_id = f"fp_{raw_id}" if raw_id is not None else f"fp_noid_{i}"
-                if fp_id == self._fp_id:
-                    self._update_from_fp(fp)
-                    self.async_write_ha_state()
-                    return
-
+        fp = self._get_current_fp()
+        if fp:
+            self._update_from_fp(fp)
         self.async_write_ha_state()
 
     @property
@@ -275,19 +320,4 @@ class FoodsharingFairteilerGeoLocation(CoordinatorEntity[FoodsharingCoordinator]
         """Return if entity is available."""
         if not self.coordinator.last_update_success:
             return False
-
-        data = self.coordinator.data
-        if not data or not isinstance(data, dict):
-            return False
-
-        fairteilers = data.get("fairteiler")
-        if not isinstance(fairteilers, list):
-            return False
-
-        for i, fp in enumerate(fairteilers):
-            raw_id = fp.get("id")
-            fp_id = f"fp_{raw_id}" if raw_id is not None else f"fp_noid_{i}"
-            if fp_id == self._fp_id:
-                return True
-
-        return False
+        return self._get_current_fp() is not None

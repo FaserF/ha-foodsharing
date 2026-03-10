@@ -3,20 +3,51 @@
     "step": {
       "user": {
         "title": "Connect to Foodsharing.de",
-        "description": "Enter your login credentials and select the location you want to monitor.",
+        "description": "Select the location on the map to search for baskets within the selected radius. Your email address and password will be used to authenticate with the API.",
         "data": {
           "email": "Email",
           "password": "Password",
           "location": "Location (Pin on map)",
           "distance": "Search Radius (km)",
           "keywords": "Keywords (comma-separated)",
-          "scan_interval": "Update Interval (minutes)"
+          "scan_interval": "Update Interval (minutes)",
+          "use_beta_api": "Use Beta API (beta.foodsharing.de)"
+        }
+      },
+      "totp": {
+        "title": "Two-Factor Authentication (2FA)",
+        "description": "Your account has Two-Factor Authentication enabled. Please enter the matching 6-digit TOTP code from your authenticator app (e.g., Google Authenticator, Authy or your Foodsharing App).",
+        "data": {
+          "code": "6-digit TOTP Code"
+        }
+      },
+      "add_location": {
+        "title": "Additional Locations",
+        "description": "You can monitor multiple locations. Would you like to add another location?",
+        "data": {
+          "add_another": "Add another location"
+        }
+      },
+      "extra_location": {
+        "title": "Add Location",
+        "description": "Select an additional location on the map.",
+        "data": {
+          "location": "Location (Pin on map)"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Authentication Required",
+        "description": "Your Foodsharing credentials for {email} are no longer valid. Please enter your password again to re-authenticate.",
+        "data": {
+          "password": "Password"
         }
       }
     },
     "error": {
       "invalid_auth": "Invalid email or password.",
+      "invalid_totp": "The TOTP code entered is incorrect or expired. Please try again.",
       "cannot_connect": "Cannot connect to the server, please check your network and try again.",
+      "2fa_required": "Authentication requires a second factor (2FA)",
       "unknown": "Unexpected error occurred."
     },
     "abort": {
@@ -27,38 +58,47 @@
     "step": {
       "init": {
         "title": "Configure Foodsharing Options",
+        "description": "Change the options for the Foodsharing integration.",
         "data": {
           "email": "Email",
           "password": "Password",
-          "location": "Location (Pin on map)",
+          "location": "Primary Location (Pin on map)",
           "distance": "Search Radius (km)",
           "keywords": "Keywords (comma-separated)",
-          "scan_interval": "Update Interval (minutes)"
+          "scan_interval": "Update Interval (minutes)",
+          "use_beta_api": "Use Beta API (beta.foodsharing.de)"
+        }
+      },
+      "manage_locations": {
+        "title": "Manage Locations",
+        "description": "You currently have {count} location(s) configured. Would you like to add another?",
+        "data": {
+          "add_another": "Add another location"
+        }
+      },
+      "extra_location_option": {
+        "title": "Add Location",
+        "description": "Select an additional location on the map.",
+        "data": {
+          "location": "Location (Pin on map)"
         }
       }
     },
     "error": {
       "invalid_auth": "Invalid email or password.",
+      "invalid_totp": "The TOTP code entered is incorrect or expired.",
       "cannot_connect": "Cannot connect.",
+      "2fa_required": "Two-factor authentication required.",
       "unknown": "Unexpected error occurred."
-    }
-  },
-  "services": {
-    "request_basket": {
-      "name": "Request Basket",
-      "description": "Requests a specific Foodsharing basket.",
-      "fields": {
-        "basket_id": {
-          "name": "Basket ID",
-          "description": "The numeric ID of the basket to request."
-        }
-      }
+    },
+    "abort": {
+      "already_configured": "This Foodsharing account is already configured."
     }
   },
   "issues": {
     "auth_failed": {
-      "title": "Foodsharing authentication failed",
-      "description": "Your Foodsharing credentials are no longer valid. Please update your email and password in the integration options under Settings > Devices & Services > Foodsharing > Configure."
+      "title": "Foodsharing authentication failed for {email}",
+      "description": "Your Foodsharing credentials for {email} are no longer valid. Please update your email and password in the integration configuration."
     },
     "api_offline": {
       "title": "Foodsharing API is offline",

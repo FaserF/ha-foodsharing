@@ -1,10 +1,33 @@
 request_basket:
   name: Request Basket
-  description: Requests a specific basket by its ID directly.
+  description: Requests a specific foodsharing basket by its ID.
   fields:
     basket_id:
       name: Basket ID
-      description: The ID of the foodsharing basket you want to request.
+      description: The numeric ID of the basket to request.
       required: true
+      selector:
+        text:
+    email:
+      name: Email
+      description: The email of the account to use (optional if only one is configured).
+      required: false
+      selector:
+        text:
+
+close_basket:
+  name: Close Basket
+  description: Closes an active, own foodsharing basket by its ID.
+  fields:
+    basket_id:
+      name: Basket ID
+      description: The numeric ID of the own basket to close.
+      required: true
+      selector:
+        text:
+    email:
+      name: Email
+      description: The email of the account to use (optional if only one is configured).
+      required: false
       selector:
         text:
