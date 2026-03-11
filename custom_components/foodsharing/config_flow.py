@@ -143,6 +143,7 @@ async def validate_credentials(
             err,
         )
         return False
+    return False
 
 
 def _location_to_dict(location: dict[str, Any]) -> dict[str, Any]:

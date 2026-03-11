@@ -280,6 +280,7 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
                 e,
             )
             return False
+        return False
 
     async def fetch_unread_messages(self) -> int:
         """Fetch unread mailbox message count and detailed conversations."""
@@ -337,18 +338,19 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
                 if response.status == 200:
                     data = await response.json()
                     if isinstance(data, list):
-                        unread_count = 0
-                        for bell in data:
-                            if isinstance(bell, dict) and bell.get("is_read") == 0:
-                                unread_count = unread_count + 1
-                                bell_id = bell.get("id")
-                                if bell_id and bell_id not in self._seen_bells:
-                                    self._seen_bells.add(bell_id)
-                                    if not self._is_first_update:
-                                        self.hass.bus.async_fire(
-                                            f"{DOMAIN}_new_bell", bell
-                                        )
-                        return unread_count
+                        unread_bells = [
+                            b for b in data
+                            if isinstance(b, dict) and b.get("is_read") == 0
+                        ]
+                        for bell in unread_bells:
+                            bell_id = bell.get("id")
+                            if bell_id and bell_id not in self._seen_bells:
+                                self._seen_bells.add(bell_id)
+                                if not self._is_first_update:
+                                    self.hass.bus.async_fire(
+                                        f"{DOMAIN}_new_bell", bell
+                                    )
+                        return len(unread_bells)
                 elif response.status == 401:
                     raise AuthenticationFailed("Unauthorized access while fetching notifications.")
         except (AuthenticationFailed, UpdateFailed):

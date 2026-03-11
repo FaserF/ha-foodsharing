@@ -1,47 +1,55 @@
-"""Helper utilities for the Foodsharing integration."""
-
+"""Helpers for Foodsharing integration."""
 from __future__ import annotations
+
+import logging
+from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
 
-from .const import CONF_DISTANCE, CONF_LATITUDE_FS, CONF_LOCATIONS, CONF_LONGITUDE_FS
+from .const import CONF_LOCATIONS
+
+_LOGGER = logging.getLogger(__name__)
 
 
-def get_locations_from_entry(entry: ConfigEntry) -> list[dict]:
-    """Return the list of search locations for a config entry.
+def get_locations_from_entry(entry: ConfigEntry) -> list[dict[str, Any]]:
+    """Extract and prioritize locations from config entry."""
+    locations: list[dict[str, Any]] = []
 
-    Supports both the new ``locations`` list format (v5+) and the legacy
-    flat ``latitude`` / ``longitude`` / ``distance`` keys (v3/v4).
-    """
-    locations = entry.options.get(CONF_LOCATIONS, entry.data.get(CONF_LOCATIONS))
-    if locations:
-        return list(locations)
+    # 1. First, check if there's a list of locations in the entry options/data
+    locs_data = entry.options.get(CONF_LOCATIONS, entry.data.get(CONF_LOCATIONS, []))
+    if isinstance(locs_data, list) and locs_data:
+        for loc in locs_data:
+            if isinstance(loc, dict) and "latitude" in loc and "longitude" in loc:
+                locations.append(loc)
+        if locations:
+            return locations
 
-    lat = entry.options.get(CONF_LATITUDE_FS, entry.data.get(CONF_LATITUDE_FS))
-    lon = entry.options.get(CONF_LONGITUDE_FS, entry.data.get(CONF_LONGITUDE_FS))
-    dist = entry.options.get(CONF_DISTANCE, entry.data.get(CONF_DISTANCE, 7))
-    if lat is not None and lon is not None:
-        return [{"latitude": lat, "longitude": lon, "distance": dist}]
-    return []
+    # 2. Legacy: check the main latitude/longitude/distance fields
+    # (These might still be there from older versions)
+    data = entry.options.copy()
+    data.update(entry.data)
 
+    try:
+        lat = float(data.get("latitude", 0))
+        lon = float(data.get("longitude", 0))
+        dist = float(data.get("distance", 7.0))
+        if lat != 0 and lon != 0:
+            locations.append({"latitude": lat, "longitude": lon, "distance": dist})
+    except (ValueError, TypeError):
+        pass
 
-def parse_extra_locations(text: str) -> list[dict[str, float]]:
-    """Parse extra locations from a semicolon-separated string of lat,lon,dist."""
-    locations: list[dict[str, float]] = []
-    if not text:
-        return locations
-
-    for part in text.split(";"):
+    # 3. Last resort: check if there's a location string we can parse
+    # Format: "latitude,longitude,distance"
+    loc_str = data.get("location", "")
+    if isinstance(loc_str, str) and loc_str:
         try:
-            coords = [p.strip() for p in part.split(",") if p.strip()]
-            if len(coords) < 2:
-                continue
+            coords = loc_str.split(",")
             lat = float(coords[0])
             lon = float(coords[1])
             dist = float(coords[2]) if len(coords) > 2 else 7.0
             locations.append({"latitude": lat, "longitude": lon, "distance": dist})
         except (ValueError, IndexError):
-            continue
+            pass
     return locations
 
 
@@ -49,5 +57,10 @@ def mask_email(email: str | None) -> str:
     """Mask email address for logging (e.g., u***@example.com)."""
     if not isinstance(email, str) or "@" not in email:
         return "***"
-    parts = email.split("@")
-    return f"{email[0]}***@{parts[-1]}"
+    e_str = str(email)
+    at_pos = e_str.find("@")
+    if at_pos < 0:
+        return "***"
+    first = e_str[:1]
+    domain = e_str[at_pos + 1 :]
+    return f"{first}***@{domain}"
