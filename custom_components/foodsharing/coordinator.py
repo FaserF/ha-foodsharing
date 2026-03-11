@@ -15,9 +15,10 @@ from .const import (
     CONF_KEYWORDS,
     CONF_SCAN_INTERVAL,
     CONF_USE_BETA_API,
+    CONF_DOMAIN,
     DOMAIN,
 )
-from .helpers import get_locations_from_entry
+from .helpers import get_locations_from_entry, mask_email
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -72,11 +73,23 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
     def _update_base_url(self) -> None:
         """Update base URL based on entries."""
         use_beta = False
+        domain = "foodsharing_de"
         for entry in self.entries.values():
             if entry.options.get(CONF_USE_BETA_API, entry.data.get(CONF_USE_BETA_API, False)):
                 use_beta = True
-                break
-        self.base_url = "https://beta.foodsharing.de" if use_beta else "https://foodsharing.de"
+            
+            # Get domain from entry, default to de
+            entry_domain = entry.options.get(CONF_DOMAIN, entry.data.get(CONF_DOMAIN, "foodsharing_de"))
+            if entry_domain != "foodsharing_de":
+                domain = entry_domain
+        
+        base_domain = "foodsharing.de"
+        if domain == "foodsharing_at":
+            base_domain = "foodsharing.at"
+        elif domain == "foodsharing_ch":
+            base_domain = "foodsharing.ch"
+
+        self.base_url = f"https://beta.{base_domain}" if use_beta else f"https://{base_domain}"
         _LOGGER.debug("Foodsharing base URL set to %s", self.base_url)
 
     def _update_refresh_interval(self) -> None:
@@ -107,7 +120,7 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
             if login_res == "2fa_required":
                 _LOGGER.info(
                     "2FA required for %s, starting re-auth flow.",
-                    f"{self.email[:1]}***@{self.email.split('@')[-1]}" if "@" in self.email else "***",
+                mask_email(self.email),
                 )
                 for entry in self.entries.values():
                     entry.async_start_reauth(self.hass)
@@ -250,9 +263,9 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
                         if body.get("code") == "2fa_required":
                             _LOGGER.info(
                                 "2FA required for user %s",
-                                f"{self.email[:1]}***@{self.email.split('@')[-1]}" if "@" in self.email else "***",
-                            )
-                            return "2fa_required"
+                            mask_email(self.email),
+                        )
+                        return "2fa_required"
 
                         _LOGGER.error("Login failed with status 400: %s", body)
                         return False
@@ -263,7 +276,7 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
         except Exception as e:
             _LOGGER.error(
                 "Error during login for %s: %s",
-                f"{self.email[:1]}***@{self.email.split('@')[-1]}" if "@" in self.email else "***",
+                mask_email(self.email),
                 e,
             )
             return False
@@ -377,6 +390,7 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
             raise
         except Exception as e:
             raise UpdateFailed(f"Error fetching data: {e}") from e
+        return []
 
     def _process_baskets_for_location(self, entry_id: str, json_data: Any) -> list[dict[str, Any]]:
         """Process basket data for a specific location context."""
@@ -579,7 +593,7 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
         try:
             request_headers = {**self._headers}
             if self.csrf_token:
-                request_headers["X-CSRF-Token"] = self.csrf_token
+                request_headers["X-CSRF-Token"] = str(self.csrf_token)
 
             async with async_timeout.timeout(10), self.session.get(
                 url, headers=request_headers

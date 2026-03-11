@@ -43,3 +43,11 @@ def parse_extra_locations(text: str) -> list[dict[str, float]]:
         except (ValueError, IndexError):
             continue
     return locations
+
+
+def mask_email(email: str | None) -> str:
+    """Mask email address for logging (e.g., u***@example.com)."""
+    if not isinstance(email, str) or "@" not in email:
+        return "***"
+    parts = email.split("@")
+    return f"{email[0]}***@{parts[-1]}"

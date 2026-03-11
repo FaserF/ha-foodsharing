@@ -12,7 +12,8 @@
           "distance": "Search radius in km",
           "keywords": "Search keywords (comma-separated, optional)",
           "scan_interval": "Scan interval in minutes",
-          "use_beta_api": "Use Beta API (beta.foodsharing.de)"
+          "use_beta_api": "Use Beta API (beta.foodsharing.de)",
+          "domain": "Domain"
         }
       },
       "totp": {
@@ -55,6 +56,15 @@
       "unknown": "Unknown error"
     }
   },
+  "selector": {
+    "domain": {
+      "options": {
+        "foodsharing_de": "foodsharing.de",
+        "foodsharing_at": "foodsharing.at",
+        "foodsharing_ch": "foodsharing.ch"
+      }
+    }
+  },
   "options": {
     "flow_title": "Setup Foodsharing Options",
     "step": {
@@ -68,7 +78,8 @@
           "distance": "Search radius in km",
           "keywords": "Search keywords (comma-separated, optional)",
           "scan_interval": "Scan interval in minutes",
-          "use_beta_api": "Use Beta API (beta.foodsharing.de)"
+          "use_beta_api": "Use Beta API (beta.foodsharing.de)",
+          "domain": "Domain"
         }
       },
       "manage_locations": {

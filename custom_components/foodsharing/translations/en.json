@@ -2,7 +2,7 @@
   "config": {
     "step": {
       "user": {
-        "title": "Connect to Foodsharing.de",
+        "title": "Connect to Foodsharing",
         "description": "Select the location on the map to search for baskets within the selected radius. Your email address and password will be used to authenticate with the API.",
         "data": {
           "email": "Email",
@@ -11,7 +11,8 @@
           "distance": "Search Radius (km)",
           "keywords": "Keywords (comma-separated)",
           "scan_interval": "Update Interval (minutes)",
-          "use_beta_api": "Use Beta API (beta.foodsharing.de)"
+          "use_beta_api": "Use Beta API (beta.foodsharing.de)",
+          "domain": "Domain"
         }
       },
       "totp": {
@@ -102,7 +103,7 @@
     },
     "api_offline": {
       "title": "Foodsharing API is offline",
-      "description": "The Foodsharing.de API returned a 503 error. The service may be temporarily unavailable. Data will update automatically once the API is back online."
+      "description": "The Foodsharing API returned a 503 error. The service may be temporarily unavailable. Data will update automatically once the API is back online."
     }
   }
 }

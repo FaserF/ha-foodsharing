@@ -2,7 +2,7 @@
   "config": {
     "step": {
       "user": {
-        "title": "Verbinde Foodsharing.de",
+        "title": "Verbinde Foodsharing",
         "description": "Wähle den Standort auf der Karte aus, um im ausgewählten Radius nach Körben zu suchen. Deine E-Mail-Adresse und dein Passwort werden zur Authentifizierung bei der API verwendet.",
         "data": {
           "email": "E-Mail",
@@ -11,7 +11,8 @@
           "distance": "Suchradius (km)",
           "keywords": "Schlüsselwörter (kommagetrennt)",
           "scan_interval": "Aktualisierungsintervall (Minuten)",
-          "use_beta_api": "Beta API nutzen (beta.foodsharing.de)"
+          "use_beta_api": "Beta API nutzen (beta.foodsharing.de)",
+          "domain": "Domain"
         }
       },
       "totp": {
@@ -66,7 +67,8 @@
           "distance": "Suchradius (km)",
           "keywords": "Schlüsselwörter (kommagetrennt)",
           "scan_interval": "Aktualisierungsintervall (Minuten)",
-          "use_beta_api": "Beta API nutzen (beta.foodsharing.de)"
+          "use_beta_api": "Beta API nutzen (beta.foodsharing.de)",
+          "domain": "Domain"
         }
       },
       "manage_locations": {
@@ -102,7 +104,7 @@
     },
     "api_offline": {
       "title": "Foodsharing-API ist offline",
-      "description": "Die Foodsharing.de API hat einen 503-Fehler zurückgegeben. Der Dienst ist möglicherweise vorübergehend nicht verfügbar. Die Daten werden automatisch aktualisiert, sobald die API wieder erreichbar ist."
+      "description": "Die Foodsharing-API hat einen 503-Fehler zurückgegeben. Der Dienst ist möglicherweise vorübergehend nicht verfügbar. Die Daten werden automatisch aktualisiert, sobald die API wieder erreichbar ist."
     }
   }
 }

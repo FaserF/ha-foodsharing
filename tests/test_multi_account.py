@@ -23,13 +23,15 @@ def mock_hass():
     hass.data = {DOMAIN: {"accounts": {}}}
     hass.services = MagicMock()
     hass.bus = MagicMock()
+    hass.config_entries = MagicMock()
+    hass.config_entries.async_forward_entry_setups = AsyncMock(return_value=True)
     return hass
 
 @pytest.mark.asyncio
 async def test_shared_coordinator_same_account(mock_hass, mock_session):
     """Test that two locations for the same account share a coordinator."""
     with patch("custom_components.foodsharing.coordinator.async_get_clientsession", return_value=mock_session), \
-         patch("custom_components.foodsharing.coordinator.FoodsharingCoordinator.async_config_entry_first_refresh", return_value=None), \
+         patch("custom_components.foodsharing.coordinator.FoodsharingCoordinator.async_config_entry_first_refresh", new_callable=AsyncMock), \
          patch("custom_components.foodsharing.coordinator.FoodsharingCoordinator.async_request_refresh", new_callable=AsyncMock), \
          patch("custom_components.foodsharing.dr.async_get", return_value=MagicMock()):
 
@@ -59,7 +61,7 @@ async def test_shared_coordinator_same_account(mock_hass, mock_session):
 async def test_separate_coordinators_different_accounts(mock_hass, mock_session):
     """Test that different accounts get different coordinators."""
     with patch("custom_components.foodsharing.coordinator.async_get_clientsession", return_value=mock_session), \
-         patch("custom_components.foodsharing.coordinator.FoodsharingCoordinator.async_config_entry_first_refresh", return_value=None), \
+         patch("custom_components.foodsharing.coordinator.FoodsharingCoordinator.async_config_entry_first_refresh", new_callable=AsyncMock), \
          patch("custom_components.foodsharing.dr.async_get", return_value=MagicMock()):
 
         entry1 = MagicMock()

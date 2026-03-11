@@ -18,17 +18,14 @@ from .const import (
     DOMAIN,
 )
 from .coordinator import FoodsharingCoordinator
+from .helpers import mask_email
 
 _LOGGER = logging.getLogger(__name__)
 
 PLATFORMS = [Platform.SENSOR, Platform.GEO_LOCATION, Platform.BUTTON, Platform.CALENDAR]
 
 
-def mask_email(email: str) -> str:
-    """Mask email address for logging (e.g., u***@example.com)."""
-    if "@" in email:
-        return f"{email[:1]}***@{email.split('@')[-1]}"
-    return "***"
+
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -57,7 +54,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             config_entry_id=entry.entry_id,
             identifiers={(DOMAIN, email)},
             name=f"Foodsharing Account ({email})",
-            manufacturer="Foodsharing.de",
+            manufacturer="Foodsharing",
             model="Account",
         )
 

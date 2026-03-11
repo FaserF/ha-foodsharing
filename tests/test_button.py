@@ -16,9 +16,24 @@ def mock_coordinator():
     coordinator = MagicMock()
     coordinator.email = "test@example.com"
     coordinator.last_update_success = True
-    coordinator.session = AsyncMock()
     coordinator.base_url = "https://foodsharing.de"
     coordinator._headers = {"Authorization": "Bearer test"}
+
+    # Mock session and post
+    coordinator.session = MagicMock()
+    
+    # helper for creating a response mock
+    def create_mock_response(status=200):
+        mock_resp = MagicMock()
+        mock_resp.status = status
+        # context manager mocks
+        response_cm = AsyncMock()
+        response_cm.__aenter__.return_value = mock_resp
+        return response_cm
+
+    coordinator.session.post.return_value = create_mock_response(200)
+    
+    coordinator.async_request_refresh = AsyncMock(return_value=None)
 
     # Mock data structure
     coordinator.data = {
@@ -84,13 +99,6 @@ async def test_request_button_press(mock_coordinator, mock_entry):
         mock_coordinator, mock_entry, loc_idx=0, lat=52.0, lon=13.0, slot_idx=0
     )
 
-    # Mock response
-    mock_response = MagicMock()
-    mock_response.status = 200
-    mock_response.__aenter__ = AsyncMock(return_value=mock_response)
-    mock_response.__aexit__ = AsyncMock()
-    mock_coordinator.session.post.return_value = mock_response
-
     await button.async_press()
 
     mock_coordinator.session.post.assert_called_once_with(
@@ -124,13 +132,6 @@ async def test_close_button_press(mock_coordinator):
     button = FoodsharingCloseSlotButton(
         mock_coordinator, email="test@example.com", slot_idx=0
     )
-
-    # Mock response
-    mock_response = MagicMock()
-    mock_response.status = 200
-    mock_response.__aenter__ = AsyncMock(return_value=mock_response)
-    mock_response.__aexit__ = AsyncMock()
-    mock_coordinator.session.post.return_value = mock_response
 
     await button.async_press()
 

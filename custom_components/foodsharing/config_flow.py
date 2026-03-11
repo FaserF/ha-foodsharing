@@ -21,18 +21,31 @@ from .const import (
     CONF_SCAN_INTERVAL,
     CONF_TOTP,
     CONF_USE_BETA_API,
+    CONF_DOMAIN,
     DOMAIN,
 )
+from .helpers import mask_email
 
 _LOGGER = logging.getLogger(__name__)
 
 
 async def validate_credentials(
-    hass: HomeAssistant, email: str, password: str, totp: str | None = None, use_beta: bool = False
+    hass: HomeAssistant,
+    email: str,
+    password: str,
+    totp: str | None = None,
+    use_beta: bool = False,
+    domain: str = "foodsharing_de",
 ) -> str | bool | dict[str, Any]:
-    """Validate the user credentials against the foodsharing.de API."""
+    """Validate the user credentials against the foodsharing API."""
     session = async_get_clientsession(hass)
-    base_url = "https://beta.foodsharing.de" if use_beta else "https://foodsharing.de"
+    base_domain = "foodsharing.de"
+    if domain == "foodsharing_at":
+        base_domain = "foodsharing.at"
+    elif domain == "foodsharing_ch":
+        base_domain = "foodsharing.ch"
+
+    base_url = f"https://beta.{base_domain}" if use_beta else f"https://{base_domain}"
     login_url = f"{base_url}/api/user/login"
     headers = {"User-Agent": "HomeAssistant-Foodsharing/1.0 (+https://github.com/FaserF/ha-foodsharing)"}
     timeout = aiohttp.ClientTimeout(total=10)
@@ -53,7 +66,7 @@ async def validate_credentials(
                         _LOGGER.debug(
                             "Found existing session for user %s, but proceeding with login to validate %s",
                             current_data["id"],
-                            f"{email[:1]}***@{email.split('@')[-1]}" if "@" in email else "***",
+                            mask_email(email),
                         )
         except Exception as err:
             _LOGGER.debug("Session check failed (ignoring): %s", err)
@@ -65,7 +78,7 @@ async def validate_credentials(
 
         _LOGGER.debug(
             "Attempting login for %s (TOTP: %s, Beta: %s)",
-            f"{email[:1]}***@{email.split('@')[-1]}" if "@" in email else "***",
+            mask_email(email),
             "Yes" if totp else "No",
             use_beta,
         )
@@ -80,7 +93,7 @@ async def validate_credentials(
 
                 _LOGGER.debug(
                     "Login successful for %s, user_id: %s",
-                    f"{email[:1]}***@{email.split('@')[-1]}" if "@" in email else "***",
+                    mask_email(email),
                     user_id,
                 )
                 return str(user_id) if user_id else True
@@ -91,19 +104,19 @@ async def validate_credentials(
                     if isinstance(body, dict) and body.get("code") == "2fa_required":
                         _LOGGER.debug(
                             "2FA required for %s",
-                            f"{email[:1]}***@{email.split('@')[-1]}" if "@" in email else "***",
+                            mask_email(email),
                         )
                         return {"2fa_required": True}
                     _LOGGER.warning(
                         "Login failed (400) for %s: %s",
-                        f"{email[:1]}***@{email.split('@')[-1]}" if "@" in email else "***",
+                        mask_email(email),
                         body,
                     )
                 except Exception:
                     text = await response.text()
                     _LOGGER.warning(
                         "Login failed (400) for %s with non-JSON body: %s",
-                        f"{email[:1]}***@{email.split('@')[-1]}" if "@" in email else "***",
+                        mask_email(email),
                         text,
                     )
                 return False
@@ -112,21 +125,21 @@ async def validate_credentials(
                 _LOGGER.warning(
                     "Login failed with status %s for %s: %s",
                     response.status,
-                    f"{email[:1]}***@{email.split('@')[-1]}" if "@" in email else "***",
+                    mask_email(email),
                     body,
                 )
                 return False
     except (TimeoutError, aiohttp.ClientError) as err:
         _LOGGER.error(
             "Error validating credentials for %s (network/timeout): %s",
-            f"{email[:1]}***@{email.split('@')[-1]}" if "@" in email else "***",
+            mask_email(email),
             err,
         )
         return "cannot_connect"
     except Exception as err:
         _LOGGER.exception(
             "Unexpected error validating credentials for %s: %s",
-            f"{email[:1]}***@{email.split('@')[-1]}" if "@" in email else "***",
+            mask_email(email),
             err,
         )
         return False
@@ -162,8 +175,11 @@ class FoodsharingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # type: 
                 email = user_input[CONF_EMAIL]
                 password = user_input[CONF_PASSWORD]
                 use_beta = user_input.get(CONF_USE_BETA_API, False)
+                domain = user_input.get(CONF_DOMAIN, "foodsharing_de")
 
-                res = await validate_credentials(self.hass, email, password, use_beta=use_beta)
+                res = await validate_credentials(
+                    self.hass, email, password, use_beta=use_beta, domain=domain
+                )
                 if res == "cannot_connect":
                     errors["base"] = "cannot_connect"
                 elif isinstance(res, dict) and res.get("2fa_required"):
@@ -172,7 +188,7 @@ class FoodsharingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # type: 
                 elif not res:
                     errors["base"] = "invalid_auth"
                 else:
-                    self._user_input = user_input
+                    self._user_input = dict(user_input)
                     if CONF_LOCATION in user_input:
                         self._locations = [_location_to_dict(user_input[CONF_LOCATION])]
                     return await self.async_step_add_location()
@@ -198,6 +214,17 @@ class FoodsharingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # type: 
                 ),
                 vol.Optional(CONF_KEYWORDS, default=""): str,
                 vol.Required(CONF_SCAN_INTERVAL, default=2): cv.positive_int,
+                vol.Required(CONF_DOMAIN, default="foodsharing_de"): selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        options=[
+                            selector.SelectOptionDict(value="foodsharing_de", label="foodsharing.de"),
+                            selector.SelectOptionDict(value="foodsharing_at", label="foodsharing.at"),
+                            selector.SelectOptionDict(value="foodsharing_ch", label="foodsharing.ch"),
+                        ],
+                        translation_key="domain",
+                        mode=selector.SelectSelectorMode.DROPDOWN,
+                    )
+                ),
                 vol.Optional(CONF_USE_BETA_API, default=False): bool,
             },
         )
@@ -357,7 +384,7 @@ class FoodsharingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # type: 
 
             _LOGGER.debug(
                 "Initialized new foodsharing entry for: %s",
-                f"{email[:1]}***@{email.split('@')[-1]}" if "@" in email else "***",
+                mask_email(email),
             )
             return self.async_create_entry(title=email, data=user_input)
         except Exception as err:
@@ -379,6 +406,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow):  # type: ignore[misc]
     def __init__(self) -> None:
         """Initialize options flow."""
         self._locations: list[dict[str, Any]] = []
+        self._user_input: dict[str, Any] = {}
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
@@ -389,14 +417,22 @@ class OptionsFlowHandler(config_entries.OptionsFlow):  # type: ignore[misc]
             new_email = user_input[CONF_EMAIL]
             new_password = user_input[CONF_PASSWORD]
             new_use_beta = user_input.get(CONF_USE_BETA_API, False)
+            new_domain = user_input.get(CONF_DOMAIN, "foodsharing_de")
+
             options = {**self.config_entry.data, **self.config_entry.options}
             old_email = options.get(CONF_EMAIL)
             old_password = options.get(CONF_PASSWORD)
             old_use_beta = options.get(CONF_USE_BETA_API, False)
+            old_domain = options.get(CONF_DOMAIN, "foodsharing_de")
 
-            if new_email != old_email or new_password != old_password or new_use_beta != old_use_beta:
+            if (
+                new_email != old_email
+                or new_password != old_password
+                or new_use_beta != old_use_beta
+                or new_domain != old_domain
+            ):
                 is_valid = await validate_credentials(
-                    self.hass, new_email, new_password, use_beta=new_use_beta
+                    self.hass, new_email, new_password, use_beta=new_use_beta, domain=new_domain
                 )
                 if is_valid == "cannot_connect":
                     errors["base"] = "cannot_connect"
@@ -453,6 +489,19 @@ class OptionsFlowHandler(config_entries.OptionsFlow):  # type: ignore[misc]
                 vol.Required(
                     CONF_SCAN_INTERVAL, default=options.get(CONF_SCAN_INTERVAL, 2)
                 ): cv.positive_int,
+                vol.Required(
+                    CONF_DOMAIN, default=options.get(CONF_DOMAIN, "foodsharing_de")
+                ): selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        options=[
+                            selector.SelectOptionDict(value="foodsharing_de", label="foodsharing.de"),
+                            selector.SelectOptionDict(value="foodsharing_at", label="foodsharing.at"),
+                            selector.SelectOptionDict(value="foodsharing_ch", label="foodsharing.ch"),
+                        ],
+                        translation_key="domain",
+                        mode=selector.SelectSelectorMode.DROPDOWN,
+                    )
+                ),
                 vol.Optional(
                     CONF_USE_BETA_API, default=options.get(CONF_USE_BETA_API, False)
                 ): bool,
@@ -542,15 +591,15 @@ class OptionsFlowHandler(config_entries.OptionsFlow):  # type: ignore[misc]
             if existing_entry:
                 _LOGGER.error(
                     "Cannot change email to %s: another entry already exists for this account",
-                    f"{new_email[:1]}***@{new_email.split('@')[-1]}" if "@" in new_email else "***",
+                    mask_email(new_email),
                 )
                 # We return an abort here because we can't update unique_id to a duplicate
                 return self.async_abort(reason="already_configured")
 
             _LOGGER.debug(
                 "Email changed from %s to %s, updating config entry",
-                f"{current_email[:1]}***@{current_email.split('@')[-1]}" if current_email and "@" in current_email else "***",
-                f"{new_email[:1]}***@{new_email.split('@')[-1]}" if "@" in new_email else "***",
+                mask_email(current_email),
+                mask_email(new_email),
             )
             self.hass.config_entries.async_update_entry(
                 self.config_entry,

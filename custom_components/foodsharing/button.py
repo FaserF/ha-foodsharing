@@ -88,12 +88,15 @@ async def async_setup_entry(
             async_add_entities(new_entities)
 
         # 3. Remove stale buttons (if baskets decreased)
-        # Only consider buttons that belong to THIS entry_id
-        entry_active_ids = {
-            uid for uid in active_buttons
-            if uid.startswith(f"foodsharing_{entry.entry_id}_")
+        # We only clean up buttons that belong to THIS entry or THIS account's global buttons
+        stale_ids = {
+            uid for uid, btn in active_buttons.items()
+            if (
+                getattr(btn, "config_entry_id", None) == entry.entry_id
+                or getattr(btn, "account_email", None) == email
+            )
+            and uid not in current_unique_ids
         }
-        stale_ids = entry_active_ids - current_unique_ids
         if stale_ids:
             registry = er.async_get(hass)
             for uid in stale_ids:
@@ -146,6 +149,7 @@ class FoodsharingRequestSlotButton(CoordinatorEntity[FoodsharingCoordinator], Bu
         self._attr_unique_id = (
             f"foodsharing_{entry.entry_id}_loc_{loc_idx}_request_basket_{slot_idx}"
         )
+        self.config_entry_id = entry.entry_id
         self._attr_icon = "mdi:cart-plus"
 
         email = coordinator.email
@@ -247,6 +251,7 @@ class FoodsharingCloseSlotButton(CoordinatorEntity[FoodsharingCoordinator], Butt
         self._slot_idx = slot_idx
 
         self._attr_unique_id = f"foodsharing_{email}_close_basket_{slot_idx}"
+        self.account_email = email
         self._attr_icon = "mdi:cart-off"
 
         self._attr_device_info = DeviceInfo(
