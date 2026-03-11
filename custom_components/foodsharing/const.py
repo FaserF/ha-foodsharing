@@ -1,5 +1,5 @@
 DOMAIN = "foodsharing"
-ATTRIBUTION = "Data provided by foodsharing.de api"
+ATTRIBUTION = "Data provided by Foodsharing"
 
 
 

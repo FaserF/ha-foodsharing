@@ -156,7 +156,7 @@ class FoodsharingRequestSlotButton(CoordinatorEntity[FoodsharingCoordinator], Bu
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, f"{email}_{lat}_{lon}")},
             name=f"Foodsharing Location ({lat}, {lon})",
-            manufacturer="Foodsharing.de",
+            manufacturer="Foodsharing",
             model="Location Tracker",
             via_device=(DOMAIN, email),
         )
@@ -257,7 +257,7 @@ class FoodsharingCloseSlotButton(CoordinatorEntity[FoodsharingCoordinator], Butt
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, email)},
             name=f"Foodsharing Account ({email})",
-            manufacturer="Foodsharing.de",
+            manufacturer="Foodsharing",
             model="Account",
         )
 

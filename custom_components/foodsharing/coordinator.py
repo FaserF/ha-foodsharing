@@ -145,15 +145,12 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
 
     async def _fetch_all_data(self) -> dict[str, Any]:
         """Fetch all data for all locations."""
-        account_tasks = {
-            "messages": self.fetch_unread_messages(),
-            "bells": self.fetch_bells(),
-            "pickups": self.fetch_pickups(),
-            "own_baskets": self.fetch_own_baskets(),
-        }
-        task_keys = list(account_tasks.keys())
+        task_keys = ["messages", "bells", "pickups", "own_baskets"]
         account_results = await asyncio.gather(
-            *account_tasks.values(),
+            self.fetch_unread_messages(),
+            self.fetch_bells(),
+            self.fetch_pickups(),
+            self.fetch_own_baskets(),
             return_exceptions=True
         )
 

@@ -86,7 +86,7 @@ class FoodsharingSensor(CoordinatorEntity[FoodsharingCoordinator], SensorEntity)
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, f"{email}_{lat}_{lon}")},
             name=f"Foodsharing Location ({lat}, {lon})",
-            manufacturer="Foodsharing.de",
+            manufacturer="Foodsharing",
             model="Location Tracker",
             via_device=(DOMAIN, email),
         )
@@ -136,7 +136,7 @@ class FoodsharingMessagesSensor(CoordinatorEntity[FoodsharingCoordinator], Senso
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, email)},
             name=f"Foodsharing Account ({email})",
-            manufacturer="Foodsharing.de",
+            manufacturer="Foodsharing",
             model="Account",
         )
 
@@ -144,7 +144,8 @@ class FoodsharingMessagesSensor(CoordinatorEntity[FoodsharingCoordinator], Senso
     def native_value(self) -> int:
         """Return the number of unread messages."""
         if self.coordinator.data:
-            return int(self.coordinator.data.get("account", {}).get("messages", 0))
+            val = self.coordinator.data.get("account", {}).get("messages", 0)
+            return int(val)
         return 0
 
 
@@ -164,7 +165,7 @@ class FoodsharingBellsSensor(CoordinatorEntity[FoodsharingCoordinator], SensorEn
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, email)},
             name=f"Foodsharing Account ({email})",
-            manufacturer="Foodsharing.de",
+            manufacturer="Foodsharing",
             model="Account",
         )
 
@@ -172,7 +173,8 @@ class FoodsharingBellsSensor(CoordinatorEntity[FoodsharingCoordinator], SensorEn
     def native_value(self) -> int:
         """Return the number of unread bell notifications."""
         if self.coordinator.data:
-            return int(self.coordinator.data.get("account", {}).get("bells", 0))
+            val = self.coordinator.data.get("account", {}).get("bells", 0)
+            return int(val)
         return 0
 
 
@@ -192,7 +194,7 @@ class FoodsharingPickupsSensor(CoordinatorEntity[FoodsharingCoordinator], Sensor
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, email)},
             name=f"Foodsharing Account ({email})",
-            manufacturer="Foodsharing.de",
+            manufacturer="Foodsharing",
             model="Account",
         )
 

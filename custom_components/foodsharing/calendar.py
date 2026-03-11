@@ -47,7 +47,7 @@ class FoodsharingCalendar(CoordinatorEntity[FoodsharingCoordinator], CalendarEnt
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, email)},
             name=f"Foodsharing Account ({email})",
-            manufacturer="Foodsharing.de",
+            manufacturer="Foodsharing",
             model="Account",
         )
 
