@@ -2,15 +2,16 @@ import logging
 from typing import Any
 
 import aiohttp
-import homeassistant.helpers.config_validation as cv
 import voluptuous as vol
+
 from homeassistant import config_entries
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers import selector
+from homeassistant.helpers import config_validation as cv, selector
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .const import (
     CONF_DISTANCE,
+    CONF_DOMAIN,
     CONF_EMAIL,
     CONF_KEYWORDS,
     CONF_LATITUDE_FS,
@@ -21,7 +22,6 @@ from .const import (
     CONF_SCAN_INTERVAL,
     CONF_TOTP,
     CONF_USE_BETA_API,
-    CONF_DOMAIN,
     DOMAIN,
 )
 from .helpers import mask_email

@@ -110,9 +110,9 @@ async def async_setup_entry(
         stale_ids = set(active_entities.keys()) - current_ids
         if stale_ids:
             registry = er.async_get(hass)
-            for stale_id in stale_ids:
-                entity = active_entities.pop(stale_id)
-                hass.async_create_task(entity.async_remove(force_remove=True))
+            for stale_key in stale_ids:
+                entity = active_entities.pop(stale_key)
+                hass.async_create_task(entity.async_remove())
 
                 # Also remove from registry so it doesn't show up as 'restored'
                 if entity.unique_id:

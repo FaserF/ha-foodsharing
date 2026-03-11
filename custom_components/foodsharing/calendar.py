@@ -73,8 +73,9 @@ class FoodsharingCalendar(CoordinatorEntity[FoodsharingCoordinator], CalendarEnt
                 continue
 
             try:
-                start_dt = dt_util.as_local(dt_util.utc_from_timestamp(start_ts))
-                end_dt = dt_util.as_local(dt_util.utc_from_timestamp(start_ts + 3600))
+                ts_val = float(start_ts)
+                start_dt = dt_util.as_local(dt_util.utc_from_timestamp(ts_val))
+                end_dt = dt_util.as_local(dt_util.utc_from_timestamp(ts_val + 3600.0))
 
                 event = CalendarEvent(
                     start=start_dt,

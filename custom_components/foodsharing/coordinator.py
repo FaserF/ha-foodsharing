@@ -1,21 +1,26 @@
 import asyncio
-import logging
 from datetime import UTC, datetime, timedelta
+import logging
 from typing import Any
 
 import async_timeout
+
 from homeassistant import config_entries
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
-from homeassistant.helpers.issue_registry import IssueSeverity, async_create_issue, async_delete_issue
+from homeassistant.helpers.issue_registry import (
+    IssueSeverity,
+    async_create_issue,
+    async_delete_issue,
+)
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .const import (
+    CONF_DOMAIN,
     CONF_KEYWORDS,
     CONF_SCAN_INTERVAL,
     CONF_USE_BETA_API,
-    CONF_DOMAIN,
     DOMAIN,
 )
 from .helpers import get_locations_from_entry, mask_email
@@ -77,12 +82,12 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
         for entry in self.entries.values():
             if entry.options.get(CONF_USE_BETA_API, entry.data.get(CONF_USE_BETA_API, False)):
                 use_beta = True
-            
+
             # Get domain from entry, default to de
             entry_domain = entry.options.get(CONF_DOMAIN, entry.data.get(CONF_DOMAIN, "foodsharing_de"))
             if entry_domain != "foodsharing_de":
                 domain = entry_domain
-        
+
         base_domain = "foodsharing.de"
         if domain == "foodsharing_at":
             base_domain = "foodsharing.at"
@@ -164,7 +169,7 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
 
         location_data: dict[str, list[dict[str, Any]]] = {}
         task_meta: list[tuple[str, int]] = []
-        location_tasks = []
+        location_tasks: list[Any] = []
 
         for entry_id, entry in self.entries.items():
             locs = get_locations_from_entry(entry)
@@ -473,12 +478,12 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
         """Fetch nearby Fairteiler for a specific location."""
         url = f"{self.base_url}/api/foodSharePoints/nearby?lat={lat}&lon={lon}&distance={dist}"
         points: list[dict[str, Any]] = []
-        wall_tasks: list = []
+        wall_tasks: list[Any] = []
 
         try:
             semaphore = asyncio.Semaphore(5)
 
-            async def fetch_wall(fp_id: int, fp_name: str, fp_entry: dict) -> None:
+            async def fetch_wall(fp_id: int, fp_name: str, fp_entry: dict[str, Any]) -> None:
                 async with semaphore:
                     wall_url = (
                         f"{self.base_url}/api/fairteiler/{fp_id}/wall"
@@ -657,20 +662,16 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
 
     def _normalize_account_results(self, results: dict[str, Any]) -> tuple[int, int, list[dict[str, Any]], list[dict[str, Any]]]:
         """Normalize account results, using defaults for failures."""
-        messages = results.get("messages", 0)
-        if isinstance(messages, Exception):
-            messages = 0
+        messages_val = results.get("messages", 0)
+        messages = int(messages_val) if isinstance(messages_val, (int, float)) else 0
 
-        bells = results.get("bells", 0)
-        if isinstance(bells, Exception):
-            bells = 0
+        bells_val = results.get("bells", 0)
+        bells = int(bells_val) if isinstance(bells_val, (int, float)) else 0
 
-        pickups: list[dict[str, Any]] = results.get("pickups", [])
-        if isinstance(pickups, Exception) or not isinstance(pickups, list):
-            pickups = []
+        pickups_val = results.get("pickups", [])
+        pickups: list[dict[str, Any]] = pickups_val if isinstance(pickups_val, list) else []
 
-        own_baskets: list[dict[str, Any]] = results.get("own_baskets", [])
-        if isinstance(own_baskets, Exception) or not isinstance(own_baskets, list):
-            own_baskets = []
+        own_baskets_val = results.get("own_baskets", [])
+        own_baskets: list[dict[str, Any]] = own_baskets_val if isinstance(own_baskets_val, list) else []
 
         return messages, bells, pickups, own_baskets

@@ -21,7 +21,7 @@ def mock_coordinator():
 
     # Mock session and post
     coordinator.session = MagicMock()
-    
+
     # helper for creating a response mock
     def create_mock_response(status=200):
         mock_resp = MagicMock()
@@ -32,7 +32,7 @@ def mock_coordinator():
         return response_cm
 
     coordinator.session.post.return_value = create_mock_response(200)
-    
+
     coordinator.async_request_refresh = AsyncMock(return_value=None)
 
     # Mock data structure
