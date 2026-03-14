@@ -149,6 +149,7 @@ class FoodsharingRequestSlotButton(CoordinatorEntity[FoodsharingCoordinator], Bu
         self._attr_unique_id = (
             f"foodsharing_{entry.entry_id}_loc_{loc_idx}_request_basket_{slot_idx}"
         )
+        self.translation_key = "request_basket"
         self.config_entry_id = entry.entry_id
         self._attr_icon = "mdi:cart-plus"
 
@@ -251,6 +252,7 @@ class FoodsharingCloseSlotButton(CoordinatorEntity[FoodsharingCoordinator], Butt
         self._slot_idx = slot_idx
 
         self._attr_unique_id = f"foodsharing_{email}_close_basket_{slot_idx}"
+        self.translation_key = "close_own_basket"
         self.account_email = email
         self._attr_icon = "mdi:cart-off"
 

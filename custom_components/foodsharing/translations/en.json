@@ -1,5 +1,6 @@
 {
   "config": {
+    "flow_title": "Setup Foodsharing",
     "step": {
       "user": {
         "title": "Connect to Foodsharing",
@@ -55,7 +56,17 @@
       "already_configured": "This Foodsharing account is already configured."
     }
   },
+  "selector": {
+    "domain": {
+      "options": {
+        "foodsharing_de": "foodsharing.de",
+        "foodsharing_at": "foodsharing.at",
+        "foodsharing_ch": "foodsharing.ch"
+      }
+    }
+  },
   "options": {
+    "flow_title": "Setup Foodsharing Options",
     "step": {
       "init": {
         "title": "Configure Foodsharing Options",
@@ -67,7 +78,8 @@
           "distance": "Search Radius (km)",
           "keywords": "Keywords (comma-separated)",
           "scan_interval": "Update Interval (minutes)",
-          "use_beta_api": "Use Beta API (beta.foodsharing.de)"
+          "use_beta_api": "Use Beta API (beta.foodsharing.de)",
+          "domain": "Domain"
         }
       },
       "manage_locations": {
@@ -94,6 +106,35 @@
     },
     "abort": {
       "already_configured": "This Foodsharing account is already configured."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "baskets": {
+        "name": "Baskets"
+      },
+      "unread_messages": {
+        "name": "Unread messages"
+      },
+      "notifications": {
+        "name": "Notifications"
+      },
+      "upcoming_pickups": {
+        "name": "Upcoming pickups"
+      }
+    },
+    "button": {
+      "request_basket": {
+        "name": "Request basket"
+      },
+      "close_own_basket": {
+        "name": "Close own basket"
+      }
+    },
+    "calendar": {
+      "pickups": {
+        "name": "Pickups"
+      }
     }
   },
   "issues": {

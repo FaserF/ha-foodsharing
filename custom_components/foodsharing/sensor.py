@@ -77,7 +77,7 @@ class FoodsharingSensor(CoordinatorEntity[FoodsharingCoordinator], SensorEntity)
         self.longitude_fs = lon
 
         self._attr_has_entity_name = True
-        self._attr_name = "Baskets"
+        self.translation_key = "baskets"
         self._attr_unique_id = f"Foodsharing-Baskets-{entry.entry_id}-{loc_idx}"
         self._attr_icon = "mdi:basket-unfill"
         self._attr_native_unit_of_measurement = "baskets"
@@ -127,7 +127,7 @@ class FoodsharingMessagesSensor(CoordinatorEntity[FoodsharingCoordinator], Senso
         super().__init__(coordinator)
         self.email = email
         self._attr_has_entity_name = True
-        self._attr_name = "Unread Messages"
+        self.translation_key = "unread_messages"
         self._attr_unique_id = f"Foodsharing-Messages-{email}"
         self._attr_icon = "mdi:message"
         self._attr_native_unit_of_measurement = "messages"
@@ -156,7 +156,7 @@ class FoodsharingBellsSensor(CoordinatorEntity[FoodsharingCoordinator], SensorEn
         super().__init__(coordinator)
         self.email = email
         self._attr_has_entity_name = True
-        self._attr_name = "Notifications"
+        self.translation_key = "notifications"
         self._attr_unique_id = f"Foodsharing-Bells-{email}"
         self._attr_icon = "mdi:bell"
         self._attr_native_unit_of_measurement = "notifications"
@@ -185,7 +185,7 @@ class FoodsharingPickupsSensor(CoordinatorEntity[FoodsharingCoordinator], Sensor
         super().__init__(coordinator)
         self.email = email
         self._attr_has_entity_name = True
-        self._attr_name = "Upcoming Pickups"
+        self.translation_key = "upcoming_pickups"
         self._attr_unique_id = f"Foodsharing-Pickups-{email}"
         self._attr_icon = "mdi:calendar-clock"
         self._attr_native_unit_of_measurement = "pickups"

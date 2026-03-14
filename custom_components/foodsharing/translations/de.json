@@ -1,5 +1,6 @@
 {
   "config": {
+    "flow_title": "Foodsharing Einrichtung",
     "step": {
       "user": {
         "title": "Verbinde Foodsharing",
@@ -17,7 +18,7 @@
       },
       "totp": {
         "title": "Zwei-Faktor-Authentisierung (2FA)",
-        "description": "Für deinen Account ist die Zwei-Faktor-Authentisierung aktiviert. Bitte gib den passenden 6-stelligen TOTP-Code aus deiner Authenticator-App ein (z.B. Google Authenticator, Authy oder direkt aus deiner Foodsharing-App).",
+        "description": "Für deinen account ist die Zwei-Faktor-Authentisierung aktiviert. Bitte gib den passenden 6-stelligen TOTP-Code aus deiner Authenticator-App ein (z.B. Google Authenticator, Authy oder direkt aus deiner Foodsharing-App).",
         "data": {
           "code": "6-stelliger TOTP-Code"
         }
@@ -55,7 +56,17 @@
       "already_configured": "Dieser Foodsharing-Account-Standort ist bereits eingerichtet."
     }
   },
+  "selector": {
+    "domain": {
+      "options": {
+        "foodsharing_de": "foodsharing.de",
+        "foodsharing_at": "foodsharing.at",
+        "foodsharing_ch": "foodsharing.ch"
+      }
+    }
+  },
   "options": {
+    "flow_title": "Foodsharing-Optionen anpassen",
     "step": {
       "init": {
         "title": "Foodsharing-Optionen anpassen",
@@ -97,6 +108,35 @@
       "already_configured": "Dieser Foodsharing-Account-Standort ist bereits eingerichtet."
     }
   },
+  "entity": {
+    "sensor": {
+      "baskets": {
+        "name": "Körbe"
+      },
+      "unread_messages": {
+        "name": "Ungelesene Nachrichten"
+      },
+      "notifications": {
+        "name": "Benachrichtigungen"
+      },
+      "upcoming_pickups": {
+        "name": "Anstehende Abholungen"
+      }
+    },
+    "button": {
+      "request_basket": {
+        "name": "Korb anfragen"
+      },
+      "close_own_basket": {
+        "name": "Eigenen Korb schließen"
+      }
+    },
+    "calendar": {
+      "pickups": {
+        "name": "Abholungen"
+      }
+    }
+  },
   "issues": {
     "auth_failed": {
       "title": "Foodsharing-Anmeldung fehlgeschlagen für {email}",
@@ -108,4 +148,3 @@
     }
   }
 }
-

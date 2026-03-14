@@ -108,6 +108,35 @@
       "already_configured": "This Foodsharing account location is already configured"
     }
   },
+  "entity": {
+    "sensor": {
+      "baskets": {
+        "name": "Baskets"
+      },
+      "unread_messages": {
+        "name": "Unread messages"
+      },
+      "notifications": {
+        "name": "Notifications"
+      },
+      "upcoming_pickups": {
+        "name": "Upcoming pickups"
+      }
+    },
+    "button": {
+      "request_basket": {
+        "name": "Request basket"
+      },
+      "close_own_basket": {
+        "name": "Close own basket"
+      }
+    },
+    "calendar": {
+      "pickups": {
+        "name": "Pickups"
+      }
+    }
+  },
   "issues": {
     "auth_failed": {
       "title": "Foodsharing authentication failed for {email}",

@@ -40,7 +40,7 @@ class FoodsharingCalendar(CoordinatorEntity[FoodsharingCoordinator], CalendarEnt
         super().__init__(coordinator)
         self.email = email
 
-        self._attr_name = "Foodsharing Pickups"
+        self.translation_key = "pickups"
         self._attr_unique_id = f"foodsharing_calendar_{email}"
         self._events: list[CalendarEvent] = []
 
