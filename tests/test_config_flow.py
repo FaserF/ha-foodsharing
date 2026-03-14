@@ -21,6 +21,7 @@ async def test_config_flow_user_step_success(mock_session):
     flow.hass.config.longitude = 13.405
     flow.context = {}
     flow.hass.config_entries.flow.async_progress_by_handler.return_value = []
+    flow.hass.config_entries.async_entry_for_domain_unique_id.return_value = None
 
     with patch("custom_components.foodsharing.config_flow.async_get_clientsession", return_value=mock_session):
         # Mock successful login
@@ -61,6 +62,7 @@ async def test_config_flow_2fa_required(mock_session):
     flow.hass.config.longitude = 13.405
     flow.context = {}
     flow.hass.config_entries.flow.async_progress_by_handler.return_value = []
+    flow.hass.config_entries.async_entry_for_domain_unique_id.return_value = None
 
     with patch("custom_components.foodsharing.config_flow.async_get_clientsession", return_value=mock_session):
         # Mock 2FA required response
@@ -111,6 +113,7 @@ async def test_config_flow_user_step_beta_success(mock_session):
     flow.hass.config.longitude = 13.405
     flow.context = {}
     flow.hass.config_entries.flow.async_progress_by_handler.return_value = []
+    flow.hass.config_entries.async_entry_for_domain_unique_id.return_value = None
 
     with patch("custom_components.foodsharing.config_flow.async_get_clientsession", return_value=mock_session):
         # Mock successful login on BETA endpoint
@@ -153,6 +156,7 @@ async def test_config_flow_totp_unknown_error(mock_session):
     flow.hass.config.longitude = 13.405
     flow.context = {}
     flow.hass.config_entries.flow.async_progress_by_handler.return_value = []
+    flow.hass.config_entries.async_entry_for_domain_unique_id.return_value = None
     flow._user_input = {
         CONF_EMAIL: "test@example.com",
         CONF_PASSWORD: "password",

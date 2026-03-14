@@ -74,6 +74,7 @@ def test_request_button_slot(mock_coordinator, mock_entry):
         mock_coordinator, mock_entry, loc_idx=0, lat=52.0, lon=13.0, slot_idx=0
     )
     assert button0.available is True
+    assert button0.translation_key == "request_basket"
     assert button0.name == "Request Basket 1: Fresh Bread..."
     assert button0._attr_unique_id == "foodsharing_entry_1_loc_0_request_basket_0"
 
@@ -115,6 +116,7 @@ def test_close_button_slot(mock_coordinator):
         mock_coordinator, email="test@example.com", slot_idx=0
     )
     assert button0.available is True
+    assert button0.translation_key == "close_own_basket"
     assert button0.name == "Close Own Basket 1: My Basket 1..."
     assert button0._attr_unique_id == "foodsharing_test@example.com_close_basket_0"
 
