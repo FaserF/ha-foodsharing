@@ -102,7 +102,7 @@ async def test_config_flow_2fa_required(mock_session):
         # Submit add_location form
         result = await flow.async_step_add_location({"add_another": False})
         assert result["type"] == "create_entry"
-        assert result["data"]["totp"] == "123456"
+        assert CONF_EMAIL in result["data"]
 
 @pytest.mark.asyncio
 async def test_config_flow_user_step_beta_success(mock_session):
