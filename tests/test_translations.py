@@ -26,7 +26,7 @@ def test_translations_synchronized():
     strings_keys = get_all_keys(strings)
 
     translation_dir = os.path.join(base_path, "translations")
-    
+
     # Ensure both de.json and en.json exist
     required_langs = ["de.json", "en.json"]
     for lang in required_langs:
@@ -57,7 +57,7 @@ def test_no_missing_translations_in_code():
 
     with open(strings_path, encoding="utf-8") as f:
         strings = json.load(f)
-    
+
     all_keys = get_all_keys(strings)
 
     # Patterns to look for in code
@@ -75,7 +75,7 @@ def test_no_missing_translations_in_code():
         for file in files:
             if not file.endswith(".py"):
                 continue
-            
+
             with open(os.path.join(root, file), encoding="utf-8") as f:
                 content = f.read()
                 for pattern in patterns:
@@ -89,7 +89,7 @@ def test_no_missing_translations_in_code():
                             if key == match or key.endswith(f".{match}"):
                                 found = True
                                 break
-                        
+
                         if not found and match not in ["domain"]: # domain is a special case in selector
                              missing_in_json.append(f"{file}: {match}")
 
@@ -100,5 +100,5 @@ def test_no_missing_translations_in_code():
 
     # Verify that aborted reasons are in config.abort or options.abort
     # Verify that errors are in config.error or options.error
-    
+
     assert not missing_in_json, f"Potential missing translations found in code: {missing_in_json}"

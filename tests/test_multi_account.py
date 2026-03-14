@@ -13,7 +13,7 @@ from custom_components.foodsharing.const import (
     CONF_PASSWORD,
     DOMAIN,
 )
-from custom_components.foodsharing.helpers import get_locations_from_entry, parse_extra_locations
+from custom_components.foodsharing.helpers import get_locations_from_entry
 
 
 @pytest.fixture
@@ -107,20 +107,3 @@ def test_get_locations_from_entry_legacy_format():
     locs = get_locations_from_entry(entry)
     assert len(locs) == 1
     assert locs[0]["latitude"] == 48.0
-
-
-def test_parse_extra_locations():
-    """Test parsing of the extra_locations text field."""
-    text = "48.12, 11.68, 5; 52.52, 13.41"
-    locs = parse_extra_locations(text)
-    assert len(locs) == 2
-    assert locs[0] == {"latitude": 48.12, "longitude": 11.68, "distance": 5}
-    assert locs[1] == {"latitude": 52.52, "longitude": 13.41, "distance": 7}  # default
-
-
-def test_parse_extra_locations_invalid_entries():
-    """Test that invalid entries are skipped gracefully."""
-    text = "bad;  ; 48.0,11.5,3"
-    locs = parse_extra_locations(text)
-    assert len(locs) == 1
-    assert locs[0]["distance"] == 3
