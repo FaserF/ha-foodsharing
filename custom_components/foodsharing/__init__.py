@@ -43,11 +43,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         coordinator.password = password
 
     coordinator.add_entry(entry)
+
+    # Initial data fetch. We use a standard refresh to avoid overly strict state checks
     try:
-        await coordinator.async_config_entry_first_refresh()
+        await coordinator.async_refresh()
+        # Ensure fresh cookies (e.g. from a successful re-auth config flow) are written to disk
+        coordinator._save_session()
     except Exception as ex:
-        _LOGGER.error("Failed to fetch initial data during setup: %s", ex)
-        raise
+        _LOGGER.warning("Initial fetch failed for %s: %s", mask_email(email), ex)
 
     if is_new_coordinator:
         device_registry = dr.async_get(hass)

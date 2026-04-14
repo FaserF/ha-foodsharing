@@ -13,6 +13,8 @@ from homeassistant.helpers.issue_registry import (
     async_delete_issue,
 )
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+import json
+import os
 
 from .const import (
     CONF_DOMAIN,
@@ -61,6 +63,15 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
             name=f"{DOMAIN}_{email}",
             update_interval=timedelta(minutes=2),
         )
+        self._session_file = hass.config.path(".storage", f"foodsharing_session_{email.replace('@', '_').replace('.', '_')}.json")
+        self._load_session()
+
+    def _get_xsrf_token_from_jar(self) -> str | None:
+        """Extract XSRF-TOKEN from cookie jar manually to avoid yarl dependency."""
+        for cookie in self.session.cookie_jar:
+            if cookie.key.lower() == "xsrf-token":
+                return cookie.value
+        return None
 
     @property
     def authenticated_headers(self) -> dict[str, str]:
@@ -71,47 +82,66 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
             "X-Requested-With": "XMLHttpRequest",
         }
 
-        # Proactively look for XSRF token in cookie jar if not cached
-        token = self._xsrf_token
-        if not token:
-            try:
-                # Manual iteration to avoid strict filtering issues
-                phpsessid_found = False
-                for cookie in self.session.cookie_jar:
-                    if cookie.key == "XSRF-TOKEN" and (
-                        cookie["domain"] in self.base_url
-                        or self.base_url.endswith(cookie["domain"])
-                    ):
-                        token = cookie.value
-                        _LOGGER.warning(
-                            "Found XSRF-TOKEN via manual jar scan for %s: %s...",
-                            self.base_url,
-                            token[:10],
-                        )
-                    if cookie.key == "PHPSESSID":
-                        phpsessid_found = True
-
-                if not token:
-                    # Fallback to standard filtering
-                    import yarl
-
-                    cookies = self.session.cookie_jar.filter_cookies(
-                        yarl.URL(self.base_url)
-                    )
-                    if "XSRF-TOKEN" in cookies:
-                        token = cookies["XSRF-TOKEN"].value
-
-                if not phpsessid_found:
-                    _LOGGER.warning(
-                        "PHPSESSID (session cookie) missing in jar for %s! This explains the 401.",
-                        self.base_url,
-                    )
-            except Exception as e:
-                _LOGGER.warning("Cookie scan error: %s", e)
-
+        # Always check the jar to stay in sync with the session
+        token = self._get_xsrf_token_from_jar()
         if token:
             headers["X-Csrf-Token"] = token
+            self._xsrf_token = token
+        elif self._xsrf_token:
+            headers["X-Csrf-Token"] = self._xsrf_token
+
         return headers
+
+    def _load_session(self) -> None:
+        """Load session cookies and metadata from file."""
+        if not os.path.exists(self._session_file):
+            return
+        try:
+            with open(self._session_file, encoding="utf-8") as f:
+                data = json.load(f)
+                if isinstance(data, dict):
+                    cookies_data = data.get("cookies", {})
+                    self.user_id = data.get("user_id")
+                    self._xsrf_token = data.get("xsrf_token")
+
+                    if cookies_data:
+                        try:
+                            from yarl import URL
+                            self.session.cookie_jar.update_cookies(cookies_data, URL(self.base_url))
+                        except Exception:
+                            # Fallback if yarl is somehow not there (it should be)
+                            self.session.cookie_jar.update_cookies(cookies_data)
+                    _LOGGER.debug("Loaded persisted session for %s (User ID: %s)", self.email, self.user_id)
+        except Exception as e:
+            _LOGGER.warning("Could not load session file: %s", e)
+
+    def _save_session(self) -> None:
+        """Save session cookies and metadata to file."""
+        try:
+            cookies = {}
+            for cookie in self.session.cookie_jar:
+                # We only save cookies relevant for Foodsharing
+                domain = str(cookie.get("domain", "")).lower()
+                if "foodsharing" in domain:
+                    cookies[cookie.key] = cookie.value
+
+            if not cookies:
+                # Fallback: if we didn't find them by domain, just save what we have
+                for cookie in self.session.cookie_jar:
+                    cookies[cookie.key] = cookie.value
+
+            data = {
+                "cookies": cookies,
+                "user_id": self.user_id,
+                "xsrf_token": self._xsrf_token,
+                "updated_at": datetime.now(UTC).isoformat(),
+            }
+
+            with open(self._session_file, "w", encoding="utf-8") as f:
+                json.dump(data, f)
+            _LOGGER.debug("Saved session for %s", self.email)
+        except Exception as e:
+            _LOGGER.warning("Could not save session file: %s", e)
 
     async def fetch_csrf(self):
         """Fetch the CSRF token from the login page."""
@@ -121,9 +151,9 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
                 f"{self.base_url}/login", headers={"User-Agent": self._user_agent}
             ) as response:
                 await response.text()
-                cookies = self.session.cookie_jar.filter_cookies(self.base_url)
-                if "XSRF-TOKEN" in cookies:
-                    self._xsrf_token = cookies["XSRF-TOKEN"].value
+                token = self._get_xsrf_token_from_jar()
+                if token:
+                    self._xsrf_token = token
                     _LOGGER.debug("Fetched CSRF token: %s", self._xsrf_token)
                 else:
                     _LOGGER.debug("No XSRF-TOKEN cookie found on /login")
@@ -309,8 +339,8 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
         try:
             async with asyncio.timeout(30):
                 # 1. Check if we already have a session BEFORE hitting /login
-                # We try twice with a small delay to handle race conditions during re-auth
-                for attempt in range(2):
+                # We try up to 3 times with increasing delay to handle startup network lag
+                for attempt in range(3):
                     try:
                         current_url = f"{self.base_url}/api/users/current"
                         auth_headers = self.authenticated_headers
@@ -321,7 +351,7 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
                             "Yes" if "X-Csrf-Token" in auth_headers else "No",
                         )
                         async with self.session.get(
-                            current_url, headers=auth_headers
+                            current_url, headers=auth_headers, timeout=10
                         ) as current_resp:
                             _LOGGER.debug(
                                 "Session check status: %s", current_resp.status
@@ -334,23 +364,37 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
                                         current_data["id"],
                                     )
                                     self.user_id = str(current_data["id"])
+                                    self._save_session()
                                     return True
                             else:
-                                if attempt == 0:
+                                if attempt < 2:
+                                    wait_time = (attempt + 1) * 3
                                     _LOGGER.debug(
-                                        "Session check failed (attempt 1), retrying in 2 seconds..."
+                                        "Session check failed (status %s), jar has %d cookies. Retrying in %ds...",
+                                        current_resp.status,
+                                        len(list(self.session.cookie_jar)),
+                                        wait_time,
                                     )
-                                    await asyncio.sleep(2)
+                                    await asyncio.sleep(wait_time)
                                     continue
                     except Exception as err:
                         _LOGGER.debug(
                             "Session check exception (attempt %d): %s", attempt + 1, err
                         )
-                        if attempt == 0:
-                            await asyncio.sleep(2)
+                        if attempt < 2:
+                            await asyncio.sleep((attempt + 1) * 3)
                             continue
 
-                # 2. If not logged in, fetch fresh CSRF token from /login
+                # 2. Check if we have a dead session (prevents 2FA loop)
+                has_session_cookie = any(c.key == "PHPSESSID" for c in self.session.cookie_jar)
+                if has_session_cookie:
+                    _LOGGER.warning(
+                        "Session cookie (PHPSESSID) present but validation failed. "
+                        "Aborting auto-login to prevent 2FA challenge loop. User must re-authenticate."
+                    )
+                    return False
+
+                # 3. If no session, fetch fresh CSRF token from /login
                 _LOGGER.warning(
                     "No valid session found. Fetching fresh CSRF token from /login before POST login."
                 )
@@ -417,6 +461,7 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
 
                         if user_id:
                             self.user_id = str(user_id)
+                            self._save_session()
                             return True
 
                     _LOGGER.warning(
