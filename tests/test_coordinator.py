@@ -3,7 +3,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from custom_components.foodsharing.coordinator import AuthenticationFailed, FoodsharingCoordinator
+from custom_components.foodsharing.coordinator import (
+    AuthenticationFailed,
+    FoodsharingCoordinator,
+)
 
 
 def _make_entry(data_overrides=None):
@@ -55,7 +58,9 @@ async def test_coordinator_fetch_pickups(mock_session):
         )
 
         # 2. Test successful dictionary return ("pickups" key)
-        mock_response.json.return_value = {"pickups": [{"id": 2, "store_name": "Store 2"}]}
+        mock_response.json.return_value = {
+            "pickups": [{"id": 2, "store_name": "Store 2"}]
+        }
         pickups = await coordinator.fetch_pickups()
         assert len(pickups) == 1
         assert pickups[0]["id"] == 2
@@ -86,7 +91,10 @@ async def test_coordinator_fetch_conversations(mock_session):
         mock_count.json.return_value = {"unread": 1}
 
         # Need to handle consecutive get calls
-        mock_session.get.return_value.__aenter__.side_effect = [mock_count, mock_response]
+        mock_session.get.return_value.__aenter__.side_effect = [
+            mock_count,
+            mock_response,
+        ]
 
         unread = await coordinator.fetch_unread_messages()
         assert unread == 1
@@ -110,6 +118,7 @@ async def test_coordinator_fetch_bells(mock_session):
         unread = await coordinator.fetch_bells()
         assert unread == 1
 
+
 @pytest.mark.asyncio
 async def test_coordinator_beta_api_url(mock_session):
     """Test that coordinator switch base_url when Beta API is enabled."""
@@ -132,6 +141,7 @@ async def test_coordinator_beta_api_url(mock_session):
     coordinator.remove_entry("beta_entry")
     assert coordinator.base_url == "https://foodsharing.de"
 
+
 @pytest.mark.asyncio
 async def test_coordinator_refresh_interval_update(mock_session):
     """Test that coordinator updates its refresh interval correctly."""
@@ -150,6 +160,7 @@ async def test_coordinator_refresh_interval_update(mock_session):
         coordinator.add_entry(mock_entry)
         assert coordinator.update_interval == timedelta(minutes=5)
 
+
 @pytest.mark.asyncio
 async def test_coordinator_fetch_bells_fires_event(mock_session):
     """Test that fetch_bells fires an event for new notifications."""
@@ -159,7 +170,7 @@ async def test_coordinator_fetch_bells_fires_event(mock_session):
         return_value=mock_session,
     ):
         coordinator = FoodsharingCoordinator(hass, "test@test.com", "pass")
-        coordinator._is_first_update = False # Force event trigger
+        coordinator._is_first_update = False  # Force event trigger
 
         mock_response = AsyncMock()
         mock_response.status = 200

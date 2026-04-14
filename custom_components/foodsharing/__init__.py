@@ -43,9 +43,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         coordinator.password = password
 
     coordinator.add_entry(entry)
-
-    # Initial refresh outside of critical setup path to avoid NOT_LOADED
-    hass.async_create_task(coordinator.async_refresh())
+    try:
+        await coordinator.async_config_entry_first_refresh()
+    except Exception as ex:
+        _LOGGER.error("Failed to fetch initial data during setup: %s", ex)
+        raise
 
     if is_new_coordinator:
         device_registry = dr.async_get(hass)

@@ -3,7 +3,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from custom_components.foodsharing.config_flow import FoodsharingConfigFlow
-from custom_components.foodsharing.const import CONF_EMAIL, CONF_LATITUDE_FS, CONF_PASSWORD
+from custom_components.foodsharing.const import (
+    CONF_EMAIL,
+    CONF_LATITUDE_FS,
+    CONF_PASSWORD,
+)
 
 
 @pytest.mark.asyncio
@@ -11,6 +15,7 @@ async def test_config_flow_version() -> None:
     """Test flow version."""
     flow = FoodsharingConfigFlow()
     assert flow.VERSION == 5
+
 
 @pytest.mark.asyncio
 async def test_config_flow_user_step_success(mock_session):
@@ -23,7 +28,10 @@ async def test_config_flow_user_step_success(mock_session):
     flow.hass.config_entries.flow.async_progress_by_handler.return_value = []
     flow.hass.config_entries.async_entry_for_domain_unique_id.return_value = None
 
-    with patch("custom_components.foodsharing.config_flow.async_get_clientsession", return_value=mock_session):
+    with patch(
+        "custom_components.foodsharing.config_flow.async_get_clientsession",
+        return_value=mock_session,
+    ):
         # Mock successful login
         mock_response = AsyncMock()
         mock_response.status = 200
@@ -53,6 +61,7 @@ async def test_config_flow_user_step_success(mock_session):
             {"latitude": 52.52, "longitude": 13.405, "distance": 7}
         ]
 
+
 @pytest.mark.asyncio
 async def test_config_flow_2fa_required(mock_session):
     """Test scenario where 2FA is required."""
@@ -64,7 +73,10 @@ async def test_config_flow_2fa_required(mock_session):
     flow.hass.config_entries.flow.async_progress_by_handler.return_value = []
     flow.hass.config_entries.async_entry_for_domain_unique_id.return_value = None
 
-    with patch("custom_components.foodsharing.config_flow.async_get_clientsession", return_value=mock_session):
+    with patch(
+        "custom_components.foodsharing.config_flow.async_get_clientsession",
+        return_value=mock_session,
+    ):
         # Mock 2FA required response
         mock_response_2fa = AsyncMock()
         mock_response_2fa.status = 400
@@ -104,6 +116,7 @@ async def test_config_flow_2fa_required(mock_session):
         assert result["type"] == "create_entry"
         assert CONF_EMAIL in result["data"]
 
+
 @pytest.mark.asyncio
 async def test_config_flow_user_step_beta_success(mock_session):
     """Test successful user step with Beta API enabled."""
@@ -115,7 +128,10 @@ async def test_config_flow_user_step_beta_success(mock_session):
     flow.hass.config_entries.flow.async_progress_by_handler.return_value = []
     flow.hass.config_entries.async_entry_for_domain_unique_id.return_value = None
 
-    with patch("custom_components.foodsharing.config_flow.async_get_clientsession", return_value=mock_session):
+    with patch(
+        "custom_components.foodsharing.config_flow.async_get_clientsession",
+        return_value=mock_session,
+    ):
         # Mock GET calls (CSRF fetch and session check)
         mock_resp_fail = AsyncMock()
         mock_resp_fail.status = 401
@@ -123,7 +139,7 @@ async def test_config_flow_user_step_beta_success(mock_session):
         mock_resp_fail.text.return_value = "login page"
         mock_resp_fail.json.side_effect = Exception("Not JSON")
         mock_session.get.return_value.__aenter__.return_value = mock_resp_fail
-        
+
         # Mock successful login (POST)
         mock_resp_ok = AsyncMock()
         mock_resp_ok.status = 200
@@ -147,12 +163,18 @@ async def test_config_flow_user_step_beta_success(mock_session):
         assert result["type"] == "create_entry"
         # Verify that BETA endpoint was used
         from unittest.mock import ANY
+
         mock_session.post.assert_called_with(
             "https://beta.foodsharing.de/api/login",
-            json={"email": "test@example.com", "password": "password", "rememberMe": True},
+            json={
+                "email": "test@example.com",
+                "password": "password",
+                "rememberMe": True,
+            },
             timeout=ANY,
             headers=ANY,
         )
+
 
 @pytest.mark.asyncio
 async def test_config_flow_totp_unknown_error(mock_session):
@@ -169,7 +191,10 @@ async def test_config_flow_totp_unknown_error(mock_session):
         CONF_PASSWORD: "password",
     }
 
-    with patch("custom_components.foodsharing.config_flow.validate_credentials", side_effect=Exception("Unexpected API failure")):
+    with patch(
+        "custom_components.foodsharing.config_flow.validate_credentials",
+        side_effect=Exception("Unexpected API failure"),
+    ):
         result = await flow.async_step_totp({"code": "123456"})
 
         assert result["type"] == "form"

@@ -1,4 +1,5 @@
 """Fixtures for testing Foodsharing integration."""
+
 from unittest.mock import MagicMock, patch
 
 import pytest

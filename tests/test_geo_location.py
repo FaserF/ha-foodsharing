@@ -1,4 +1,5 @@
 """Tests for Foodsharing geo locations."""
+
 from unittest.mock import MagicMock
 
 import pytest
@@ -46,7 +47,13 @@ async def test_basket_geo_location_properties():
     }
     email = "test@example.com"
     entity = FoodsharingBasketGeoLocation(
-        mock_coordinator, mock_entry, basket, loc_idx=0, home_lat=50.0, home_lon=10.0, email=email
+        mock_coordinator,
+        mock_entry,
+        basket,
+        loc_idx=0,
+        home_lat=50.0,
+        home_lon=10.0,
+        email=email,
     )
     assert entity.distance == 0.0
     assert entity.extra_state_attributes.get("keyword_match") is True
@@ -64,7 +71,12 @@ async def test_fairteiler_geo_location_properties():
                 {
                     "baskets": [],
                     "fairteiler": [
-                        {"id": 456, "latitude": 51.0, "longitude": 11.0, "name": "Store"}
+                        {
+                            "id": 456,
+                            "latitude": 51.0,
+                            "longitude": 11.0,
+                            "name": "Store",
+                        }
                     ],
                 }
             ]
@@ -77,7 +89,14 @@ async def test_fairteiler_geo_location_properties():
     fp = {"id": 456, "latitude": 51.0, "longitude": 11.0, "name": "Store"}
     email = "test@test.com"
     entity = FoodsharingFairteilerGeoLocation(
-        mock_coordinator, mock_entry, fp, loc_idx=0, unique_id="fp_456", home_lat=51.0, home_lon=11.0, email=email
+        mock_coordinator,
+        mock_entry,
+        fp,
+        loc_idx=0,
+        unique_id="fp_456",
+        home_lat=51.0,
+        home_lon=11.0,
+        email=email,
     )
     assert entity.distance == 0.0
     assert entity.name == "Fairteiler: Store"

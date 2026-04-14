@@ -1,4 +1,5 @@
 """Tests for multi-account and location support."""
+
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -27,24 +28,42 @@ def mock_hass():
     hass.config_entries.async_forward_entry_setups = AsyncMock(return_value=True)
     return hass
 
+
 @pytest.mark.asyncio
 async def test_shared_coordinator_same_account(mock_hass, mock_session):
     """Test that two locations for the same account share a coordinator."""
-    with patch("custom_components.foodsharing.coordinator.async_get_clientsession", return_value=mock_session), \
-         patch("custom_components.foodsharing.coordinator.FoodsharingCoordinator.async_config_entry_first_refresh", new_callable=AsyncMock), \
-         patch("custom_components.foodsharing.coordinator.FoodsharingCoordinator.async_request_refresh", new_callable=AsyncMock), \
-         patch("custom_components.foodsharing.dr.async_get", return_value=MagicMock()):
+    with (
+        patch(
+            "custom_components.foodsharing.coordinator.async_get_clientsession",
+            return_value=mock_session,
+        ),
+        patch(
+            "custom_components.foodsharing.coordinator.FoodsharingCoordinator.async_config_entry_first_refresh",
+            new_callable=AsyncMock,
+        ),
+        patch(
+            "custom_components.foodsharing.coordinator.FoodsharingCoordinator.async_request_refresh",
+            new_callable=AsyncMock,
+        ),
+        patch("custom_components.foodsharing.dr.async_get", return_value=MagicMock()),
+    ):
 
         entry1 = MagicMock()
         entry1.entry_id = "entry1"
-        entry1.data = {CONF_EMAIL: "user@example.com", CONF_PASSWORD: "pw",
-                       CONF_LOCATIONS: [{"latitude": 50.0, "longitude": 10.0, "distance": 7}]}
+        entry1.data = {
+            CONF_EMAIL: "user@example.com",
+            CONF_PASSWORD: "pw",
+            CONF_LOCATIONS: [{"latitude": 50.0, "longitude": 10.0, "distance": 7}],
+        }
         entry1.options = {}
 
         entry2 = MagicMock()
         entry2.entry_id = "entry2"
-        entry2.data = {CONF_EMAIL: "user@example.com", CONF_PASSWORD: "pw",
-                       CONF_LOCATIONS: [{"latitude": 51.0, "longitude": 11.0, "distance": 5}]}
+        entry2.data = {
+            CONF_EMAIL: "user@example.com",
+            CONF_PASSWORD: "pw",
+            CONF_LOCATIONS: [{"latitude": 51.0, "longitude": 11.0, "distance": 5}],
+        }
         entry2.options = {}
 
         await async_setup_entry(mock_hass, entry1)
@@ -57,30 +76,47 @@ async def test_shared_coordinator_same_account(mock_hass, mock_session):
         assert coord1 is coord2
         assert len(coord1.entries) == 2
 
+
 @pytest.mark.asyncio
 async def test_separate_coordinators_different_accounts(mock_hass, mock_session):
     """Test that different accounts get different coordinators."""
-    with patch("custom_components.foodsharing.coordinator.async_get_clientsession", return_value=mock_session), \
-         patch("custom_components.foodsharing.coordinator.FoodsharingCoordinator.async_config_entry_first_refresh", new_callable=AsyncMock), \
-         patch("custom_components.foodsharing.dr.async_get", return_value=MagicMock()):
+    with (
+        patch(
+            "custom_components.foodsharing.coordinator.async_get_clientsession",
+            return_value=mock_session,
+        ),
+        patch(
+            "custom_components.foodsharing.coordinator.FoodsharingCoordinator.async_config_entry_first_refresh",
+            new_callable=AsyncMock,
+        ),
+        patch("custom_components.foodsharing.dr.async_get", return_value=MagicMock()),
+    ):
 
         entry1 = MagicMock()
         entry1.entry_id = "acc1"
-        entry1.data = {CONF_EMAIL: "user1@example.com", CONF_PASSWORD: "pw",
-                       CONF_LOCATIONS: [{"latitude": 50.0, "longitude": 10.0, "distance": 7}]}
+        entry1.data = {
+            CONF_EMAIL: "user1@example.com",
+            CONF_PASSWORD: "pw",
+            CONF_LOCATIONS: [{"latitude": 50.0, "longitude": 10.0, "distance": 7}],
+        }
         entry1.options = {}
 
         entry2 = MagicMock()
         entry2.entry_id = "acc2"
-        entry2.data = {CONF_EMAIL: "user2@example.com", CONF_PASSWORD: "pw",
-                       CONF_LOCATIONS: [{"latitude": 50.0, "longitude": 10.0, "distance": 7}]}
+        entry2.data = {
+            CONF_EMAIL: "user2@example.com",
+            CONF_PASSWORD: "pw",
+            CONF_LOCATIONS: [{"latitude": 50.0, "longitude": 10.0, "distance": 7}],
+        }
         entry2.options = {}
 
         await async_setup_entry(mock_hass, entry1)
         await async_setup_entry(mock_hass, entry2)
 
-        assert mock_hass.data[DOMAIN]["accounts"]["user1@example.com"] is not \
-               mock_hass.data[DOMAIN]["accounts"]["user2@example.com"]
+        assert (
+            mock_hass.data[DOMAIN]["accounts"]["user1@example.com"]
+            is not mock_hass.data[DOMAIN]["accounts"]["user2@example.com"]
+        )
 
 
 def test_get_locations_from_entry_new_format():

@@ -195,14 +195,11 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
             if login_res is True:
                 async_delete_issue(self.hass, DOMAIN, f"auth_failed_{self.email}")
                 return await self._fetch_all_data()
-
             if login_res == "2fa_required":
                 _LOGGER.info(
                     "2FA required for %s, starting re-auth flow.",
                     mask_email(self.email),
                 )
-                for entry in self.entries.values():
-                    entry.async_start_reauth(self.hass)
                 raise ConfigEntryAuthFailed(
                     "2FA required for Foodsharing account"
                 ) from err
