@@ -223,7 +223,7 @@ class FoodsharingRequestSlotButton(CoordinatorEntity[FoodsharingCoordinator], Bu
         url = f"{self.coordinator.base_url}/api/baskets/{basket_id}/request"
         try:
             async with self.coordinator.session.post(
-                url, headers=self.coordinator._headers
+                url, headers=self.coordinator.authenticated_headers
             ) as response:
                 if response.status == 200:
                     _LOGGER.info("Successfully requested basket %s", basket_id)
@@ -321,7 +321,7 @@ class FoodsharingCloseSlotButton(CoordinatorEntity[FoodsharingCoordinator], Butt
         url = f"{self.coordinator.base_url}/api/baskets/{basket_id}/close"
         try:
             async with self.coordinator.session.post(
-                url, headers=self.coordinator._headers
+                url, headers=self.coordinator.authenticated_headers
             ) as response:
                 if response.status == 200:
                     _LOGGER.info("Successfully closed own basket %s", basket_id)

@@ -2,6 +2,7 @@ import logging
 from typing import Any
 
 import aiohttp
+import yarl
 import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.core import HomeAssistant, callback
@@ -66,7 +67,7 @@ async def validate_credentials(
             f"{base_url}/login", headers={"User-Agent": user_agent}, timeout=timeout
         ) as login_page:
             await login_page.text()
-            cookies = session.cookie_jar.filter_cookies(base_url)
+            cookies = session.cookie_jar.filter_cookies(yarl.URL(base_url))
             # Check both casings for the XSRF token
             xsrf_token = cookies.get("XSRF-TOKEN") or cookies.get("xsrf-token")
             if xsrf_token:
@@ -89,7 +90,7 @@ async def validate_credentials(
         _LOGGER.debug("Initial setup check failed or timed out: %s", err)
 
     # Get CSRF token from cookies (often set by Symfony via XSRF-TOKEN cookie)
-    csrf_token = session.cookie_jar.filter_cookies(base_url).get("XSRF-TOKEN")
+    csrf_token = session.cookie_jar.filter_cookies(yarl.URL(base_url)).get("XSRF-TOKEN")
     if csrf_token:
         headers["X-Csrf-Token"] = csrf_token.value
         _LOGGER.debug("Using CSRF token from cookie for login in config flow")

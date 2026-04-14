@@ -17,7 +17,7 @@ def mock_coordinator():
     coordinator.email = "test@example.com"
     coordinator.last_update_success = True
     coordinator.base_url = "https://foodsharing.de"
-    coordinator._headers = {"Authorization": "Bearer test"}
+    coordinator.authenticated_headers = {"Authorization": "Bearer test"}
 
     # Mock session and post
     coordinator.session = MagicMock()
