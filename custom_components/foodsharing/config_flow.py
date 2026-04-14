@@ -3,7 +3,6 @@ from typing import Any
 
 import aiohttp
 import voluptuous as vol
-import yarl
 from homeassistant import config_entries
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import config_validation as cv
@@ -73,7 +72,7 @@ async def validate_credentials(
                 if cookie.key.lower() == "xsrf-token":
                     xsrf_token_val = cookie.value
                     break
-            
+
             if xsrf_token_val:
                 headers["X-Csrf-Token"] = xsrf_token_val
 
