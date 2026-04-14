@@ -2,8 +2,8 @@ import logging
 from typing import Any
 
 import aiohttp
-import yarl
 import voluptuous as vol
+import yarl
 from homeassistant import config_entries
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import config_validation as cv
