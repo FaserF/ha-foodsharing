@@ -67,11 +67,15 @@ async def validate_credentials(
             f"{base_url}/login", headers={"User-Agent": user_agent}, timeout=timeout
         ) as login_page:
             await login_page.text()
-            cookies = session.cookie_jar.filter_cookies(yarl.URL(base_url))
-            # Check both casings for the XSRF token
-            xsrf_token = cookies.get("XSRF-TOKEN") or cookies.get("xsrf-token")
-            if xsrf_token:
-                headers["X-Csrf-Token"] = xsrf_token.value
+            # Check cookies for XSRF token
+            xsrf_token_val = None
+            for cookie in session.cookie_jar:
+                if cookie.key.lower() == "xsrf-token":
+                    xsrf_token_val = cookie.value
+                    break
+            
+            if xsrf_token_val:
+                headers["X-Csrf-Token"] = xsrf_token_val
 
         if not totp:
             # Check if we accidentally already have a session
@@ -90,10 +94,11 @@ async def validate_credentials(
         _LOGGER.debug("Initial setup check failed or timed out: %s", err)
 
     # Get CSRF token from cookies (often set by Symfony via XSRF-TOKEN cookie)
-    csrf_token = session.cookie_jar.filter_cookies(yarl.URL(base_url)).get("XSRF-TOKEN")
-    if csrf_token:
-        headers["X-Csrf-Token"] = csrf_token.value
-        _LOGGER.debug("Using CSRF token from cookie for login in config flow")
+    for cookie in session.cookie_jar:
+        if cookie.key.upper() == "XSRF-TOKEN":
+            headers["X-Csrf-Token"] = cookie.value
+            _LOGGER.debug("Using CSRF token from cookie for login in config flow")
+            break
 
     try:
         login_payload = {"email": email, "password": password, "rememberMe": True}
