@@ -3,7 +3,6 @@ import logging
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-import async_timeout
 from homeassistant import config_entries
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed
@@ -308,7 +307,7 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
     async def login(self, totp: str | None = None) -> bool | str:
         """Login to Foodsharing API. Returns True on success, '2fa_required' if TOTP needed, False otherwise."""
         try:
-            async with async_timeout.timeout(30):
+            async with asyncio.timeout(30):
                 # 1. Check if we already have a session BEFORE hitting /login
                 # We try twice with a small delay to handle race conditions during re-auth
                 for attempt in range(2):
@@ -443,7 +442,7 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
         unread = 0
         try:
             async with (
-                async_timeout.timeout(10),
+                asyncio.timeout(10),
                 self.session.get(
                     url_count, headers=self.authenticated_headers
                 ) as response,
@@ -458,7 +457,7 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
 
             if unread > 0:
                 async with (
-                    async_timeout.timeout(10),
+                    asyncio.timeout(10),
                     self.session.get(
                         url_conv, headers=self.authenticated_headers
                     ) as response,
@@ -492,7 +491,7 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
         url = f"{self.base_url}/api/bells"
         try:
             async with (
-                async_timeout.timeout(10),
+                asyncio.timeout(10),
                 self.session.get(url, headers=self.authenticated_headers) as response,
             ):
                 if response.status == 200:
@@ -528,7 +527,7 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
         url = f"{self.base_url}/api/baskets/nearby?lat={lat}&lon={lon}&distance={dist}"
         try:
             async with (
-                async_timeout.timeout(10),
+                asyncio.timeout(10),
                 self.session.get(url, headers=self.authenticated_headers) as response,
             ):
                 if response.status == 200:
@@ -662,7 +661,7 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
                     wall_url = f"{self.base_url}/api/fairteiler/{fp_id}/wall"
                     try:
                         async with (
-                            async_timeout.timeout(5),
+                            asyncio.timeout(5),
                             self.session.get(
                                 wall_url, headers=self.authenticated_headers
                             ) as wall_res,
@@ -702,7 +701,7 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
                         )
 
             async with (
-                async_timeout.timeout(10),
+                asyncio.timeout(10),
                 self.session.get(url, headers=self.authenticated_headers) as response,
             ):
                 if response.status == 200:
@@ -770,7 +769,7 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
 
         try:
             async with (
-                async_timeout.timeout(10),
+                asyncio.timeout(10),
                 self.session.get(url, headers=self.authenticated_headers) as response,
             ):
                 if response.status == 200:
@@ -806,7 +805,7 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
         url = f"{self.base_url}/api/baskets/own"
         try:
             async with (
-                async_timeout.timeout(10),
+                asyncio.timeout(10),
                 self.session.get(url, headers=self.authenticated_headers) as response,
             ):
                 if response.status == 200:
