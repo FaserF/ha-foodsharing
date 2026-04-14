@@ -53,7 +53,8 @@
       "unknown": "Ein unerwarteter Fehler ist aufgetreten."
     },
     "abort": {
-      "already_configured": "Dieser Foodsharing-Account-Standort ist bereits eingerichtet."
+      "already_configured": "Dieser Foodsharing-Account-Standort ist bereits eingerichtet.",
+      "reauth_successful": "Die Authentifizierung war erfolgreich."
     }
   },
   "selector": {
@@ -94,6 +95,13 @@
         "description": "Wähle einen zusätzlichen Standort auf der Karte aus.",
         "data": {
           "location": "Standort (Pin auf Karte)"
+        }
+      },
+      "totp": {
+        "title": "Zwei-Faktor-Authentisierung (2FA)",
+        "description": "Für deinen Account ist die Zwei-Faktor-Authentisierung aktiviert. Bitte gib den passenden 6-stelligen TOTP-Code ein.",
+        "data": {
+          "code": "6-stelliger TOTP-Code"
         }
       }
     },

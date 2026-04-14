@@ -26,7 +26,9 @@ def _haversine(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     dlon = math.radians(lon2 - lon1)
     a = (
         math.sin(dlat / 2) ** 2
-        + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon / 2) ** 2
+        + math.cos(math.radians(lat1))
+        * math.cos(math.radians(lat2))
+        * math.sin(dlon / 2) ** 2
     )
     return r * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
@@ -49,8 +51,8 @@ async def async_setup_entry(
             return
 
         locations = get_locations_from_entry(entry)
-        entry_locs: list[dict[str, Any]] = (
-            coordinator.data.get("locations", {}).get(entry.entry_id, [])
+        entry_locs: list[dict[str, Any]] = coordinator.data.get("locations", {}).get(
+            entry.entry_id, []
         )
 
         new_entities: list[GeolocationEvent] = []
@@ -94,7 +96,14 @@ async def async_setup_entry(
 
                 if fp_key not in active_entities:
                     fp_entity = FoodsharingFairteilerGeoLocation(
-                        coordinator, entry, fp, idx, fp_unique, home_lat, home_lon, email
+                        coordinator,
+                        entry,
+                        fp,
+                        idx,
+                        fp_unique,
+                        home_lat,
+                        home_lon,
+                        email,
                     )
                     active_entities[fp_key] = fp_entity
                     new_entities.append(fp_entity)
@@ -116,7 +125,9 @@ async def async_setup_entry(
 
                 # Also remove from registry so it doesn't show up as 'restored'
                 if entity.unique_id:
-                    entity_id = registry.async_get_entity_id("geo_location", DOMAIN, entity.unique_id)
+                    entity_id = registry.async_get_entity_id(
+                        "geo_location", DOMAIN, entity.unique_id
+                    )
                     if entity_id:
                         registry.async_remove(entity_id)
 
@@ -170,7 +181,7 @@ class FoodsharingBasketGeoLocation(CoordinatorEntity[FoodsharingCoordinator], Ge
         try:
             self._attr_latitude = float(basket["latitude"])
             self._attr_longitude = float(basket["longitude"])
-        except (ValueError, TypeError, KeyError):
+        except ValueError, TypeError, KeyError:
             self._attr_latitude = None  # type: ignore[assignment]
             self._attr_longitude = None  # type: ignore[assignment]
 
@@ -180,8 +191,8 @@ class FoodsharingBasketGeoLocation(CoordinatorEntity[FoodsharingCoordinator], Ge
         """Return current basket dict from coordinator data."""
         if not self.coordinator.data:
             return None
-        entry_locs: list[dict] = (
-            self.coordinator.data.get("locations", {}).get(self.entry.entry_id, [])
+        entry_locs: list[dict] = self.coordinator.data.get("locations", {}).get(
+            self.entry.entry_id, []
         )
         if self._loc_idx >= len(entry_locs):
             return None
@@ -194,13 +205,23 @@ class FoodsharingBasketGeoLocation(CoordinatorEntity[FoodsharingCoordinator], Ge
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return the extra state attributes."""
         basket = self._get_current_basket()
-        return {"keyword_match": basket.get("keyword_match", False) if basket else False}
+        return {
+            "keyword_match": basket.get("keyword_match", False) if basket else False
+        }
 
     @property
     def distance(self) -> float | None:
         """Return distance from configured search center in km."""
         if self._attr_latitude is not None and self._attr_longitude is not None:
-            return round(_haversine(self._home_lat, self._home_lon, self._attr_latitude, self._attr_longitude), 1)
+            return round(
+                _haversine(
+                    self._home_lat,
+                    self._home_lon,
+                    self._attr_latitude,
+                    self._attr_longitude,
+                ),
+                1,
+            )
         return None
 
     def _handle_coordinator_update(self) -> None:
@@ -240,7 +261,9 @@ class FoodsharingFairteilerGeoLocation(CoordinatorEntity[FoodsharingCoordinator]
         self._home_lat = home_lat
         self._home_lon = home_lon
 
-        self._attr_unique_id = f"foodsharing_{entry.entry_id}_fairteiler_{loc_idx}_{unique_id}"
+        self._attr_unique_id = (
+            f"foodsharing_{entry.entry_id}_fairteiler_{loc_idx}_{unique_id}"
+        )
         self._attr_icon = "mdi:storefront"
         self._attr_source = DOMAIN
 
@@ -261,7 +284,7 @@ class FoodsharingFairteilerGeoLocation(CoordinatorEntity[FoodsharingCoordinator]
         try:
             self._attr_latitude = float(fp["latitude"])
             self._attr_longitude = float(fp["longitude"])
-        except (ValueError, TypeError, KeyError):
+        except ValueError, TypeError, KeyError:
             self._attr_latitude = None  # type: ignore[assignment]
             self._attr_longitude = None  # type: ignore[assignment]
 
@@ -272,8 +295,8 @@ class FoodsharingFairteilerGeoLocation(CoordinatorEntity[FoodsharingCoordinator]
         """Return current fairteiler dict from coordinator data."""
         if not self.coordinator.data:
             return None
-        entry_locs: list[dict] = (
-            self.coordinator.data.get("locations", {}).get(self.entry.entry_id, [])
+        entry_locs: list[dict] = self.coordinator.data.get("locations", {}).get(
+            self.entry.entry_id, []
         )
         if self._loc_idx >= len(entry_locs):
             return None
@@ -305,7 +328,15 @@ class FoodsharingFairteilerGeoLocation(CoordinatorEntity[FoodsharingCoordinator]
     def distance(self) -> float | None:
         """Return distance from configured search center in km."""
         if self._attr_latitude is not None and self._attr_longitude is not None:
-            return round(_haversine(self._home_lat, self._home_lon, self._attr_latitude, self._attr_longitude), 1)
+            return round(
+                _haversine(
+                    self._home_lat,
+                    self._home_lon,
+                    self._attr_latitude,
+                    self._attr_longitude,
+                ),
+                1,
+            )
         return None
 
     def _handle_coordinator_update(self) -> None:

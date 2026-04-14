@@ -9,7 +9,7 @@ def auto_mock_ha():
     """Mock the Home Assistant helpers that require a running instance."""
     with (
         patch("homeassistant.core.HomeAssistant"),
-        patch("homeassistant.helpers.frame.report_usage"),
+        patch("homeassistant.helpers.frame.report"),
     ):
         yield
 

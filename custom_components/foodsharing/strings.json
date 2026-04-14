@@ -46,7 +46,8 @@
       }
     },
     "abort": {
-      "already_configured": "This Foodsharing account location is already configured"
+      "already_configured": "This Foodsharing account location is already configured",
+      "reauth_successful": "Re-authentication was successful"
     },
     "error": {
       "cannot_connect": "Cannot connect",
@@ -94,6 +95,13 @@
         "description": "Select an additional location on the map.",
         "data": {
           "location": "Location (Pin on map)"
+        }
+      },
+      "totp": {
+        "title": "Two-Factor Authentication (2FA)",
+        "description": "Your account has Two-Factor Authentication enabled. Please enter the matching 6-digit TOTP code.",
+        "data": {
+          "code": "6-digit TOTP Code"
         }
       }
     },

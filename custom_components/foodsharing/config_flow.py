@@ -46,30 +46,53 @@ async def validate_credentials(
         base_domain = "foodsharing.ch"
 
     base_url = f"https://beta.{base_domain}" if use_beta else f"https://{base_domain}"
-    login_url = f"{base_url}/api/user/login"
-    headers = {"User-Agent": "HomeAssistant-Foodsharing/1.0 (+https://github.com/FaserF/ha-foodsharing)"}
-    timeout = aiohttp.ClientTimeout(total=10)
+    login_url = f"{base_url}/api/login"
+    # Use a modern browser user agent consistently
+    user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"
+    headers = {
+        "User-Agent": user_agent,
+        "Accept": "application/json",
+        "X-Requested-With": "XMLHttpRequest",
+    }
+    timeout = aiohttp.ClientTimeout(total=15)
 
-    if not totp:
-        try:
-            current_url = f"{base_url}/api/user/current"
-            async with session.get(current_url, headers=headers, timeout=timeout) as current_resp:
+    # Clear existing session cookies to ensure a fresh flow for this domain
+    session.cookie_jar.clear_domain("foodsharing.de")
+    session.cookie_jar.clear_domain("www.foodsharing.de")
+
+    try:
+        # Get CSRF token by hitting /login first
+        async with session.get(
+            f"{base_url}/login", headers={"User-Agent": user_agent}, timeout=timeout
+        ) as login_page:
+            await login_page.text()
+            cookies = session.cookie_jar.filter_cookies(base_url)
+            # Check both casings for the XSRF token
+            xsrf_token = cookies.get("XSRF-TOKEN") or cookies.get("xsrf-token")
+            if xsrf_token:
+                headers["X-Csrf-Token"] = xsrf_token.value
+
+        if not totp:
+            # Check if we accidentally already have a session
+            current_url = f"{base_url}/api/users/current"
+            async with session.get(
+                current_url, headers=headers, timeout=timeout
+            ) as current_resp:
                 if current_resp.status == 200:
                     current_data = await current_resp.json()
                     if isinstance(current_data, dict) and "id" in current_data:
-                        # Validate that the current session belongs to the requested email
-                        # The API doesn't always return the email in /user/current,
-                        # so if we are provided a password, we should probably just login anyway
-                        # to be safe, OR we check if the ID matches what we expect if we had it.
-                        # For simplicity and correctness as requested:
-                        # we will skip the short-circuit if we want to be absolutely sure.
                         _LOGGER.debug(
-                            "Found existing session for user %s, but proceeding with login to validate %s",
-                            current_data["id"],
-                            mask_email(email),
+                            "Found existing session for user %s", current_data["id"]
                         )
-        except Exception as err:
-            _LOGGER.debug("Session check failed (ignoring): %s", err)
+                        return str(current_data["id"])
+    except Exception as err:
+        _LOGGER.debug("Initial setup check failed or timed out: %s", err)
+
+    # Get CSRF token from cookies (often set by Symfony via XSRF-TOKEN cookie)
+    csrf_token = session.cookie_jar.filter_cookies(base_url).get("XSRF-TOKEN")
+    if csrf_token:
+        headers["X-Csrf-Token"] = csrf_token.value
+        _LOGGER.debug("Using CSRF token from cookie for login in config flow")
 
     try:
         login_payload = {"email": email, "password": password, "rememberMe": True}
@@ -86,36 +109,63 @@ async def validate_credentials(
             login_url, json=login_payload, timeout=timeout, headers=headers
         ) as response:
             if response.status == 200:
-                data = await response.json()
+                body = None
+                try:
+                    body = await response.json()
+                except Exception:
+                    pass
+
                 user_id = None
-                if isinstance(data, dict):
-                    user_id = data.get("id") or (data.get("user") or {}).get("id")
+                if isinstance(body, dict):
+                    user_id = body.get("id") or (body.get("user") or {}).get("id")
+
+                if not user_id:
+                    # Fallback: get ID from current user endpoint
+                    try:
+                        current_url = f"{base_url}/api/users/current"
+                        async with session.get(
+                            current_url, headers=headers, timeout=timeout
+                        ) as current_resp:
+                            if current_resp.status == 200:
+                                current_data = await current_resp.json()
+                                user_id = current_data.get("id")
+                    except Exception:
+                        pass
 
                 _LOGGER.debug(
                     "Login successful for %s, user_id: %s",
                     mask_email(email),
                     user_id,
                 )
-                return str(user_id) if user_id else True
+                return str(user_id) if user_id else "unknown_user"
 
-            elif response.status == 400:
+            elif response.status in (400, 401, 403):
                 try:
                     body = await response.json()
-                    if isinstance(body, dict) and body.get("code") == "2fa_required":
+                    is_2fa = isinstance(body, dict) and (
+                        body.get("code") == "2fa_required"
+                        or "2FA required" in body.get("message", "")
+                        or (totp and "code" in body.get("message", ""))
+                    )
+
+                    if is_2fa:
                         _LOGGER.debug(
-                            "2FA required for %s",
+                            "2FA challenge for %s (TOTP provided: %s)",
                             mask_email(email),
+                            "Yes" if totp else "No",
                         )
                         return {"2fa_required": True}
                     _LOGGER.warning(
-                        "Login failed (400) for %s: %s",
+                        "Login failed (%s) for %s: %s",
+                        response.status,
                         mask_email(email),
                         body,
                     )
                 except Exception:
                     text = await response.text()
                     _LOGGER.warning(
-                        "Login failed (400) for %s with non-JSON body: %s",
+                        "Login failed (%s) for %s with non-JSON body: %s",
+                        response.status,
                         mask_email(email),
                         text,
                     )
@@ -215,12 +265,20 @@ class FoodsharingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # type: 
                 ),
                 vol.Optional(CONF_KEYWORDS, default=""): str,
                 vol.Required(CONF_SCAN_INTERVAL, default=2): cv.positive_int,
-                vol.Required(CONF_DOMAIN, default="foodsharing_de"): selector.SelectSelector(
+                vol.Required(
+                    CONF_DOMAIN, default="foodsharing_de"
+                ): selector.SelectSelector(
                     selector.SelectSelectorConfig(
                         options=[
-                            selector.SelectOptionDict(value="foodsharing_de", label="foodsharing.de"),
-                            selector.SelectOptionDict(value="foodsharing_at", label="foodsharing.at"),
-                            selector.SelectOptionDict(value="foodsharing_ch", label="foodsharing.ch"),
+                            selector.SelectOptionDict(
+                                value="foodsharing_de", label="foodsharing.de"
+                            ),
+                            selector.SelectOptionDict(
+                                value="foodsharing_at", label="foodsharing.at"
+                            ),
+                            selector.SelectOptionDict(
+                                value="foodsharing_ch", label="foodsharing.ch"
+                            ),
                         ],
                         translation_key="domain",
                         mode=selector.SelectSelectorMode.DROPDOWN,
@@ -251,7 +309,9 @@ class FoodsharingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # type: 
             password = user_input[CONF_PASSWORD]
             use_beta = self._user_input.get(CONF_USE_BETA_API, False)
 
-            res = await validate_credentials(self.hass, email, password, use_beta=use_beta)
+            res = await validate_credentials(
+                self.hass, email, password, use_beta=use_beta
+            )
             if res == "cannot_connect":
                 errors["base"] = "cannot_connect"
             elif isinstance(res, dict) and res.get("2fa_required"):
@@ -270,7 +330,9 @@ class FoodsharingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # type: 
             data_schema=vol.Schema(
                 {
                     vol.Required(CONF_PASSWORD): selector.TextSelector(
-                        selector.TextSelectorConfig(type=selector.TextSelectorType.PASSWORD)
+                        selector.TextSelectorConfig(
+                            type=selector.TextSelectorType.PASSWORD
+                        )
                     ),
                 }
             ),
@@ -291,7 +353,7 @@ class FoodsharingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # type: 
                     self._user_input[CONF_EMAIL],
                     self._user_input[CONF_PASSWORD],
                     code,
-                    self._user_input.get(CONF_USE_BETA_API, False)
+                    self._user_input.get(CONF_USE_BETA_API, False),
                 )
                 if res == "cannot_connect":
                     errors["base"] = "cannot_connect"
@@ -305,7 +367,9 @@ class FoodsharingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # type: 
                         return self.async_update_reload_and_abort(entry, data=new_data)
 
                     if CONF_LOCATION in self._user_input:
-                        self._locations = [_location_to_dict(self._user_input[CONF_LOCATION])]
+                        self._locations = [
+                            _location_to_dict(self._user_input[CONF_LOCATION])
+                        ]
                     return await self.async_step_add_location()
             except Exception as err:
                 _LOGGER.exception("Unexpected error in async_step_totp: %s", err)
@@ -433,15 +497,29 @@ class OptionsFlowHandler(config_entries.OptionsFlow):  # type: ignore[misc]
                 or new_domain != old_domain
             ):
                 is_valid = await validate_credentials(
-                    self.hass, new_email, new_password, use_beta=new_use_beta, domain=new_domain
+                    self.hass,
+                    new_email,
+                    new_password,
+                    use_beta=new_use_beta,
+                    domain=new_domain,
                 )
                 if is_valid == "cannot_connect":
                     errors["base"] = "cannot_connect"
                 elif isinstance(is_valid, dict) and is_valid.get("2fa_required"):
-                    errors["base"] = "2fa_required"
-                    # We don't have a dedicated TOTP step for options yet,
-                    # but we should at least block and show the error.
-                    # Actually the prompt says "invoke the 2FA handling flow ... or set errors['base']='2fa_required'"
+                    self._user_input = user_input
+                    if CONF_LOCATION in user_input:
+                        new_primary = _location_to_dict(user_input[CONF_LOCATION])
+                        options = {
+                            **self.config_entry.data,
+                            **self.config_entry.options,
+                        }
+                        existing_locs = list(options.get(CONF_LOCATIONS, []))
+                        if existing_locs:
+                            existing_locs[0] = new_primary
+                        else:
+                            existing_locs = [new_primary]
+                        self._locations = existing_locs
+                    return await self.async_step_totp()
                 elif not is_valid:
                     errors["base"] = "invalid_auth"
 
@@ -451,9 +529,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow):  # type: ignore[misc]
                     new_primary = _location_to_dict(user_input[CONF_LOCATION])
                     # Merge primary location into existing options state
                     options = {**self.config_entry.data, **self.config_entry.options}
-                    existing_locs: list[dict[str, Any]] = list(
-                        options.get(CONF_LOCATIONS, [])
-                    )
+                    existing_locs = list(options.get(CONF_LOCATIONS, []))
                     if existing_locs:
                         existing_locs[0] = new_primary
                     else:
@@ -477,9 +553,16 @@ class OptionsFlowHandler(config_entries.OptionsFlow):  # type: ignore[misc]
                 vol.Required(
                     CONF_LOCATION,
                     default={
-                        "latitude": primary.get("latitude", options.get(CONF_LATITUDE_FS, self.hass.config.latitude)),
-                        "longitude": primary.get("longitude", options.get(CONF_LONGITUDE_FS, self.hass.config.longitude)),
-                        "radius": primary.get("distance", options.get(CONF_DISTANCE, 7)) * 1000,
+                        "latitude": primary.get(
+                            "latitude",
+                            options.get(CONF_LATITUDE_FS, self.hass.config.latitude),
+                        ),
+                        "longitude": primary.get(
+                            "longitude",
+                            options.get(CONF_LONGITUDE_FS, self.hass.config.longitude),
+                        ),
+                        "radius": primary.get("distance", options.get(CONF_DISTANCE, 7))
+                        * 1000,
                     },
                 ): selector.LocationSelector(
                     selector.LocationSelectorConfig(radius=True)
@@ -495,9 +578,15 @@ class OptionsFlowHandler(config_entries.OptionsFlow):  # type: ignore[misc]
                 ): selector.SelectSelector(
                     selector.SelectSelectorConfig(
                         options=[
-                            selector.SelectOptionDict(value="foodsharing_de", label="foodsharing.de"),
-                            selector.SelectOptionDict(value="foodsharing_at", label="foodsharing.at"),
-                            selector.SelectOptionDict(value="foodsharing_ch", label="foodsharing.ch"),
+                            selector.SelectOptionDict(
+                                value="foodsharing_de", label="foodsharing.de"
+                            ),
+                            selector.SelectOptionDict(
+                                value="foodsharing_at", label="foodsharing.at"
+                            ),
+                            selector.SelectOptionDict(
+                                value="foodsharing_ch", label="foodsharing.ch"
+                            ),
                         ],
                         translation_key="domain",
                         mode=selector.SelectSelectorMode.DROPDOWN,
@@ -511,6 +600,44 @@ class OptionsFlowHandler(config_entries.OptionsFlow):  # type: ignore[misc]
 
         return self.async_show_form(
             step_id="init", data_schema=options_schema, errors=errors
+        )
+
+    async def async_step_totp(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.ConfigFlowResult:
+        """Handle 2FA (TOTP) step for options."""
+        errors = {}
+        if user_input is not None:
+            try:
+                code = user_input["code"]
+                res = await validate_credentials(
+                    self.hass,
+                    self._user_input[CONF_EMAIL],
+                    self._user_input[CONF_PASSWORD],
+                    code,
+                    self._user_input.get(CONF_USE_BETA_API, False),
+                    self._user_input.get(CONF_DOMAIN, "foodsharing_de"),
+                )
+                if res == "cannot_connect":
+                    errors["base"] = "cannot_connect"
+                elif not res or (isinstance(res, dict) and res.get("2fa_required")):
+                    errors["base"] = "invalid_totp"
+                else:
+                    return await self.async_step_manage_locations()
+            except Exception as err:
+                _LOGGER.exception(
+                    "Unexpected error in options async_step_totp: %s", err
+                )
+                errors["base"] = "unknown"
+
+        return self.async_show_form(
+            step_id="totp",
+            data_schema=vol.Schema(
+                {
+                    vol.Required("code"): str,
+                }
+            ),
+            errors=errors,
         )
 
     async def async_step_manage_locations(
@@ -585,7 +712,8 @@ class OptionsFlowHandler(config_entries.OptionsFlow):  # type: ignore[misc]
                 (
                     e
                     for e in self.hass.config_entries.async_entries(DOMAIN)
-                    if e.unique_id == new_unique_id and e.entry_id != self.config_entry.entry_id
+                    if e.unique_id == new_unique_id
+                    and e.entry_id != self.config_entry.entry_id
                 ),
                 None,
             )

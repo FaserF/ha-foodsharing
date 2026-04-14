@@ -94,9 +94,9 @@ class FoodsharingSensor(CoordinatorEntity[FoodsharingCoordinator], SensorEntity)
     def _get_loc_data(self) -> dict[str, Any]:
         """Return coordinator location data for this sensor's location slot."""
         if self.coordinator.data:
-            entry_locs: list[dict[str, Any]] = (
-                self.coordinator.data.get("locations", {}).get(self.entry_id, [])
-            )
+            entry_locs: list[dict[str, Any]] = self.coordinator.data.get(
+                "locations", {}
+            ).get(self.entry_id, [])
             if self.loc_idx < len(entry_locs):
                 return entry_locs[self.loc_idx]
         return {}

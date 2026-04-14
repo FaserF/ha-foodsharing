@@ -116,12 +116,19 @@ async def test_config_flow_user_step_beta_success(mock_session):
     flow.hass.config_entries.async_entry_for_domain_unique_id.return_value = None
 
     with patch("custom_components.foodsharing.config_flow.async_get_clientsession", return_value=mock_session):
-        # Mock successful login on BETA endpoint
-        mock_response = AsyncMock()
-        mock_response.status = 200
-        mock_response.json.return_value = {"id": 123}
-        mock_session.post.return_value.__aenter__.return_value = mock_response
-        mock_session.get.return_value.__aenter__.return_value = mock_response
+        # Mock GET calls (CSRF fetch and session check)
+        mock_resp_fail = AsyncMock()
+        mock_resp_fail.status = 401
+        # Need to mock text() for the /login hit and json() for the /api/users/current hit
+        mock_resp_fail.text.return_value = "login page"
+        mock_resp_fail.json.side_effect = Exception("Not JSON")
+        mock_session.get.return_value.__aenter__.return_value = mock_resp_fail
+        
+        # Mock successful login (POST)
+        mock_resp_ok = AsyncMock()
+        mock_resp_ok.status = 200
+        mock_resp_ok.json.return_value = {"id": 123}
+        mock_session.post.return_value.__aenter__.return_value = mock_resp_ok
 
         user_input = {
             CONF_EMAIL: "test@example.com",
@@ -141,7 +148,7 @@ async def test_config_flow_user_step_beta_success(mock_session):
         # Verify that BETA endpoint was used
         from unittest.mock import ANY
         mock_session.post.assert_called_with(
-            "https://beta.foodsharing.de/api/user/login",
+            "https://beta.foodsharing.de/api/login",
             json={"email": "test@example.com", "password": "password", "rememberMe": True},
             timeout=ANY,
             headers=ANY,

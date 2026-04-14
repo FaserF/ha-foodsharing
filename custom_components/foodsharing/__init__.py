@@ -25,9 +25,6 @@ _LOGGER = logging.getLogger(__name__)
 PLATFORMS = [Platform.SENSOR, Platform.GEO_LOCATION, Platform.BUTTON, Platform.CALENDAR]
 
 
-
-
-
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Foodsharing from a config entry."""
     hass.data.setdefault(DOMAIN, {})
@@ -42,11 +39,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         hass.data[DOMAIN]["accounts"][email] = coordinator
     else:
         coordinator = hass.data[DOMAIN]["accounts"][email]
+        # Always update credentials to ensure they are current
+        coordinator.password = password
 
     coordinator.add_entry(entry)
 
-    # Always wait for the first refresh for this entry to ensure platforms have data
-    await coordinator.async_config_entry_first_refresh()
+    # Initial refresh outside of critical setup path to avoid NOT_LOADED
+    hass.async_create_task(coordinator.async_refresh())
 
     if is_new_coordinator:
         device_registry = dr.async_get(hass)
@@ -64,6 +63,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     }
 
     if not hass.services.has_service(DOMAIN, "request_basket"):
+
         async def handle_request_basket(call: Any) -> None:
             """Handle the request_basket service call."""
             basket_id = call.data.get("basket_id")
@@ -98,7 +98,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
             url = f"{coordinator.base_url}/api/baskets/{basket_id}/request"
             try:
-                async with coordinator.session.post(url, headers=coordinator._headers) as response:
+                async with coordinator.session.post(
+                    url, headers=coordinator.authenticated_headers
+                ) as response:
                     if response.status == 200:
                         _LOGGER.info(
                             "Successfully requested basket %s using account %s",
@@ -108,7 +110,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                         await coordinator.async_request_refresh()
                     else:
                         _LOGGER.error(
-                            "Failed to request basket %s: HTTP %s", basket_id, response.status
+                            "Failed to request basket %s: HTTP %s",
+                            basket_id,
+                            response.status,
                         )
             except Exception as err:
                 _LOGGER.error("Error requesting basket %s: %s", basket_id, err)
@@ -116,6 +120,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         hass.services.async_register(DOMAIN, "request_basket", handle_request_basket)
 
     if not hass.services.has_service(DOMAIN, "close_basket"):
+
         async def handle_close_basket(call: Any) -> None:
             """Handle the close_basket service call for own baskets."""
             basket_id = call.data.get("basket_id")
@@ -150,7 +155,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
             url = f"{coordinator.base_url}/api/baskets/{basket_id}/close"
             try:
-                async with coordinator.session.post(url, headers=coordinator._headers) as response:
+                async with coordinator.session.post(
+                    url, headers=coordinator.authenticated_headers
+                ) as response:
                     if response.status == 200:
                         _LOGGER.info(
                             "Successfully closed own basket %s using account %s",
@@ -160,7 +167,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                         await coordinator.async_request_refresh()
                     else:
                         _LOGGER.error(
-                            "Failed to close own basket %s: HTTP %s", basket_id, response.status
+                            "Failed to close own basket %s: HTTP %s",
+                            basket_id,
+                            response.status,
                         )
             except Exception as err:
                 _LOGGER.error("Error closing own basket %s: %s", basket_id, err)
@@ -251,7 +260,9 @@ async def async_migrate_entry(hass: HomeAssistant, config_entry: ConfigEntry) ->
         lon = new_options.get(CONF_LONGITUDE_FS, new.get(CONF_LONGITUDE_FS))
         dist = new_options.get(CONF_DISTANCE, new.get(CONF_DISTANCE, 7))
         if lat is not None and lon is not None and CONF_LOCATIONS not in new:
-            new[CONF_LOCATIONS] = [{"latitude": lat, "longitude": lon, "distance": dist}]
+            new[CONF_LOCATIONS] = [
+                {"latitude": lat, "longitude": lon, "distance": dist}
+            ]
 
         # Remove obsolete flat keys
         for key in (CONF_LATITUDE_FS, CONF_LONGITUDE_FS, CONF_DISTANCE):

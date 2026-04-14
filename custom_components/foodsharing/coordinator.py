@@ -47,11 +47,12 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
         self._seen_fairteiler_posts: set[int] = set()
         self._seen_baskets: set[int] = set()
         self._is_first_update = True
+        self._user_agent = (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"
+        )
         self.user_id: str | None = None
-        self.csrf_token: str | None = None
-        self._headers = {
-            "User-Agent": "HomeAssistant-Foodsharing/1.0 (+https://github.com/FaserF/ha-foodsharing)"
-        }
+        self._xsrf_token: str | None = None
         self.base_url = "https://foodsharing.de"
         self._update_base_url()
 
@@ -61,6 +62,74 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
             name=f"{DOMAIN}_{email}",
             update_interval=timedelta(minutes=2),
         )
+
+    @property
+    def authenticated_headers(self) -> dict[str, str]:
+        """Return headers with CSRF token for authenticated requests."""
+        headers = {
+            "Accept": "application/json",
+            "User-Agent": self._user_agent,
+            "X-Requested-With": "XMLHttpRequest",
+        }
+
+        # Proactively look for XSRF token in cookie jar if not cached
+        token = self._xsrf_token
+        if not token:
+            try:
+                # Manual iteration to avoid strict filtering issues
+                phpsessid_found = False
+                for cookie in self.session.cookie_jar:
+                    if cookie.key == "XSRF-TOKEN" and (
+                        cookie["domain"] in self.base_url
+                        or self.base_url.endswith(cookie["domain"])
+                    ):
+                        token = cookie.value
+                        _LOGGER.warning(
+                            "Found XSRF-TOKEN via manual jar scan for %s: %s...",
+                            self.base_url,
+                            token[:10],
+                        )
+                    if cookie.key == "PHPSESSID":
+                        phpsessid_found = True
+
+                if not token:
+                    # Fallback to standard filtering
+                    import yarl
+
+                    cookies = self.session.cookie_jar.filter_cookies(
+                        yarl.URL(self.base_url)
+                    )
+                    if "XSRF-TOKEN" in cookies:
+                        token = cookies["XSRF-TOKEN"].value
+
+                if not phpsessid_found:
+                    _LOGGER.warning(
+                        "PHPSESSID (session cookie) missing in jar for %s! This explains the 401.",
+                        self.base_url,
+                    )
+            except Exception as e:
+                _LOGGER.warning("Cookie scan error: %s", e)
+
+        if token:
+            headers["X-Csrf-Token"] = token
+        return headers
+
+    async def fetch_csrf(self):
+        """Fetch the CSRF token from the login page."""
+        try:
+            # Hit /login to ensure we get the right cookies
+            async with self.session.get(
+                f"{self.base_url}/login", headers={"User-Agent": self._user_agent}
+            ) as response:
+                await response.text()
+                cookies = self.session.cookie_jar.filter_cookies(self.base_url)
+                if "XSRF-TOKEN" in cookies:
+                    self._xsrf_token = cookies["XSRF-TOKEN"].value
+                    _LOGGER.debug("Fetched CSRF token: %s", self._xsrf_token)
+                else:
+                    _LOGGER.debug("No XSRF-TOKEN cookie found on /login")
+        except Exception as e:
+            _LOGGER.error("Failed to fetch CSRF token: %s", e)
 
     def add_entry(self, entry: config_entries.ConfigEntry) -> None:
         """Add a config entry to this coordinator."""
@@ -79,11 +148,15 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
         use_beta = False
         domain = "foodsharing_de"
         for entry in self.entries.values():
-            if entry.options.get(CONF_USE_BETA_API, entry.data.get(CONF_USE_BETA_API, False)):
+            if entry.options.get(
+                CONF_USE_BETA_API, entry.data.get(CONF_USE_BETA_API, False)
+            ):
                 use_beta = True
 
             # Get domain from entry, default to de
-            entry_domain = entry.options.get(CONF_DOMAIN, entry.data.get(CONF_DOMAIN, "foodsharing_de"))
+            entry_domain = entry.options.get(
+                CONF_DOMAIN, entry.data.get(CONF_DOMAIN, "foodsharing_de")
+            )
             if entry_domain != "foodsharing_de":
                 domain = entry_domain
 
@@ -93,7 +166,9 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
         elif domain == "foodsharing_ch":
             base_domain = "foodsharing.ch"
 
-        self.base_url = f"https://beta.{base_domain}" if use_beta else f"https://{base_domain}"
+        self.base_url = (
+            f"https://beta.{base_domain}" if use_beta else f"https://{base_domain}"
+        )
         _LOGGER.debug("Foodsharing base URL set to %s", self.base_url)
 
     def _update_refresh_interval(self) -> None:
@@ -124,11 +199,13 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
             if login_res == "2fa_required":
                 _LOGGER.info(
                     "2FA required for %s, starting re-auth flow.",
-                mask_email(self.email),
+                    mask_email(self.email),
                 )
                 for entry in self.entries.values():
                     entry.async_start_reauth(self.hass)
-                raise ConfigEntryAuthFailed("2FA required for Foodsharing account") from err
+                raise ConfigEntryAuthFailed(
+                    "2FA required for Foodsharing account"
+                ) from err
 
             async_create_issue(
                 self.hass,
@@ -155,7 +232,7 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
             self.fetch_bells(),
             self.fetch_pickups(),
             self.fetch_own_baskets(),
-            return_exceptions=True
+            return_exceptions=True,
         )
 
         keyed_results = dict(zip(task_keys, account_results, strict=True))
@@ -164,7 +241,9 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
             if isinstance(res, AuthenticationFailed):
                 raise res
 
-        messages, bells, pickups, own_baskets = self._normalize_account_results(keyed_results)
+        messages, bells, pickups, own_baskets = self._normalize_account_results(
+            keyed_results
+        )
 
         location_data: dict[str, list[dict[str, Any]]] = {}
         task_meta: list[tuple[str, int]] = []
@@ -193,7 +272,9 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
             elif isinstance(res, Exception):
                 _LOGGER.error(
                     "Error fetching location data for entry %s location %d: %s",
-                    entry_id, idx, res,
+                    entry_id,
+                    idx,
+                    res,
                 )
 
         self._is_first_update = False
@@ -205,75 +286,150 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
                 "pickups": pickups,
                 "own_baskets": own_baskets,
             },
-            "locations": location_data
+            "locations": location_data,
         }
 
-    async def fetch_location_data(self, entry_id: str, lat: float, lon: float, dist: float) -> dict[str, Any]:
+    async def fetch_location_data(
+        self, entry_id: str, lat: float, lon: float, dist: float
+    ) -> dict[str, Any]:
         """Fetch baskets and fairteiler for a specific location."""
         results = await asyncio.gather(
             self.fetch_baskets_for_location(entry_id, lat, lon, dist),
             self.fetch_food_share_points_for_location(lat, lon, dist),
-            return_exceptions=True
+            return_exceptions=True,
         )
 
         for res in results:
             if isinstance(res, AuthenticationFailed):
                 raise res
 
-        baskets, fairteiler = [(r if not isinstance(r, Exception) else []) for r in results]
+        baskets, fairteiler = [
+            (r if not isinstance(r, Exception) else []) for r in results
+        ]
         return {"baskets": baskets, "fairteiler": fairteiler}
 
     async def login(self, totp: str | None = None) -> bool | str:
         """Login to Foodsharing API. Returns True on success, '2fa_required' if TOTP needed, False otherwise."""
         try:
-            async with async_timeout.timeout(10):
-                try:
-                    current_url = f"{self.base_url}/api/user/current"
-                    async with self.session.get(current_url, headers=self._headers) as current_resp:
-                        if current_resp.status == 200:
-                            current_data = await current_resp.json()
-                            if current_data and "id" in current_data:
-                                _LOGGER.debug("Session already active for user %s", current_data["id"])
-                                self.user_id = str(current_data["id"])
-                                return True
-                except Exception as err:
-                    _LOGGER.debug("Session check failed: %s", err)
+            async with async_timeout.timeout(30):
+                # 1. Check if we already have a session BEFORE hitting /login
+                # We try twice with a small delay to handle race conditions during re-auth
+                for attempt in range(2):
+                    try:
+                        current_url = f"{self.base_url}/api/users/current"
+                        auth_headers = self.authenticated_headers
+                        _LOGGER.debug(
+                            "Attempt %d: Checking session at %s (Token detected: %s)",
+                            attempt + 1,
+                            current_url,
+                            "Yes" if "X-Csrf-Token" in auth_headers else "No",
+                        )
+                        async with self.session.get(
+                            current_url, headers=auth_headers
+                        ) as current_resp:
+                            _LOGGER.debug(
+                                "Session check status: %s", current_resp.status
+                            )
+                            if current_resp.status == 200:
+                                current_data = await current_resp.json()
+                                if current_data and "id" in current_data:
+                                    _LOGGER.debug(
+                                        "Session is VALID for user %s. Login successful.",
+                                        current_data["id"],
+                                    )
+                                    self.user_id = str(current_data["id"])
+                                    return True
+                            else:
+                                if attempt == 0:
+                                    _LOGGER.debug(
+                                        "Session check failed (attempt 1), retrying in 2 seconds..."
+                                    )
+                                    await asyncio.sleep(2)
+                                    continue
+                    except Exception as err:
+                        _LOGGER.debug(
+                            "Session check exception (attempt %d): %s", attempt + 1, err
+                        )
+                        if attempt == 0:
+                            await asyncio.sleep(2)
+                            continue
 
+                # 2. If not logged in, fetch fresh CSRF token from /login
+                _LOGGER.warning(
+                    "No valid session found. Fetching fresh CSRF token from /login before POST login."
+                )
+                await self.fetch_csrf()
+
+                # 3. Attempt login
                 login_payload = {
                     "email": self.email,
                     "password": self.password,
                     "rememberMe": True,
                 }
                 if totp:
-                    login_payload["code"] = totp
+                    login_payload["code"] = str(totp)
 
-                login_url = f"{self.base_url}/api/user/login"
+                login_url = f"{self.base_url}/api/login"
+                _LOGGER.debug(
+                    "Attempting login for %s (TOTP: %s)",
+                    mask_email(self.email),
+                    "Yes" if totp else "No",
+                )
                 async with self.session.post(
-                    login_url, json=login_payload, headers=self._headers
+                    login_url, json=login_payload, headers=self.authenticated_headers
                 ) as response:
-                    if response.status == 200:
-                        data = await response.json()
-                        user_id = data.get("id") or (data.get("user") or {}).get("id")
-                        if user_id:
-                            self.user_id = str(user_id)
-                            self.csrf_token = data.get("csrf")
-                            return True
-                        return False
-                    elif response.status == 400:
+                    body = None
+                    try:
                         body = await response.json()
-                        if body.get("code") == "2fa_required":
-                            _LOGGER.info(
-                                "2FA required for user %s",
-                            mask_email(self.email),
+                    except Exception:
+                        await response.text()
+
+                    is_2fa = (
+                        response.status in (403, 401)
+                        and isinstance(body, dict)
+                        and (
+                            body.get("code") == "2fa_required"
+                            or "2FA required" in body.get("message", "")
+                            or (totp and "code" in body.get("message", ""))
                         )
+                    )
+
+                    if is_2fa:
+                        _LOGGER.debug("Login required 2FA challenge")
                         return "2fa_required"
 
-                        _LOGGER.error("Login failed with status 400: %s", body)
-                        return False
-                    else:
-                        body = await response.text()
-                        _LOGGER.error("Login failed with status %s: %s", response.status, body)
-                        return False
+                    if response.status == 200:
+                        _LOGGER.debug("Login successful (200 OK)")
+                        user_id = None
+                        if isinstance(body, dict):
+                            user_id = body.get("id") or (body.get("user") or {}).get(
+                                "id"
+                            )
+
+                        if not user_id:
+                            # Fallback: get ID from current user endpoint
+                            try:
+                                async with self.session.get(
+                                    f"{self.base_url}/api/users/current",
+                                    headers=self.authenticated_headers,
+                                ) as current_resp:
+                                    if current_resp.status == 200:
+                                        current_data = await current_resp.json()
+                                        user_id = current_data.get("id")
+                            except Exception:
+                                pass
+
+                        if user_id:
+                            self.user_id = str(user_id)
+                            return True
+
+                    _LOGGER.warning(
+                        "Login failed for %s: %s %s",
+                        mask_email(self.email),
+                        response.status,
+                        body,
+                    )
+                    return False
         except Exception as e:
             _LOGGER.error(
                 "Error during login for %s: %s",
@@ -289,27 +445,32 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
         url_conv = f"{self.base_url}/api/conversations"
         unread = 0
         try:
-            async with async_timeout.timeout(10), self.session.get(
-                url_count, headers=self._headers
-            ) as response:
+            async with (
+                async_timeout.timeout(10),
+                self.session.get(
+                    url_count, headers=self.authenticated_headers
+                ) as response,
+            ):
                 if response.status == 200:
                     data = await response.json()
                     unread = data.get("unread", 0) if isinstance(data, dict) else 0
                 elif response.status == 401:
-                    raise AuthenticationFailed("Unauthorized access while fetching message count.")
+                    raise AuthenticationFailed(
+                        "Unauthorized access while fetching message count."
+                    )
 
             if unread > 0:
-                async with async_timeout.timeout(10), self.session.get(
-                    url_conv, headers=self._headers
-                    ) as response:
+                async with (
+                    async_timeout.timeout(10),
+                    self.session.get(
+                        url_conv, headers=self.authenticated_headers
+                    ) as response,
+                ):
                     if response.status == 200:
                         data = await response.json()
                         if isinstance(data, list):
                             for conv in data:
-                                if (
-                                    isinstance(conv, dict)
-                                    and conv.get("unread", 0) > 0
-                                ):
+                                if isinstance(conv, dict) and conv.get("unread", 0) > 0:
                                     msg_id = conv.get("last_message", {}).get("id")
                                     if msg_id and msg_id not in self._seen_messages:
                                         self._seen_messages.add(msg_id)
@@ -317,14 +478,14 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
                                             self.hass.bus.async_fire(
                                                 f"{DOMAIN}_new_message",
                                                 {
-                                                    "conversation_id": conv.get(
-                                                        "id"
-                                                    ),
+                                                    "conversation_id": conv.get("id"),
                                                     "message": conv.get(
                                                         "last_message", {}
                                                     ),
                                                 },
                                             )
+        except AuthenticationFailed, UpdateFailed:
+            raise
         except Exception as e:
             _LOGGER.debug("Error fetching conversations: %s", e)
         return unread
@@ -333,14 +494,16 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
         """Fetch unread bell notifications count and trigger events."""
         url = f"{self.base_url}/api/bells"
         try:
-            async with async_timeout.timeout(10), self.session.get(
-                url, headers=self._headers
-            ) as response:
+            async with (
+                async_timeout.timeout(10),
+                self.session.get(url, headers=self.authenticated_headers) as response,
+            ):
                 if response.status == 200:
                     data = await response.json()
                     if isinstance(data, list):
                         unread_bells = [
-                            b for b in data
+                            b
+                            for b in data
                             if isinstance(b, dict) and b.get("is_read") == 0
                         ]
                         for bell in unread_bells:
@@ -348,31 +511,36 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
                             if bell_id and bell_id not in self._seen_bells:
                                 self._seen_bells.add(bell_id)
                                 if not self._is_first_update:
-                                    self.hass.bus.async_fire(
-                                        f"{DOMAIN}_new_bell", bell
-                                    )
+                                    self.hass.bus.async_fire(f"{DOMAIN}_new_bell", bell)
                         return len(unread_bells)
                 elif response.status == 401:
-                    raise AuthenticationFailed("Unauthorized access while fetching notifications.")
-        except (AuthenticationFailed, UpdateFailed):
+                    raise AuthenticationFailed(
+                        "Unauthorized access while fetching notifications."
+                    )
+        except AuthenticationFailed, UpdateFailed:
             raise
         except Exception as e:
             _LOGGER.debug("Error fetching bells: %s", e)
             return 0
         return 0
 
-    async def fetch_baskets_for_location(self, entry_id: str, lat: float, lon: float, dist: float) -> list[dict[str, Any]]:
+    async def fetch_baskets_for_location(
+        self, entry_id: str, lat: float, lon: float, dist: float
+    ) -> list[dict[str, Any]]:
         """Fetch baskets for a specific location."""
         url = f"{self.base_url}/api/baskets/nearby?lat={lat}&lon={lon}&distance={dist}"
         try:
-            async with async_timeout.timeout(10), self.session.get(
-                url, headers=self._headers
-            ) as response:
+            async with (
+                async_timeout.timeout(10),
+                self.session.get(url, headers=self.authenticated_headers) as response,
+            ):
                 if response.status == 200:
                     json_data = await response.json()
                     return self._process_baskets_for_location(entry_id, json_data)
                 elif response.status == 401:
-                    raise AuthenticationFailed("Unauthorized access, token might be expired.")
+                    raise AuthenticationFailed(
+                        "Unauthorized access, token might be expired."
+                    )
                 elif response.status == 503:
                     async_create_issue(
                         self.hass,
@@ -395,13 +563,17 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
             raise UpdateFailed(f"Error fetching data: {e}") from e
         return []
 
-    def _process_baskets_for_location(self, entry_id: str, json_data: Any) -> list[dict[str, Any]]:
+    def _process_baskets_for_location(
+        self, entry_id: str, json_data: Any
+    ) -> list[dict[str, Any]]:
         """Process basket data for a specific location context."""
         entry = self.entries.get(entry_id)
         if not entry:
             return []
 
-        keywords_raw = entry.options.get(CONF_KEYWORDS, entry.data.get(CONF_KEYWORDS, ""))
+        keywords_raw = entry.options.get(
+            CONF_KEYWORDS, entry.data.get(CONF_KEYWORDS, "")
+        )
         keywords = [k.strip().lower() for k in keywords_raw.split(",") if k.strip()]
 
         baskets: list[dict[str, Any]] = []
@@ -424,7 +596,9 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
             until_str = "Unknown"
             if "until" in basket:
                 try:
-                    until_str = datetime.fromtimestamp(basket["until"], tz=UTC).strftime("%c")
+                    until_str = datetime.fromtimestamp(
+                        basket["until"], tz=UTC
+                    ).strftime("%c")
                 except Exception:
                     pass
 
@@ -473,7 +647,9 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
 
         return baskets
 
-    async def fetch_food_share_points_for_location(self, lat: float, lon: float, dist: float) -> list[dict[str, Any]]:
+    async def fetch_food_share_points_for_location(
+        self, lat: float, lon: float, dist: float
+    ) -> list[dict[str, Any]]:
         """Fetch nearby Fairteiler for a specific location."""
         url = f"{self.base_url}/api/foodSharePoints/nearby?lat={lat}&lon={lon}&distance={dist}"
         points: list[dict[str, Any]] = []
@@ -482,33 +658,30 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
         try:
             semaphore = asyncio.Semaphore(5)
 
-            async def fetch_wall(fp_id: int, fp_name: str, fp_entry: dict[str, Any]) -> None:
+            async def fetch_wall(
+                fp_id: int, fp_name: str, fp_entry: dict[str, Any]
+            ) -> None:
                 async with semaphore:
-                    wall_url = (
-                        f"{self.base_url}/api/fairteiler/{fp_id}/wall"
-                    )
+                    wall_url = f"{self.base_url}/api/fairteiler/{fp_id}/wall"
                     try:
-                        async with async_timeout.timeout(5), self.session.get(
-                            wall_url, headers=self._headers
-                        ) as wall_res:
+                        async with (
+                            async_timeout.timeout(5),
+                            self.session.get(
+                                wall_url, headers=self.authenticated_headers
+                            ) as wall_res,
+                        ):
                             if wall_res.status == 200:
                                 wall_data = await wall_res.json()
-                                if (
-                                    isinstance(wall_data, list)
-                                    and len(wall_data) > 0
-                                ):
+                                if isinstance(wall_data, list) and len(wall_data) > 0:
                                     latest_post = wall_data[0]
                                     fp_entry["latest_post"] = latest_post
 
                                     post_id = latest_post.get("id")
                                     if (
                                         post_id
-                                        and post_id
-                                        not in self._seen_fairteiler_posts
+                                        and post_id not in self._seen_fairteiler_posts
                                     ):
-                                        self._seen_fairteiler_posts.add(
-                                            post_id
-                                        )
+                                        self._seen_fairteiler_posts.add(post_id)
                                         if not self._is_first_update:
                                             self.hass.bus.async_fire(
                                                 f"{DOMAIN}_fairteiler_post",
@@ -519,7 +692,9 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
                                                 },
                                             )
                             elif wall_res.status == 401:
-                                raise AuthenticationFailed("Unauthorized access while fetching fairteiler wall.")
+                                raise AuthenticationFailed(
+                                    "Unauthorized access while fetching fairteiler wall."
+                                )
                     except AuthenticationFailed:
                         raise
                     except Exception as e:
@@ -529,9 +704,10 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
                             e,
                         )
 
-            async with async_timeout.timeout(10), self.session.get(
-                url, headers=self._headers
-            ) as response:
+            async with (
+                async_timeout.timeout(10),
+                self.session.get(url, headers=self.authenticated_headers) as response,
+            ):
                 if response.status == 200:
                     json_data = await response.json()
                     fairteiler_data = (
@@ -571,7 +747,9 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
                         if fp_id:
                             wall_tasks.append(fetch_wall(fp_id, fp_name, fp_entry))
                 elif response.status == 401:
-                    raise AuthenticationFailed("Unauthorized access while fetching fairteiler.")
+                    raise AuthenticationFailed(
+                        "Unauthorized access while fetching fairteiler."
+                    )
                 else:
                     _LOGGER.debug(
                         "Food Share Points fetch returned %s", response.status
@@ -581,7 +759,7 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
             if wall_tasks:
                 await asyncio.gather(*wall_tasks)
 
-        except (AuthenticationFailed, asyncio.CancelledError):
+        except AuthenticationFailed, asyncio.CancelledError:
             raise
         except Exception:
             return []
@@ -594,13 +772,10 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
         url = f"{self.base_url}/api/users/{user_id}/pickups/registered"
 
         try:
-            request_headers = {**self._headers}
-            if self.csrf_token:
-                request_headers["X-CSRF-Token"] = str(self.csrf_token)
-
-            async with async_timeout.timeout(10), self.session.get(
-                url, headers=request_headers
-            ) as response:
+            async with (
+                async_timeout.timeout(10),
+                self.session.get(url, headers=self.authenticated_headers) as response,
+            ):
                 if response.status == 200:
                     data = await response.json()
                     if isinstance(data, list):
@@ -609,11 +784,13 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
                         result = data.get("pickups", data.get("data", []))
                         return result if isinstance(result, list) else []
                 elif response.status == 401:
-                    raise AuthenticationFailed("Unauthorized access while fetching pickups.")
+                    raise AuthenticationFailed(
+                        "Unauthorized access while fetching pickups."
+                    )
                 elif response.status in (403, 404):
                     _LOGGER.debug(
                         "Pickups not accessible (status %s). User might not be a Foodsaver.",
-                        response.status
+                        response.status,
                     )
                     return []
                 else:
@@ -621,7 +798,7 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
                     _LOGGER.error(
                         "Error fetching pickups: HTTP %s - %s", response.status, body
                     )
-        except (AuthenticationFailed, UpdateFailed):
+        except AuthenticationFailed, UpdateFailed:
             raise
         except Exception as e:
             _LOGGER.error("Error fetching pickups: %s", e)
@@ -631,9 +808,10 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
         """Fetch active baskets created by the user."""
         url = f"{self.base_url}/api/baskets/own"
         try:
-            async with async_timeout.timeout(10), self.session.get(
-                url, headers=self._headers
-            ) as response:
+            async with (
+                async_timeout.timeout(10),
+                self.session.get(url, headers=self.authenticated_headers) as response,
+            ):
                 if response.status == 200:
                     data = await response.json()
                     if isinstance(data, list):
@@ -646,11 +824,12 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
                             else []
                         )
                 elif response.status == 401:
-                    raise AuthenticationFailed("Unauthorized access while fetching own baskets.")
+                    raise AuthenticationFailed(
+                        "Unauthorized access while fetching own baskets."
+                    )
                 elif response.status in (403, 404):
                     _LOGGER.debug(
-                        "Own baskets not accessible (status %s).",
-                        response.status
+                        "Own baskets not accessible (status %s).", response.status
                     )
                     return []
         except AuthenticationFailed:
@@ -659,7 +838,9 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
             _LOGGER.debug("Error fetching own baskets: %s", e)
         return []
 
-    def _normalize_account_results(self, results: dict[str, Any]) -> tuple[int, int, list[dict[str, Any]], list[dict[str, Any]]]:
+    def _normalize_account_results(
+        self, results: dict[str, Any]
+    ) -> tuple[int, int, list[dict[str, Any]], list[dict[str, Any]]]:
         """Normalize account results, using defaults for failures."""
         messages_val = results.get("messages", 0)
         messages = int(messages_val) if isinstance(messages_val, (int, float)) else 0
@@ -668,9 +849,13 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
         bells = int(bells_val) if isinstance(bells_val, (int, float)) else 0
 
         pickups_val = results.get("pickups", [])
-        pickups: list[dict[str, Any]] = pickups_val if isinstance(pickups_val, list) else []
+        pickups: list[dict[str, Any]] = (
+            pickups_val if isinstance(pickups_val, list) else []
+        )
 
         own_baskets_val = results.get("own_baskets", [])
-        own_baskets: list[dict[str, Any]] = own_baskets_val if isinstance(own_baskets_val, list) else []
+        own_baskets: list[dict[str, Any]] = (
+            own_baskets_val if isinstance(own_baskets_val, list) else []
+        )
 
         return messages, bells, pickups, own_baskets

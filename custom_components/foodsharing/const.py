@@ -2,7 +2,6 @@ DOMAIN = "foodsharing"
 ATTRIBUTION = "Data provided by Foodsharing"
 
 
-
 CONF_EMAIL = "email"
 CONF_PASSWORD = "password"
 CONF_TOTP = "totp"

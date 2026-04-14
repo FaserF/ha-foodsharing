@@ -1,4 +1,5 @@
 """Helpers for Foodsharing integration."""
+
 from __future__ import annotations
 
 import logging
@@ -35,7 +36,7 @@ def get_locations_from_entry(entry: ConfigEntry) -> list[dict[str, Any]]:
         dist = float(data.get("distance", 7.0))
         if lat != 0 and lon != 0:
             locations.append({"latitude": lat, "longitude": lon, "distance": dist})
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         pass
 
     # 3. Last resort: check if there's a location string we can parse
@@ -48,7 +49,7 @@ def get_locations_from_entry(entry: ConfigEntry) -> list[dict[str, Any]]:
             lon = float(coords[1])
             dist = float(coords[2]) if len(coords) > 2 else 7.0
             locations.append({"latitude": lat, "longitude": lon, "distance": dist})
-        except (ValueError, IndexError):
+        except ValueError, IndexError:
             pass
     return locations
 
