@@ -10,16 +10,12 @@ def auto_mock_ha():
     """Mock the Home Assistant helpers that require a running instance."""
     import homeassistant.helpers.frame as frame
 
-    patches = [patch("homeassistant.core.HomeAssistant")]
-    if hasattr(frame, "report"):
-        patches.append(patch("homeassistant.helpers.frame.report"))
-
-    with patch("homeassistant.core.HomeAssistant"):
-        if hasattr(frame, "report"):
-            with patch("homeassistant.helpers.frame.report"):
-                yield
-        else:
-            yield
+    with (
+        patch("homeassistant.core.HomeAssistant"),
+        patch("homeassistant.helpers.frame.report") if hasattr(frame, "report") else patch("homeassistant.core.HomeAssistant"),
+        patch("homeassistant.helpers.frame.report_usage") if hasattr(frame, "report_usage") else patch("homeassistant.core.HomeAssistant"),
+    ):
+        yield
 
 
 @pytest.fixture()
