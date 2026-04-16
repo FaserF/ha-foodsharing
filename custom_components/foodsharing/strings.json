@@ -140,6 +140,20 @@
       },
       "user_stats": {
         "name": "User statistics"
+      },
+      "buddies": {
+        "name": "Buddies"
+      },
+      "bananas": {
+        "name": "Bananas"
+      },
+      "region_stats": {
+        "name": "Region statistics"
+      }
+    },
+    "binary_sensor": {
+      "sleeping_hat": {
+        "name": "Sleeping hat"
       }
     },
     "button": {

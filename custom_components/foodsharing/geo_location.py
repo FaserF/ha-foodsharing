@@ -168,7 +168,7 @@ class FoodsharingBasketGeoLocation(CoordinatorEntity[FoodsharingCoordinator], Ge
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, f"{email}_{home_lat}_{home_lon}")},
             name=f"Foodsharing Location ({home_lat}, {home_lon})",
-            manufacturer="Foodsharing",
+            manufacturer="foodsharing.de",
             model="Location Tracker",
             via_device=(DOMAIN, email),
         )
@@ -271,7 +271,7 @@ class FoodsharingFairteilerGeoLocation(CoordinatorEntity[FoodsharingCoordinator]
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, f"{email}_{home_lat}_{home_lon}")},
             name=f"Foodsharing Location ({home_lat}, {home_lon})",
-            manufacturer="Foodsharing",
+            manufacturer="foodsharing.de",
             model="Location Tracker",
             via_device=(DOMAIN, email),
         )

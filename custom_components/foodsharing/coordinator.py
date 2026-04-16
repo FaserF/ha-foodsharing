@@ -53,7 +53,10 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
             "(KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"
         )
         self.user_id: str | None = None
+        self.region_id: int | None = None
         self.stats: dict[str, Any] = {}
+        self._last_stats_update: datetime | None = None
+        self._cached_stats: dict[str, Any] = {}
         self._xsrf_token: str | None = None
         self.base_url = "https://foodsharing.de"
         self._update_base_url()
@@ -277,26 +280,87 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
 
     async def _fetch_all_data(self) -> dict[str, Any]:
         """Fetch all data for all locations."""
-        task_keys = ["messages", "bells", "pickups", "own_baskets", "global_stats", "user_stats"]
-        account_results = await asyncio.gather(
+        now = datetime.now()
+        fetch_stats = (
+            self._last_stats_update is None
+            or (now - self._last_stats_update) > timedelta(days=1)
+            or self._is_first_update
+        )
+
+        task_keys = [
+            "messages",
+            "bells",
+            "pickups",
+            "own_baskets",
+        ]
+        account_tasks = [
             self.fetch_unread_messages(),
             self.fetch_bells(),
             self.fetch_pickups(),
             self.fetch_own_baskets(),
-            self.fetch_global_statistics(),
-            self.fetch_user_statistics(),
+        ]
+
+        if fetch_stats:
+            stats_keys = ["global_stats", "user_stats", "profile", "bananas", "buddies"]
+            task_keys.extend(stats_keys)
+            account_tasks.extend(
+                [
+                    self.fetch_global_statistics(),
+                    self.fetch_user_statistics(),
+                    self.fetch_user_profile(),
+                    self.fetch_bananas(),
+                    self.fetch_buddies(),
+                ]
+            )
+
+        account_results = await asyncio.gather(
+            *account_tasks,
             return_exceptions=True,
         )
 
         keyed_results = dict(zip(task_keys, account_results, strict=True))
 
+        # Update cache or use cached stats
+        if fetch_stats:
+            self._last_stats_update = now
+            for key in ["global_stats", "user_stats", "profile", "bananas", "buddies"]:
+                self._cached_stats[key] = keyed_results.get(key, {})
+        else:
+            for key, val in self._cached_stats.items():
+                keyed_results[key] = val
+
+        profile = keyed_results.get("profile", {})
+        if isinstance(profile, dict):
+            self.region_id = profile.get("regionId")
+
+        if self.region_id:
+            if fetch_stats:
+                r_stats = await self.fetch_region_statistics(self.region_id)
+                self._cached_stats["region_stats"] = r_stats
+                keyed_results["region_stats"] = r_stats
+            else:
+                keyed_results["region_stats"] = self._cached_stats.get(
+                    "region_stats", {}
+                )
+        else:
+            keyed_results["region_stats"] = {}
+
         for res in account_results:
             if isinstance(res, AuthenticationFailed):
                 raise res
 
-        messages, bells, pickups, own_baskets, g_stats, u_stats = self._normalize_account_results(
-            keyed_results
-        )
+        (
+            messages,
+            bells,
+            pickups,
+            own_baskets,
+            g_stats,
+            u_stats,
+            prof,
+            bananas,
+            buddies,
+            r_stats,
+        ) = self._normalize_account_results(keyed_results)
 
         location_data: dict[str, list[dict[str, Any]]] = {}
         task_meta: list[tuple[str, int]] = []
@@ -340,6 +404,10 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
                 "own_baskets": own_baskets,
                 "global_stats": g_stats,
                 "user_stats": u_stats,
+                "profile": prof,
+                "bananas": bananas,
+                "buddies": buddies,
+                "region_stats": r_stats,
             },
             "locations": location_data,
         }
@@ -624,7 +692,8 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
                     data = await response.json()
                     if isinstance(data, dict):
                         # Extract the generalStatistics part if it exists
-                        return data.get("generalStatistic", data)
+                        res = data.get("generalStatistic", data)
+                        return res if isinstance(res, dict) else {}
                 return {}
         except Exception as e:
             _LOGGER.debug("Error fetching global statistics: %s", e)
@@ -1041,43 +1110,112 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
             _LOGGER.debug("Error fetching statistics: %s", e)
         return {}
 
-    def _normalize_account_results(
-        self, results: dict[str, Any]
-    ) -> tuple[int, int, list[dict[str, Any]], list[dict[str, Any]], dict[str, Any], dict[str, Any]]:
-        """Normalize account results, using defaults for failures."""
-        messages_val = results.get("messages", 0)
-        messages = int(messages_val) if isinstance(messages_val, (int, float)) else 0
-        bells_val = results.get("bells", 0)
-        bells = int(bells_val) if isinstance(bells_val, (int, float)) else 0
-        pickups = results.get("pickups", [])
-        own_baskets = results.get("own_baskets", [])
-        g_stats = results.get("global_stats", {})
-        u_stats = results.get("user_stats", {})
+    async def fetch_user_profile(self) -> dict[str, Any]:
+        """Fetch current user profile."""
+        url = f"{self.base_url}/api/users/current"
+        try:
+            async with (
+                asyncio.timeout(10),
+                self.session.get(url, headers=self.authenticated_headers) as response,
+            ):
+                if response.status == 200:
+                    data = await response.json()
+                    return data if isinstance(data, dict) else {}
+        except Exception as e:
+            _LOGGER.debug("Error fetching profile: %s", e)
+        return {}
 
-        if isinstance(messages, Exception):
-            _LOGGER.debug("Error in messages task: %s", messages)
-            messages = 0
-        if isinstance(bells, Exception):
-            _LOGGER.debug("Error in bells task: %s", bells)
-            bells = 0
-        if isinstance(pickups, Exception):
-            _LOGGER.debug("Error in pickups task: %s", pickups)
-            pickups = []
-        if isinstance(own_baskets, Exception):
-            _LOGGER.debug("Error in own_baskets task: %s", own_baskets)
-            own_baskets = []
-        if isinstance(g_stats, Exception):
-            _LOGGER.debug("Error in global stats task: %s", g_stats)
-            g_stats = {}
-        if isinstance(u_stats, Exception):
-            _LOGGER.debug("Error in user stats task: %s", u_stats)
-            u_stats = {}
+    async def fetch_bananas(self) -> dict[str, Any]:
+        """Fetch user banana metadata (thanks ratings)."""
+        user_id = self.user_id or "current"
+        url = f"{self.base_url}/api/users/{user_id}/bananas/meta"
+        try:
+            async with (
+                asyncio.timeout(10),
+                self.session.get(url, headers=self.authenticated_headers) as response,
+            ):
+                if response.status == 200:
+                    data = await response.json()
+                    return data if isinstance(data, dict) else {}
+        except Exception as e:
+            _LOGGER.debug("Error fetching bananas: %s", e)
+        return {}
+
+    async def fetch_buddies(self) -> list[dict[str, Any]]:
+        """Fetch user buddylist."""
+        url = f"{self.base_url}/api/users/current/buddies"
+        try:
+            async with (
+                asyncio.timeout(10),
+                self.session.get(url, headers=self.authenticated_headers) as response,
+            ):
+                if response.status == 200:
+                    data = await response.json()
+                    return data if isinstance(data, list) else []
+        except Exception as e:
+            _LOGGER.debug("Error fetching buddies: %s", e)
+        return []
+
+    async def fetch_region_statistics(self, region_id: int) -> dict[str, Any]:
+        """Fetch statistics for a specific region."""
+        url = f"{self.base_url}/api/regions/{region_id}/statistics"
+        try:
+            async with (
+                asyncio.timeout(10),
+                self.session.get(url, headers=self.authenticated_headers) as response,
+            ):
+                if response.status == 200:
+                    data = await response.json()
+                    return data if isinstance(data, dict) else {}
+        except Exception as e:
+            _LOGGER.debug("Error fetching region stats: %s", e)
+        return {}
+
+    def _normalize_account_results(self, results: dict[str, Any]) -> tuple[
+        int,
+        int,
+        list[dict[str, Any]],
+        list[dict[str, Any]],
+        dict[str, Any],
+        dict[str, Any],
+        dict[str, Any],
+        dict[str, Any],
+        list[dict[str, Any]],
+        dict[str, Any],
+    ]:
+        """Normalize account results, using defaults for failures."""
+        task_defaults = {
+            "messages": 0,
+            "bells": 0,
+            "pickups": [],
+            "own_baskets": [],
+            "global_stats": {},
+            "user_stats": {},
+            "profile": {},
+            "bananas": {},
+            "buddies": [],
+            "region_stats": {},
+        }
+
+        normalized: dict[str, Any] = {}
+        for key, default in task_defaults.items():
+            val = results.get(key)
+            if isinstance(val, Exception) or val is None:
+                if isinstance(val, Exception):
+                    _LOGGER.debug("Error in %s task: %s", key, val)
+                normalized[key] = default
+            else:
+                normalized[key] = val
 
         return (
-            messages,
-            bells,
-            pickups if isinstance(pickups, list) else [],
-            own_baskets if isinstance(own_baskets, list) else [],
-            g_stats if isinstance(g_stats, dict) else {},
-            u_stats if isinstance(u_stats, dict) else {},
+            int(normalized["messages"]),
+            int(normalized["bells"]),
+            normalized["pickups"],
+            normalized["own_baskets"],
+            normalized["global_stats"],
+            normalized["user_stats"],
+            normalized["profile"],
+            normalized["bananas"],
+            normalized["buddies"],
+            normalized["region_stats"],
         )

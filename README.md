@@ -19,7 +19,9 @@ A comprehensive [Home Assistant](https://www.home-assistant.io/) custom integrat
 |---------|-------------|
 | 🧺 **Basket Sensor** | Monitor the number of available food baskets near your location, with full details as attributes |
 | 📍 **Fairteiler Sensor** | Monitor the number of nearby Fairteiler locations |
-| 📊 **Statistics** | View global and user-specific Foodsharing statistics (weight saved, rescue missions, etc.) |
+| 📊 **Statistics** | View global, regional, and user-specific Foodsharing statistics (weight saved, rescue missions, etc.) |
+| 👥 **Buddies & Bananas** | Track your buddy count and received thanks (bananas) |
+| 😴 **Sleeping Hat** | Track your active/sleeping status (vacation mode) |
 | 📍 **Geo-Location** | Baskets and Fairteiler points displayed on the HA map with calculated distances |
 | 📅 **Pickup Calendar** | Your upcoming pickups shown as calendar events |
 | 🔔 **Notifications Sensor** | Track unread bell notifications |
@@ -102,6 +104,9 @@ All options can be changed later via **Settings → Devices & Services → Foods
 
 ### Sensors
 
+> [!NOTE]
+> Statistics and secondary account sensors (Buddies, Bananas, Sleeping Hat, Region Stats) are **disabled by default** to keep your dashboard clean. You can easily enable them in the Home Assistant entity settings if needed.
+
 | Entity | Type | State | Attributes |
 |--------|------|-------|------------|
 | `sensor.foodsharing_baskets_*` | Sensor | Number of nearby baskets | `baskets` (list), `fairteiler` (list), `basket_count`, `fairteiler_count`, `latitude`, `longitude` |
@@ -111,6 +116,15 @@ All options can be changed later via **Settings → Devices & Services → Foods
 | `sensor.foodsharing_upcoming_pickups` | Sensor | Number of upcoming pickups | `pickups` (list) |
 | `sensor.foodsharing_global_statistics` | Sensor | Total weight saved globally (kg) | `recue_missions`, `foodsavers`, `active_fairteiler`, etc. |
 | `sensor.foodsharing_user_stats_*` | Sensor | Total rescues by user | `weight_saved_kg`, `rating`, `member_since` |
+| `sensor.foodsharing_region_stats_*` | Sensor | Total weight saved in user's region (kg) | `foodsavers`, `corporations`, `fairteiler`, etc. |
+| `sensor.foodsharing_buddies_*` | Sensor | Number of buddies | `buddies` (list) |
+| `sensor.foodsharing_bananas_*` | Sensor | Number of received bananas (thanks) | `given` |
+
+### Binary Sensors
+
+| Entity | Type | Description |
+|--------|------|-------------|
+| `binary_sensor.foodsharing_sleeping_hat_*` | Binary Sensor | **On** if the user is currently in "sleeping" mode (vacation). |
 
 ### Geo-Location Entities
 

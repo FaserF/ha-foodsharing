@@ -22,7 +22,13 @@ from .helpers import mask_email
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS = [Platform.SENSOR, Platform.GEO_LOCATION, Platform.BUTTON, Platform.CALENDAR]
+PLATFORMS = [
+    Platform.SENSOR,
+    Platform.GEO_LOCATION,
+    Platform.BUTTON,
+    Platform.CALENDAR,
+    Platform.BINARY_SENSOR,
+]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:

@@ -392,7 +392,9 @@ class FoodsharingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # type: 
             removals = user_input.get("remove_locations", [])
             if removals:
                 self._locations = [
-                    loc for i, loc in enumerate(self._locations) if str(i) not in removals
+                    loc
+                    for i, loc in enumerate(self._locations)
+                    if str(i) not in removals
                 ]
 
             if user_input.get("add_another"):
@@ -401,8 +403,6 @@ class FoodsharingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # type: 
 
         remove_options = []
         for i, loc in enumerate(self._locations):
-            if i == 0:
-                continue
             lat, lon, dist = (
                 loc.get("latitude"),
                 loc.get("longitude"),
@@ -410,11 +410,11 @@ class FoodsharingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # type: 
             )
             remove_options.append(
                 selector.SelectOptionDict(
-                    value=str(i), label=f"Location {i+1}: {lat}, {lon} ({dist}km)"
+                    value=str(i), label=f"#{i + 1}: {lat}, {lon} ({dist}km)"
                 )
             )
 
-        schema_dict = {vol.Required("add_another", default=False): bool}
+        schema_dict: dict[Any, Any] = {vol.Required("add_another", default=False): bool}
         if remove_options:
             schema_dict[vol.Optional("remove_locations")] = selector.SelectSelector(
                 selector.SelectSelectorConfig(
@@ -678,7 +678,9 @@ class OptionsFlowHandler(config_entries.OptionsFlow):  # type: ignore[misc]
             removals = user_input.get("remove_locations", [])
             if removals:
                 self._locations = [
-                    loc for i, loc in enumerate(self._locations) if str(i) not in removals
+                    loc
+                    for i, loc in enumerate(self._locations)
+                    if str(i) not in removals
                 ]
 
             if user_input.get("add_another"):
@@ -687,8 +689,6 @@ class OptionsFlowHandler(config_entries.OptionsFlow):  # type: ignore[misc]
 
         remove_options = []
         for i, loc in enumerate(self._locations):
-            if i == 0:
-                continue
             lat, lon, dist = (
                 loc.get("latitude"),
                 loc.get("longitude"),
@@ -696,11 +696,11 @@ class OptionsFlowHandler(config_entries.OptionsFlow):  # type: ignore[misc]
             )
             remove_options.append(
                 selector.SelectOptionDict(
-                    value=str(i), label=f"Location {i+1}: {lat}, {lon} ({dist}km)"
+                    value=str(i), label=f"#{i + 1}: {lat}, {lon} ({dist}km)"
                 )
             )
 
-        schema_dict = {vol.Required("add_another", default=False): bool}
+        schema_dict: dict[Any, Any] = {vol.Required("add_another", default=False): bool}
         if remove_options:
             schema_dict[vol.Optional("remove_locations")] = selector.SelectSelector(
                 selector.SelectSelectorConfig(

@@ -49,7 +49,6 @@ async def test_shared_coordinator_same_account(mock_hass, mock_session):
         ),
         patch("custom_components.foodsharing.dr.async_get", return_value=MagicMock()),
     ):
-
         entry1 = MagicMock()
         entry1.entry_id = "entry1"
         entry1.data = {
@@ -93,7 +92,6 @@ async def test_separate_coordinators_different_accounts(mock_hass, mock_session)
         ),
         patch("custom_components.foodsharing.dr.async_get", return_value=MagicMock()),
     ):
-
         entry1 = MagicMock()
         entry1.entry_id = "acc1"
         entry1.data = {

@@ -154,12 +154,13 @@ class FoodsharingRequestSlotButton(CoordinatorEntity[FoodsharingCoordinator], Bu
         self._attr_translation_placeholders = {"slot": str(slot_idx + 1)}
         self.config_entry_id = entry.entry_id
         self._attr_icon = "mdi:cart-plus"
+        self._attr_entity_registry_enabled_default = False
 
         email = coordinator.email
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, f"{email}_{lat}_{lon}")},
             name=f"Foodsharing Location ({lat}, {lon})",
-            manufacturer="Foodsharing",
+            manufacturer="foodsharing.de",
             model="Location Tracker",
             via_device=(DOMAIN, email),
         )
@@ -260,7 +261,7 @@ class FoodsharingCloseSlotButton(CoordinatorEntity[FoodsharingCoordinator], Butt
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, email)},
             name=f"Foodsharing Account ({email})",
-            manufacturer="Foodsharing",
+            manufacturer="foodsharing.de",
             model="Account",
         )
 

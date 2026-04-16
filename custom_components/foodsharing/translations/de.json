@@ -139,7 +139,21 @@
         "name": "Globale Statistiken"
       },
       "user_stats": {
-        "name": "Benutzerstatistiken"
+        "name": "Benutzerstatistik"
+      },
+      "buddies": {
+        "name": "Buddies"
+      },
+      "bananas": {
+        "name": "Bananen (Dank)"
+      },
+      "region_stats": {
+        "name": "Regionalstatistik"
+      }
+    },
+    "binary_sensor": {
+      "sleeping_hat": {
+        "name": "Schlafmütze"
       }
     },
     "button": {
