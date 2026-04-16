@@ -75,7 +75,7 @@ def test_request_button_slot(mock_coordinator, mock_entry):
     )
     assert button0.available is True
     assert button0.translation_key == "request_basket"
-    assert button0.name == "Request Basket 1: Fresh Bread..."
+    assert button0._attr_translation_placeholders == {"slot": "1"}
     assert button0._attr_unique_id == "foodsharing_entry_1_loc_0_request_basket_0"
 
     # Test slot 1 (occupied)
@@ -83,14 +83,14 @@ def test_request_button_slot(mock_coordinator, mock_entry):
         mock_coordinator, mock_entry, loc_idx=0, lat=52.0, lon=13.0, slot_idx=1
     )
     assert button1.available is True
-    assert button1.name == "Request Basket 2: Apples..."
+    assert button1._attr_translation_placeholders == {"slot": "2"}
 
     # Test slot 2 (empty)
     button2 = FoodsharingRequestSlotButton(
         mock_coordinator, mock_entry, loc_idx=0, lat=52.0, lon=13.0, slot_idx=2
     )
     assert button2.available is False
-    assert button2.name == "Request Basket 3 (Empty Slot)"
+    assert button2._attr_translation_placeholders == {"slot": "3"}
 
 
 @pytest.mark.asyncio
@@ -117,7 +117,7 @@ def test_close_button_slot(mock_coordinator):
     )
     assert button0.available is True
     assert button0.translation_key == "close_own_basket"
-    assert button0.name == "Close Own Basket 1: My Basket 1..."
+    assert button0._attr_translation_placeholders == {"slot": "1"}
     assert button0._attr_unique_id == "foodsharing_test@example.com_close_basket_0"
 
     # Test slot 2 (empty)
@@ -125,7 +125,7 @@ def test_close_button_slot(mock_coordinator):
         mock_coordinator, email="test@example.com", slot_idx=2
     )
     assert button2.available is False
-    assert button2.name == "Close Own Basket 3 (Empty Slot)"
+    assert button2._attr_translation_placeholders == {"slot": "3"}
 
 
 @pytest.mark.asyncio

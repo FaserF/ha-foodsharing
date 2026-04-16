@@ -47,7 +47,6 @@ async def validate_credentials(
 
     base_url = f"https://beta.{base_domain}" if use_beta else f"https://{base_domain}"
     login_url = f"{base_url}/api/login"
-    # Use a modern browser user agent consistently
     user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"
     headers = {
         "User-Agent": user_agent,
@@ -125,7 +124,6 @@ async def validate_credentials(
                     user_id = body.get("id") or (body.get("user") or {}).get("id")
 
                 if not user_id:
-                    # Fallback: get ID from current user endpoint
                     try:
                         current_url = f"{base_url}/api/users/current"
                         async with session.get(

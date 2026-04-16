@@ -151,6 +151,7 @@ class FoodsharingRequestSlotButton(CoordinatorEntity[FoodsharingCoordinator], Bu
             f"foodsharing_{entry.entry_id}_loc_{loc_idx}_request_basket_{slot_idx}"
         )
         self.translation_key = "request_basket"
+        self._attr_translation_placeholders = {"slot": str(slot_idx + 1)}
         self.config_entry_id = entry.entry_id
         self._attr_icon = "mdi:cart-plus"
 
@@ -185,15 +186,6 @@ class FoodsharingRequestSlotButton(CoordinatorEntity[FoodsharingCoordinator], Bu
     def available(self) -> bool:
         """Return True if the slot is occupied by a basket."""
         return super().available and self._get_basket() is not None
-
-    @property
-    def name(self) -> str:
-        """Return the static name of the button."""
-        basket = self._get_basket()
-        if basket:
-            desc = basket.get("description", "No description")
-            return f"{self._slot_idx + 1}: {desc[:20]}..."
-        return f"{self._slot_idx + 1} (Empty)"
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
@@ -260,8 +252,10 @@ class FoodsharingCloseSlotButton(CoordinatorEntity[FoodsharingCoordinator], Butt
 
         self._attr_unique_id = f"foodsharing_{email}_close_basket_{slot_idx}"
         self.translation_key = "close_own_basket"
+        self._attr_translation_placeholders = {"slot": str(slot_idx + 1)}
         self.account_email = email
         self._attr_icon = "mdi:cart-off"
+        self._attr_entity_registry_enabled_default = False
 
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, email)},
@@ -287,15 +281,6 @@ class FoodsharingCloseSlotButton(CoordinatorEntity[FoodsharingCoordinator], Butt
     def available(self) -> bool:
         """Return True if the slot is occupied by a basket."""
         return super().available and self._get_basket() is not None
-
-    @property
-    def name(self) -> str:
-        """Return the static name of the button."""
-        basket = self._get_basket()
-        if basket:
-            desc = basket.get("description", "No description")
-            return f"{self._slot_idx + 1}: {desc[:20]}..."
-        return f"{self._slot_idx + 1} (Empty)"
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:

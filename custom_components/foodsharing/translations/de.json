@@ -144,10 +144,10 @@
     },
     "button": {
       "request_basket": {
-        "name": "Korb anfragen"
+        "name": "Korb anfragen Slot {slot}"
       },
       "close_own_basket": {
-        "name": "Eigenen Korb schließen"
+        "name": "Eigenen Korb schließen Slot {slot}"
       }
     },
     "calendar": {

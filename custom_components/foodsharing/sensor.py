@@ -300,14 +300,13 @@ class FoodsharingGlobalStatsSensor(CoordinatorEntity[FoodsharingCoordinator], Se
     _attr_state_class = "total"
     _attr_icon = "mdi:earth"
     _attr_translation_key = "global_stats"
+    _attr_entity_registry_enabled_default = False
 
     def __init__(self, coordinator: FoodsharingCoordinator) -> None:
         """Initialize the sensor."""
         super().__init__(coordinator)
         self._attr_unique_id = "foodsharing_global_statistics"
         
-        # Use a generic Foodsharing device if no account is better? 
-        # No, link to the first account device for simplicity OR a shared device.
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, "global_stats")},
             name="Foodsharing Global Stats",
@@ -360,7 +359,6 @@ class FoodsharingUserStatsSensor(CoordinatorEntity[FoodsharingCoordinator], Sens
     def native_value(self) -> int:
         """Return the number of rescues by the user."""
         stats = self.coordinator.data.get("account", {}).get("user_stats", {})
-        # Note: field name might vary, trying common ones
         return int(stats.get("pickup_count", stats.get("fetchCount", 0)))
 
     @property

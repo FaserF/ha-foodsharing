@@ -144,10 +144,10 @@
     },
     "button": {
       "request_basket": {
-        "name": "Request basket"
+        "name": "Request basket slot {slot}"
       },
       "close_own_basket": {
-        "name": "Close own basket"
+        "name": "Close own basket slot {slot}"
       }
     },
     "calendar": {

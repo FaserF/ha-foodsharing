@@ -18,6 +18,8 @@ A comprehensive [Home Assistant](https://www.home-assistant.io/) custom integrat
 | Feature | Description |
 |---------|-------------|
 | 🧺 **Basket Sensor** | Monitor the number of available food baskets near your location, with full details as attributes |
+| 📍 **Fairteiler Sensor** | Monitor the number of nearby Fairteiler locations |
+| 📊 **Statistics** | View global and user-specific Foodsharing statistics (weight saved, rescue missions, etc.) |
 | 📍 **Geo-Location** | Baskets and Fairteiler points displayed on the HA map with calculated distances |
 | 📅 **Pickup Calendar** | Your upcoming pickups shown as calendar events |
 | 🔔 **Notifications Sensor** | Track unread bell notifications |
@@ -102,9 +104,13 @@ All options can be changed later via **Settings → Devices & Services → Foods
 
 | Entity | Type | State | Attributes |
 |--------|------|-------|------------|
-| `sensor.foodsharing_baskets_*` | Sensor | Number of nearby baskets | `baskets` (list), `basket_count`, `latitude`, `longitude` |
+| `sensor.foodsharing_baskets_*` | Sensor | Number of nearby baskets | `baskets` (list), `fairteiler` (list), `basket_count`, `fairteiler_count`, `latitude`, `longitude` |
+| `sensor.foodsharing_fairteiler_*` | Sensor | Number of nearby Fairteiler | `fairteiler` (list), `fairteiler_count`, `latitude`, `longitude` |
 | `sensor.foodsharing_unread_messages` | Sensor | Number of unread messages | — |
 | `sensor.foodsharing_notifications` | Sensor | Number of unread bell notifications | — |
+| `sensor.foodsharing_upcoming_pickups` | Sensor | Number of upcoming pickups | `pickups` (list) |
+| `sensor.foodsharing_global_statistics` | Sensor | Total weight saved globally (kg) | `recue_missions`, `foodsavers`, `active_fairteiler`, etc. |
+| `sensor.foodsharing_user_stats_*` | Sensor | Total rescues by user | `weight_saved_kg`, `rating`, `member_since` |
 
 ### Geo-Location Entities
 
@@ -123,8 +129,8 @@ All options can be changed later via **Settings → Devices & Services → Foods
 
 | Entity | Type | Description |
 |--------|------|-------------|
-| `button.foodsharing_<entry_id>_loc_<idx>_request_basket_<slot>` | Button | **Dynamic**: Requests the N-th available basket at the location. These entities are created dynamically based on the current number of nearby baskets. |
-| `button.foodsharing_<email>_close_basket_<slot>` | Button | **Dynamic**: Closes the N-th own active basket. These entities are created dynamically based on your own active baskets. |
+| `button.foodsharing_<entry_id>_loc_<idx>_request_basket_<slot>` | Button | **Dynamic**: Requests the N-th available basket (Disabled by default). |
+| `button.foodsharing_<email>_close_basket_<slot>` | Button | **Dynamic**: Closes the N-th own active basket (Disabled by default). |
 
 ### Services
 

@@ -128,7 +128,6 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
                             cookies_data, URL(self.base_url)
                         )
                     except Exception:
-                        # Fallback if yarl is somehow not there (it should be)
                         self.session.cookie_jar.update_cookies(cookies_data)
                 _LOGGER.debug(
                     "Loaded persisted session for %s (User ID: %s)",
@@ -707,7 +706,6 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
         if isinstance(json_data, list):
             baskets_data = json_data
         elif isinstance(json_data, dict):
-            # Try common keys
             for key in ("baskets", "data", "items", "nearby"):
                 if key in json_data and isinstance(json_data[key], list):
                     baskets_data = json_data[key]
@@ -738,7 +736,6 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
             if not basket_id:
                 continue
 
-            # Robust Date Parsing (April 2026 API uses ISO string)
             until_str = "Unknown"
             until_raw = basket.get("until")
             if until_raw:
@@ -748,7 +745,6 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
                             "%c"
                         )
                     else:
-                        # Try parsing as ISO string
                         dt = datetime.fromisoformat(
                             str(until_raw).replace("Z", "+00:00")
                         )
@@ -763,8 +759,6 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
             else:
                 picture = None
 
-            # New API field names: latitude/longitude vs lat/lon
-            # Some new API versions might nest these in a location object
             location = basket.get("location")
             if isinstance(location, dict):
                 lat = location.get("latitude") or location.get("lat")
@@ -789,7 +783,6 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
                         match_keywords = True
                         break
 
-            # Handle modern 'creator' object vs legacy 'user_name'
             user_name = basket.get("user_name")
             creator = basket.get("creator")
             if not user_name and isinstance(creator, dict):
