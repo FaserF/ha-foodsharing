@@ -3,7 +3,7 @@
 import logging
 from typing import Any
 
-from homeassistant.components.sensor import SensorEntity
+from homeassistant.components.sensor import SensorEntity, SensorStateClass
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import ATTR_ATTRIBUTION
 from homeassistant.core import HomeAssistant
@@ -351,7 +351,7 @@ class FoodsharingGlobalStatsSensor(CoordinatorEntity[FoodsharingCoordinator], Se
     _attr_has_entity_name = True
     _attr_native_unit_of_measurement = "kg"
     _attr_device_class = None
-    _attr_state_class = "total"
+    _attr_state_class = SensorStateClass.TOTAL
     _attr_icon = "mdi:earth"
     _attr_translation_key = "global_stats"
     _attr_entity_registry_enabled_default = False
@@ -394,7 +394,7 @@ class FoodsharingUserStatsSensor(CoordinatorEntity[FoodsharingCoordinator], Sens
 
     _attr_has_entity_name = True
     _attr_native_unit_of_measurement = "pickups"
-    _attr_state_class = "total"
+    _attr_state_class = SensorStateClass.TOTAL
     _attr_icon = "mdi:account-star"
     _attr_translation_key = "user_stats"
     _attr_entity_registry_enabled_default = False

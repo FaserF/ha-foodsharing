@@ -1,3 +1,4 @@
+import aiohttp
 import asyncio
 import json
 import logging
@@ -448,7 +449,9 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
                             "Yes" if "XSRF-TOKEN" in auth_headers else "No",
                         )
                         async with self.session.get(
-                            current_url, headers=auth_headers, timeout=10
+                            current_url,
+                            headers=auth_headers,
+                            timeout=aiohttp.ClientTimeout(total=10),
                         ) as current_resp:
                             _LOGGER.debug(
                                 "Session check status: %s", current_resp.status
