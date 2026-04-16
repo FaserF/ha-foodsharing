@@ -1,4 +1,3 @@
-import aiohttp
 import asyncio
 import json
 import logging
@@ -6,6 +5,7 @@ import os
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+import aiohttp
 from homeassistant import config_entries
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed
