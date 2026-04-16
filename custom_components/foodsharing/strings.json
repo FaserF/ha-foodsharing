@@ -131,6 +131,15 @@
       },
       "upcoming_pickups": {
         "name": "Upcoming pickups"
+      },
+      "fairteiler": {
+        "name": "Fairteiler"
+      },
+      "global_stats": {
+        "name": "Global statistics"
+      },
+      "user_stats": {
+        "name": "User statistics"
       }
     },
     "button": {

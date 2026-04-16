@@ -46,6 +46,15 @@ async def async_setup_entry(
                 lon=loc["longitude"],
             )
         )
+        entities.append(
+            FoodsharingFairteilerSensor(
+                coordinator,
+                entry,
+                loc_idx=idx,
+                lat=loc["latitude"],
+                lon=loc["longitude"],
+            )
+        )
 
     # Create account-wide sensors only once per email (even across multiple entries)
     account_key = f"account_sensors_{email}"
@@ -54,6 +63,8 @@ async def async_setup_entry(
         entities.append(FoodsharingMessagesSensor(coordinator, email))
         entities.append(FoodsharingBellsSensor(coordinator, email))
         entities.append(FoodsharingPickupsSensor(coordinator, email))
+        entities.append(FoodsharingGlobalStatsSensor(coordinator))
+        entities.append(FoodsharingUserStatsSensor(coordinator, email))
 
     async_add_entities(entities)
 
@@ -112,12 +123,78 @@ class FoodsharingSensor(CoordinatorEntity[FoodsharingCoordinator], SensorEntity)
         """Return the state attributes."""
         loc_data = self._get_loc_data()
         baskets = loc_data.get("baskets", [])
+        fairteiler = loc_data.get("fairteiler", [])
         return {
             CONF_LATITUDE_FS: self.latitude_fs,
             CONF_LONGITUDE_FS: self.longitude_fs,
             ATTR_ATTRIBUTION: ATTRIBUTION,
             "basket_count": len(baskets),
             "baskets": baskets,
+            "fairteiler_count": len(fairteiler),
+            "fairteiler": fairteiler,
+        }
+
+
+class FoodsharingFairteilerSensor(CoordinatorEntity[FoodsharingCoordinator], SensorEntity):  # type: ignore[misc]
+    """Represents public Fairteiler in a location."""
+
+    def __init__(
+        self,
+        coordinator: FoodsharingCoordinator,
+        entry: ConfigEntry,
+        loc_idx: int,
+        lat: float,
+        lon: float,
+    ) -> None:
+        """Initialize the sensor."""
+        super().__init__(coordinator)
+        self.entry = entry
+        self.entry_id = entry.entry_id
+        self.loc_idx = loc_idx
+        self.latitude_fs = lat
+        self.longitude_fs = lon
+
+        self._attr_has_entity_name = True
+        self.translation_key = "fairteiler"
+        self._attr_unique_id = f"Foodsharing-Fairteiler-{entry.entry_id}-{loc_idx}"
+        self._attr_icon = "mdi:storefront"
+        self._attr_native_unit_of_measurement = "fairteiler"
+
+        email = coordinator.email
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, f"{email}_{lat}_{lon}")},
+            name=f"Foodsharing Location ({lat}, {lon})",
+            manufacturer="Foodsharing",
+            model="Location Tracker",
+            via_device=(DOMAIN, email),
+        )
+
+    def _get_loc_data(self) -> dict[str, Any]:
+        """Return coordinator location data for this sensor's location slot."""
+        if self.coordinator.data:
+            entry_locs: list[dict[str, Any]] = self.coordinator.data.get(
+                "locations", {}
+            ).get(self.entry_id, [])
+            if self.loc_idx < len(entry_locs):
+                return entry_locs[self.loc_idx]
+        return {}
+
+    @property
+    def native_value(self) -> int:
+        """Return the number of Fairteiler."""
+        return len(self._get_loc_data().get("fairteiler", []))
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return the state attributes."""
+        loc_data = self._get_loc_data()
+        fairteiler = loc_data.get("fairteiler", [])
+        return {
+            CONF_LATITUDE_FS: self.latitude_fs,
+            CONF_LONGITUDE_FS: self.longitude_fs,
+            ATTR_ATTRIBUTION: ATTRIBUTION,
+            "fairteiler_count": len(fairteiler),
+            "fairteiler": fairteiler,
         }
 
 
