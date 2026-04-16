@@ -36,6 +36,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     is_new_coordinator = email not in hass.data[DOMAIN]["accounts"]
     if is_new_coordinator:
         coordinator = FoodsharingCoordinator(hass, email, password)
+        await coordinator.async_load_session()
         hass.data[DOMAIN]["accounts"][email] = coordinator
     else:
         coordinator = hass.data[DOMAIN]["accounts"][email]
@@ -48,7 +49,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     try:
         await coordinator.async_refresh()
         # Ensure fresh cookies (e.g. from a successful re-auth config flow) are written to disk
-        coordinator._save_session()
+        await coordinator.async_save_session()
     except Exception as ex:
         _LOGGER.warning("Initial fetch failed for %s: %s", mask_email(email), ex)
 

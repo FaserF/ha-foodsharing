@@ -24,7 +24,9 @@ def mock_hass():
     hass.data = {DOMAIN: {"accounts": {}}}
     hass.services = MagicMock()
     hass.bus = MagicMock()
-    hass.config_entries = MagicMock()
+    hass.config = MagicMock()
+    hass.config.path = MagicMock(return_value="/tmp/test_session.json")
+    hass.async_add_executor_job = AsyncMock(return_value=None)
     hass.config_entries.async_forward_entry_setups = AsyncMock(return_value=True)
     return hass
 

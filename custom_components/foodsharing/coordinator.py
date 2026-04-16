@@ -1,5 +1,7 @@
 import asyncio
+import json
 import logging
+import os
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -13,8 +15,6 @@ from homeassistant.helpers.issue_registry import (
     async_delete_issue,
 )
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
-import json
-import os
 
 from .const import (
     CONF_DOMAIN,
@@ -63,59 +63,81 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
             name=f"{DOMAIN}_{email}",
             update_interval=timedelta(minutes=2),
         )
-        self._session_file = hass.config.path(".storage", f"foodsharing_session_{email.replace('@', '_').replace('.', '_')}.json")
-        self._load_session()
+        self._session_file = hass.config.path(
+            ".storage",
+            f"foodsharing_session_{email.replace('@', '_').replace('.', '_')}.json",
+        )
 
     def _get_xsrf_token_from_jar(self) -> str | None:
         """Extract XSRF-TOKEN from cookie jar manually to avoid yarl dependency."""
         for cookie in self.session.cookie_jar:
             if cookie.key.lower() == "xsrf-token":
-                return cookie.value
+                return str(cookie.value)
         return None
 
     @property
     def authenticated_headers(self) -> dict[str, str]:
-        """Return headers with CSRF token for authenticated requests."""
+        """Return headers for authenticated requests mimicking a browser."""
         headers = {
-            "Accept": "application/json",
+            "Accept": "application/json, text/plain, */*",
+            "Accept-Language": "de-DE,de;q=0.9,en-US;q=0.8,en;q=0.7",
             "User-Agent": self._user_agent,
             "X-Requested-With": "XMLHttpRequest",
+            "Referer": f"{self.base_url}/",
+            "Origin": self.base_url,
         }
-
-        # Always check the jar to stay in sync with the session
         token = self._get_xsrf_token_from_jar()
         if token:
+            headers["XSRF-TOKEN"] = token
+            headers["X-XSRF-TOKEN"] = token
             headers["X-Csrf-Token"] = token
-            self._xsrf_token = token
-        elif self._xsrf_token:
-            headers["X-Csrf-Token"] = self._xsrf_token
-
+            headers["X-CSRF-TOKEN"] = token
         return headers
 
-    def _load_session(self) -> None:
+    async def async_load_session(self) -> None:
         """Load session cookies and metadata from file."""
-        if not os.path.exists(self._session_file):
+
+        def load():
+            if not os.path.exists(self._session_file):
+                return None
+            try:
+                with open(self._session_file, encoding="utf-8") as f:
+                    return json.load(f)
+            except Exception as e:
+                _LOGGER.warning(
+                    "Could not load session file %s: %s", self._session_file, e
+                )
+                return None
+
+        data = await self.hass.async_add_executor_job(load)
+        if not data:
             return
+
         try:
-            with open(self._session_file, encoding="utf-8") as f:
-                data = json.load(f)
-                if isinstance(data, dict):
-                    cookies_data = data.get("cookies", {})
-                    self.user_id = data.get("user_id")
-                    self._xsrf_token = data.get("xsrf_token")
+            if isinstance(data, dict):
+                cookies_data = data.get("cookies", {})
+                self.user_id = data.get("user_id")
+                self._xsrf_token = data.get("xsrf_token")
 
-                    if cookies_data:
-                        try:
-                            from yarl import URL
-                            self.session.cookie_jar.update_cookies(cookies_data, URL(self.base_url))
-                        except Exception:
-                            # Fallback if yarl is somehow not there (it should be)
-                            self.session.cookie_jar.update_cookies(cookies_data)
-                    _LOGGER.debug("Loaded persisted session for %s (User ID: %s)", self.email, self.user_id)
+                if cookies_data:
+                    try:
+                        from yarl import URL
+
+                        self.session.cookie_jar.update_cookies(
+                            cookies_data, URL(self.base_url)
+                        )
+                    except Exception:
+                        # Fallback if yarl is somehow not there (it should be)
+                        self.session.cookie_jar.update_cookies(cookies_data)
+                _LOGGER.debug(
+                    "Loaded persisted session for %s (User ID: %s)",
+                    self.email,
+                    self.user_id,
+                )
         except Exception as e:
-            _LOGGER.warning("Could not load session file: %s", e)
+            _LOGGER.warning("Error processing loaded session: %s", e)
 
-    def _save_session(self) -> None:
+    async def async_save_session(self) -> None:
         """Save session cookies and metadata to file."""
         try:
             cookies = {}
@@ -137,8 +159,11 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
                 "updated_at": datetime.now(UTC).isoformat(),
             }
 
-            with open(self._session_file, "w", encoding="utf-8") as f:
-                json.dump(data, f)
+            def save():
+                with open(self._session_file, "w", encoding="utf-8") as f:
+                    json.dump(data, f)
+
+            await self.hass.async_add_executor_job(save)
             _LOGGER.debug("Saved session for %s", self.email)
         except Exception as e:
             _LOGGER.warning("Could not save session file: %s", e)
@@ -348,7 +373,7 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
                             "Attempt %d: Checking session at %s (Token detected: %s)",
                             attempt + 1,
                             current_url,
-                            "Yes" if "X-Csrf-Token" in auth_headers else "No",
+                            "Yes" if "XSRF-TOKEN" in auth_headers else "No",
                         )
                         async with self.session.get(
                             current_url, headers=auth_headers, timeout=10
@@ -364,7 +389,7 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
                                         current_data["id"],
                                     )
                                     self.user_id = str(current_data["id"])
-                                    self._save_session()
+                                    await self.async_save_session()
                                     return True
                             else:
                                 if attempt < 2:
@@ -385,18 +410,36 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
                             await asyncio.sleep((attempt + 1) * 3)
                             continue
 
-                # 2. Check if we have a dead session (prevents 2FA loop)
-                has_session_cookie = any(c.key == "PHPSESSID" for c in self.session.cookie_jar)
+                # 2. If session check failed but we have cookies, they might be stale.
+                # Clear them and try fresh login instead of aborting to prevent loops.
+                # Loops are prevented by the fact that if this fresh login requires 2FA,
+                # we return '2fa_required' which triggers the HA UI flow.
+                has_session_cookie = any(
+                    c.key == "PHPSESSID" for c in self.session.cookie_jar
+                )
                 if has_session_cookie:
-                    _LOGGER.warning(
+                    _LOGGER.debug(
                         "Session cookie (PHPSESSID) present but validation failed. "
-                        "Aborting auto-login to prevent 2FA challenge loop. User must re-authenticate."
+                        "Clearing stale cookies and attempting fresh login."
                     )
-                    return False
+                    # Clear for all common foodsharing domains
+                    for d in [
+                        "foodsharing.de",
+                        "www.foodsharing.de",
+                        "beta.foodsharing.de",
+                        "foodsharing.at",
+                        "www.foodsharing.at",
+                        "beta.foodsharing.at",
+                        "foodsharing.ch",
+                        "www.foodsharing.ch",
+                        "beta.foodsharing.ch",
+                    ]:
+                        self.session.cookie_jar.clear_domain(d)
 
-                # 3. If no session, fetch fresh CSRF token from /login
-                _LOGGER.warning(
-                    "No valid session found. Fetching fresh CSRF token from /login before POST login."
+                # 3. Fetch fresh CSRF token from /login before POST login
+                _LOGGER.debug(
+                    "Attempting fresh login for %s. Fetching CSRF token from /login first.",
+                    mask_email(self.email),
                 )
                 await self.fetch_csrf()
 
@@ -461,7 +504,7 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
 
                         if user_id:
                             self.user_id = str(user_id)
-                            self._save_session()
+                            await self.async_save_session()
                             return True
 
                     _LOGGER.warning(
@@ -569,40 +612,56 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
         self, entry_id: str, lat: float, lon: float, dist: float
     ) -> list[dict[str, Any]]:
         """Fetch baskets for a specific location."""
-        url = f"{self.base_url}/api/baskets/nearby?lat={lat}&lon={lon}&distance={dist}"
+        # Try with KM first, then fallback to Meters if 0 results but was successful
+        baskets = await self._fetch_baskets_raw(entry_id, lat, lon, dist)
+        if not baskets and dist < 100:  # Heuristic: if dist is small (km) and 0 results
+            _LOGGER.debug(
+                "0 baskets found with dist %s (km), retrying with %s (m)",
+                dist,
+                dist * 1000,
+            )
+            baskets = await self._fetch_baskets_raw(entry_id, lat, lon, dist * 1000)
+        return baskets
+
+    async def _fetch_baskets_raw(
+        self, entry_id: str, lat: float, lon: float, dist: float
+    ) -> list[dict[str, Any]]:
+        """Fetch baskets for a specific location using raw parameters."""
+        # Ensure parameters are correctly typed and formatted
+        f_lat = f"{float(lat):.6f}"
+        f_lon = f"{float(lon):.6f}"
+        i_dist = int(float(dist))
+        url = f"{self.base_url}/api/baskets/nearby?lat={f_lat}&lon={f_lon}&distance={i_dist}"
+
         try:
             async with (
-                asyncio.timeout(10),
+                asyncio.timeout(15),
                 self.session.get(url, headers=self.authenticated_headers) as response,
             ):
+                _LOGGER.debug(
+                    "Baskets API %s returned status: %s", url, response.status
+                )
                 if response.status == 200:
                     json_data = await response.json()
+                    if not json_data:
+                        _LOGGER.debug("Baskets API returned an empty 200 OK response")
                     return self._process_baskets_for_location(entry_id, json_data)
-                elif response.status == 401:
+
+                if response.status == 401:
                     raise AuthenticationFailed(
                         "Unauthorized access, token might be expired."
                     )
-                elif response.status == 503:
-                    async_create_issue(
-                        self.hass,
-                        DOMAIN,
-                        "api_offline",
-                        is_fixable=False,
-                        severity=IssueSeverity.WARNING,
-                        translation_key="api_offline",
-                    )
-                    raise UpdateFailed("Foodsharing API is offline (503).")
-                else:
-                    raise UpdateFailed(
-                        f"Error fetching baskets: HTTP {response.status}"
-                    )
-        except UpdateFailed:
-            raise
+
+                body = await response.text()
+                _LOGGER.warning(
+                    "Baskets API failed with status %s: %s", response.status, body[:200]
+                )
+                return []
         except AuthenticationFailed:
             raise
         except Exception as e:
-            raise UpdateFailed(f"Error fetching data: {e}") from e
-        return []
+            _LOGGER.debug("Error in _fetch_baskets_raw: %s", e)
+            return []
 
     def _process_baskets_for_location(
         self, entry_id: str, json_data: Any
@@ -612,60 +671,106 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
         if not entry:
             return []
 
-        keywords_raw = entry.options.get(
-            CONF_KEYWORDS, entry.data.get(CONF_KEYWORDS, "")
+        keywords_raw = (
+            entry.options.get(CONF_KEYWORDS, entry.data.get(CONF_KEYWORDS, "")) or ""
         )
-        keywords = [k.strip().lower() for k in keywords_raw.split(",") if k.strip()]
+        keywords = [
+            k.strip().lower() for k in str(keywords_raw).split(",") if k.strip()
+        ]
 
         baskets: list[dict[str, Any]] = []
 
-        baskets_data = (
-            json_data.get("baskets", []) if isinstance(json_data, dict) else json_data
+        baskets_data = []
+        if isinstance(json_data, list):
+            baskets_data = json_data
+        elif isinstance(json_data, dict):
+            # Try common keys
+            for key in ("baskets", "data", "items", "nearby"):
+                if key in json_data and isinstance(json_data[key], list):
+                    baskets_data = json_data[key]
+                    break
+            else:
+                _LOGGER.debug(
+                    "Baskets dict does not contain recognized list key. Keys: %s",
+                    list(json_data.keys()),
+                )
+
+        if not baskets_data and json_data:
+            _LOGGER.debug(
+                "Baskets API returned data but no list was found or it is empty. Status: 200"
+            )
+
+        _LOGGER.debug(
+            "Found %d baskets in raw data for location %s", len(baskets_data), entry_id
         )
 
-        if not isinstance(baskets_data, list):
-            _LOGGER.error("Unexpected baskets format")
-            return []
-
-        baskets_data = sorted(baskets_data, key=lambda x: x.get("id", 0), reverse=True)
+        # Ensure all elements are dicts and have an ID
+        baskets_data = [b for b in baskets_data if isinstance(b, dict) and b.get("id")]
+        baskets_data = sorted(
+            baskets_data, key=lambda x: str(x.get("id", "")), reverse=True
+        )
 
         for basket in baskets_data:
             basket_id = basket.get("id")
             if not basket_id:
                 continue
 
+            # Robust Date Parsing (April 2026 API uses ISO string)
             until_str = "Unknown"
-            if "until" in basket:
+            until_raw = basket.get("until")
+            if until_raw:
                 try:
-                    until_str = datetime.fromtimestamp(
-                        basket["until"], tz=UTC
-                    ).strftime("%c")
+                    if isinstance(until_raw, (int, float)):
+                        until_str = datetime.fromtimestamp(until_raw, tz=UTC).strftime(
+                            "%c"
+                        )
+                    else:
+                        # Try parsing as ISO string
+                        dt = datetime.fromisoformat(
+                            str(until_raw).replace("Z", "+00:00")
+                        )
+                        until_str = dt.strftime("%c")
                 except Exception:
-                    pass
+                    until_str = str(until_raw)
 
             picture = basket.get("picture")
             if picture and picture.lower() != "none" and picture != "unavailable":
-                picture = f"{self.base_url}{picture}"
+                if not picture.startswith("http"):
+                    picture = f"{self.base_url}{picture}"
             else:
                 picture = None
 
-            lat = basket.get("lat")
-            lon = basket.get("lon")
+            # New API field names: latitude/longitude vs lat/lon
+            # Some new API versions might nest these in a location object
+            location = basket.get("location")
+            if isinstance(location, dict):
+                lat = location.get("latitude") or location.get("lat")
+                lon = location.get("longitude") or location.get("lon")
+            else:
+                lat = basket.get("latitude") or basket.get("lat")
+                lon = basket.get("longitude") or basket.get("lon")
+
             maps_link = (
                 f"https://www.google.com/maps/search/?api=1&query={lat},{lon}"
-                if lat and lon
+                if lat is not None and lon is not None
                 else "unavailable"
             )
 
-            desc = basket.get("description", "")
+            desc = basket.get("description") or ""
             match_keywords = False
 
             if keywords:
-                desc_lower = desc.lower()
+                desc_lower = str(desc).lower()
                 for keyword in keywords:
                     if keyword in desc_lower:
                         match_keywords = True
                         break
+
+            # Handle modern 'creator' object vs legacy 'user_name'
+            user_name = basket.get("user_name")
+            creator = basket.get("creator")
+            if not user_name and isinstance(creator, dict):
+                user_name = creator.get("name")
 
             parsed_basket = {
                 "id": basket_id,
@@ -676,7 +781,7 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
                 "longitude": lon,
                 "maps": maps_link,
                 "keyword_match": match_keywords,
-                "user_name": basket.get("user_name"),
+                "user_name": user_name,
             }
 
             if match_keywords and basket_id not in self._seen_baskets:
@@ -692,6 +797,20 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
         self, lat: float, lon: float, dist: float
     ) -> list[dict[str, Any]]:
         """Fetch nearby Fairteiler for a specific location."""
+        points = await self._fetch_fairteiler_raw(lat, lon, dist)
+        if not points and dist < 100:
+            _LOGGER.debug(
+                "0 fairteiler found with dist %s (km), retrying with %s (m)",
+                dist,
+                dist * 1000,
+            )
+            points = await self._fetch_fairteiler_raw(lat, lon, dist * 1000)
+        return points
+
+    async def _fetch_fairteiler_raw(
+        self, lat: float, lon: float, dist: float
+    ) -> list[dict[str, Any]]:
+        """Fetch nearby Fairteiler for a specific location using raw parameters."""
         url = f"{self.base_url}/api/foodSharePoints/nearby?lat={lat}&lon={lon}&distance={dist}"
         points: list[dict[str, Any]] = []
         wall_tasks: list[Any] = []
@@ -751,13 +870,19 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
             ):
                 if response.status == 200:
                     json_data = await response.json()
-                    fairteiler_data = (
-                        json_data.get("foodSharePoints", [])
-                        if isinstance(json_data, dict)
-                        else json_data
-                    )
-                    if not isinstance(fairteiler_data, list):
-                        return []
+                    fairteiler_data = []
+                    if isinstance(json_data, list):
+                        fairteiler_data = json_data
+                    elif isinstance(json_data, dict):
+                        for key in ("foodSharePoints", "data", "items", "points"):
+                            if key in json_data and isinstance(json_data[key], list):
+                                fairteiler_data = json_data[key]
+                                break
+
+                    if not fairteiler_data and json_data:
+                        _LOGGER.debug(
+                            "Fairteiler API returned data but no list found or empty."
+                        )
 
                     for fp in fairteiler_data:
                         if not isinstance(fp, dict):
@@ -802,7 +927,8 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
 
         except AuthenticationFailed, asyncio.CancelledError:
             raise
-        except Exception:
+        except Exception as e:
+            _LOGGER.error("Error fetching fairteiler for location: %s", e)
             return []
 
         return points
@@ -858,12 +984,10 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
                     if isinstance(data, list):
                         return [d for d in data if isinstance(d, dict)]
                     elif isinstance(data, dict):
-                        result = data.get("baskets", [])
-                        return (
-                            [r for r in result if isinstance(r, dict)]
-                            if isinstance(result, list)
-                            else []
-                        )
+                        for key in ("baskets", "data", "items"):
+                            if key in data and isinstance(data[key], list):
+                                return [r for r in data[key] if isinstance(r, dict)]
+                        return []
                 elif response.status == 401:
                     raise AuthenticationFailed(
                         "Unauthorized access while fetching own baskets."

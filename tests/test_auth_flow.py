@@ -56,12 +56,16 @@ async def test_full_authentication_flow():
         assert res_totp == "123"
 
         # 3. Test Coordinator Session Recovery
-        coordinator = FoodsharingCoordinator(hass, email, password)
-        coordinator.session = mock_session
+        with patch(
+            "custom_components.foodsharing.coordinator.async_get_clientsession",
+            return_value=mock_session,
+        ):
+            coordinator = FoodsharingCoordinator(hass, email, password)
+            coordinator.session = mock_session
 
-        login_ok = await coordinator.login()
-        assert login_ok is True
-        assert coordinator.user_id == "123"
+            login_ok = await coordinator.login()
+            assert login_ok is True
+            assert coordinator.user_id == "123"
 
 
 @pytest.mark.asyncio
@@ -71,10 +75,19 @@ async def test_coordinator_reauth_recovery():
     email = "test@example.com"
     password = "password123"
 
-    coordinator = FoodsharingCoordinator(hass, email, password)
-
-    with patch.object(coordinator, "login", return_value=True) as mock_login:
-        mock_session = MagicMock(spec=aiohttp.ClientSession)
+    mock_session = MagicMock(spec=aiohttp.ClientSession)
+    with (
+        patch(
+            "custom_components.foodsharing.coordinator.async_get_clientsession",
+            return_value=mock_session,
+        ),
+        patch.object(
+            coordinator_init := FoodsharingCoordinator(hass, email, password),
+            "login",
+            return_value=True,
+        ) as mock_login,
+    ):
+        coordinator = coordinator_init
         coordinator.session = mock_session
 
         mock_resp_fail = AsyncMock()

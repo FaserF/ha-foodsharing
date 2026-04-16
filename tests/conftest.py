@@ -12,8 +12,16 @@ def auto_mock_ha():
 
     with (
         patch("homeassistant.core.HomeAssistant"),
-        patch("homeassistant.helpers.frame.report") if hasattr(frame, "report") else patch("homeassistant.core.HomeAssistant"),
-        patch("homeassistant.helpers.frame.report_usage") if hasattr(frame, "report_usage") else patch("homeassistant.core.HomeAssistant"),
+        (
+            patch("homeassistant.helpers.frame.report")
+            if hasattr(frame, "report")
+            else patch("homeassistant.core.HomeAssistant")
+        ),
+        (
+            patch("homeassistant.helpers.frame.report_usage")
+            if hasattr(frame, "report_usage")
+            else patch("homeassistant.core.HomeAssistant")
+        ),
     ):
         yield
 

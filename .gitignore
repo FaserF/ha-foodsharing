@@ -25,3 +25,4 @@ test_api_signature.py
 *mypy*.txt
 *ruff*.txt
 test_login.py
+live_test_user.py

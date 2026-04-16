@@ -18,6 +18,10 @@ asyncio_mode = "auto"
 testpaths = ["tests"]
 norecursedirs = [".git", "testing_config"]
 pythonpath = ["."]
+filterwarnings = [
+    "ignore::DeprecationWarning:homeassistant.*",
+    "ignore::DeprecationWarning:aiohttp.*",
+]
 
 [tool.mypy]
 python_version = "3.14"
