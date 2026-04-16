@@ -13,6 +13,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import (
     ATTRIBUTION,
+    CONF_DISTANCE,
     CONF_LATITUDE_FS,
     CONF_LONGITUDE_FS,
     DOMAIN,
@@ -213,3 +214,85 @@ class FoodsharingPickupsSensor(CoordinatorEntity[FoodsharingCoordinator], Sensor
             pickups = self.coordinator.data.get("account", {}).get("pickups", [])
             return {"pickups": pickups}
         return {}
+class FoodsharingGlobalStatsSensor(CoordinatorEntity[FoodsharingCoordinator], SensorEntity):  # type: ignore[misc]
+    """Represents global Foodsharing.de statistics."""
+
+    _attr_has_entity_name = True
+    _attr_native_unit_of_measurement = "kg"
+    _attr_device_class = None
+    _attr_state_class = "total"
+    _attr_icon = "mdi:earth"
+    _attr_translation_key = "global_stats"
+
+    def __init__(self, coordinator: FoodsharingCoordinator) -> None:
+        """Initialize the sensor."""
+        super().__init__(coordinator)
+        self._attr_unique_id = "foodsharing_global_statistics"
+        
+        # Use a generic Foodsharing device if no account is better? 
+        # No, link to the first account device for simplicity OR a shared device.
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, "global_stats")},
+            name="Foodsharing Global Stats",
+            manufacturer="Foodsharing",
+            entry_type=None,
+        )
+
+    @property
+    def native_value(self) -> float:
+        """Return the total weight saved globally (in kg)."""
+        stats = self.coordinator.data.get("account", {}).get("global_stats", {})
+        return float(stats.get("fetchWeight", 0))
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return the state attributes."""
+        stats = self.coordinator.data.get("account", {}).get("global_stats", {})
+        return {
+            "rescue_missions": stats.get("fetchCount"),
+            "foodsavers": stats.get("countAllFoodsaver"),
+            "cooperating_companies": stats.get("cooperationsCount"),
+            "active_fairteiler": stats.get("countActiveFoodSharePoints"),
+            "total_baskets": stats.get("totalBaskets"),
+            ATTR_ATTRIBUTION: ATTRIBUTION,
+        }
+
+
+class FoodsharingUserStatsSensor(CoordinatorEntity[FoodsharingCoordinator], SensorEntity):  # type: ignore[misc]
+    """Represents user-specific Foodsharing statistics."""
+
+    _attr_has_entity_name = True
+    _attr_native_unit_of_measurement = "pickups"
+    _attr_state_class = "total"
+    _attr_icon = "mdi:account-star"
+    _attr_translation_key = "user_stats"
+
+    def __init__(self, coordinator: FoodsharingCoordinator, email: str) -> None:
+        """Initialize the sensor."""
+        super().__init__(coordinator)
+        self.email = email
+        self._attr_unique_id = f"foodsharing_user_stats_{email}"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, email)},
+            name=f"Foodsharing Account ({email})",
+            manufacturer="Foodsharing",
+            model="Account",
+        )
+
+    @property
+    def native_value(self) -> int:
+        """Return the number of rescues by the user."""
+        stats = self.coordinator.data.get("account", {}).get("user_stats", {})
+        # Note: field name might vary, trying common ones
+        return int(stats.get("pickup_count", stats.get("fetchCount", 0)))
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return the state attributes."""
+        stats = self.coordinator.data.get("account", {}).get("user_stats", {})
+        return {
+            "weight_saved_kg": stats.get("weight_saved", stats.get("fetchWeight")),
+            "rating": stats.get("rating"),
+            "member_since": stats.get("member_since"),
+            ATTR_ATTRIBUTION: ATTRIBUTION,
+        }

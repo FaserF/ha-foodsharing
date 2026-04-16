@@ -27,7 +27,8 @@
         "title": "Additional Locations",
         "description": "You can monitor multiple locations. Would you like to add another location?",
         "data": {
-          "add_another": "Add another location"
+          "add_another": "Add another location",
+          "remove_locations": "Select locations to remove"
         }
       },
       "extra_location": {
@@ -87,7 +88,8 @@
         "title": "Manage Locations",
         "description": "You currently have {count} location(s) configured. Would you like to add another?",
         "data": {
-          "add_another": "Add another location"
+          "add_another": "Add another location",
+          "remove_locations": "Select locations to remove"
         }
       },
       "extra_location_option": {

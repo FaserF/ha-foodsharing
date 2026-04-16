@@ -391,17 +391,44 @@ class FoodsharingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # type: 
     ) -> config_entries.ConfigFlowResult:
         """Ask whether to add another location."""
         if user_input is not None:
+            removals = user_input.get("remove_locations", [])
+            if removals:
+                self._locations = [
+                    loc for i, loc in enumerate(self._locations) if str(i) not in removals
+                ]
+
             if user_input.get("add_another"):
                 return await self.async_step_extra_location()
             return await self._async_finish_setup()
 
+        remove_options = []
+        for i, loc in enumerate(self._locations):
+            if i == 0:
+                continue
+            lat, lon, dist = (
+                loc.get("latitude"),
+                loc.get("longitude"),
+                loc.get("distance"),
+            )
+            remove_options.append(
+                selector.SelectOptionDict(
+                    value=str(i), label=f"Location {i+1}: {lat}, {lon} ({dist}km)"
+                )
+            )
+
+        schema_dict = {vol.Required("add_another", default=False): bool}
+        if remove_options:
+            schema_dict[vol.Optional("remove_locations")] = selector.SelectSelector(
+                selector.SelectSelectorConfig(
+                    options=remove_options,
+                    multiple=True,
+                    mode=selector.SelectSelectorMode.LIST,
+                )
+            )
+
         return self.async_show_form(
             step_id="add_location",
-            data_schema=vol.Schema(
-                {
-                    vol.Required("add_another", default=False): bool,
-                }
-            ),
+            data_schema=vol.Schema(schema_dict),
         )
 
     async def async_step_extra_location(
@@ -650,20 +677,47 @@ class OptionsFlowHandler(config_entries.OptionsFlow):  # type: ignore[misc]
     ) -> config_entries.ConfigFlowResult:
         """Ask whether to add another location or finish."""
         if user_input is not None:
+            removals = user_input.get("remove_locations", [])
+            if removals:
+                self._locations = [
+                    loc for i, loc in enumerate(self._locations) if str(i) not in removals
+                ]
+
             if user_input.get("add_another"):
                 return await self.async_step_extra_location_option()
             return self._finish_options()
+
+        remove_options = []
+        for i, loc in enumerate(self._locations):
+            if i == 0:
+                continue
+            lat, lon, dist = (
+                loc.get("latitude"),
+                loc.get("longitude"),
+                loc.get("distance"),
+            )
+            remove_options.append(
+                selector.SelectOptionDict(
+                    value=str(i), label=f"Location {i+1}: {lat}, {lon} ({dist}km)"
+                )
+            )
+
+        schema_dict = {vol.Required("add_another", default=False): bool}
+        if remove_options:
+            schema_dict[vol.Optional("remove_locations")] = selector.SelectSelector(
+                selector.SelectSelectorConfig(
+                    options=remove_options,
+                    multiple=True,
+                    mode=selector.SelectSelectorMode.LIST,
+                )
+            )
 
         return self.async_show_form(
             step_id="manage_locations",
             description_placeholders={
                 "count": str(len(self._locations)),
             },
-            data_schema=vol.Schema(
-                {
-                    vol.Required("add_another", default=False): bool,
-                }
-            ),
+            data_schema=vol.Schema(schema_dict),
         )
 
     async def async_step_extra_location_option(

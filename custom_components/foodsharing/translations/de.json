@@ -27,7 +27,8 @@
         "title": "Zusätzliche Standorte",
         "description": "Du kannst mehrere Standorte überwachen. Möchtest du einen weiteren Standort hinzufügen?",
         "data": {
-          "add_another": "Weiteren Standort hinzufügen"
+          "add_another": "Weiteren Standort hinzufügen",
+          "remove_locations": "Standorte zum Entfernen auswählen"
         }
       },
       "extra_location": {
@@ -87,7 +88,8 @@
         "title": "Standorte verwalten",
         "description": "Du hast derzeit {count} Standort(e) konfiguriert. Möchtest du einen weiteren hinzufügen?",
         "data": {
-          "add_another": "Weiteren Standort hinzufügen"
+          "add_another": "Weiteren Standort hinzufügen",
+          "remove_locations": "Standorte zum Entfernen auswählen"
         }
       },
       "extra_location_option": {

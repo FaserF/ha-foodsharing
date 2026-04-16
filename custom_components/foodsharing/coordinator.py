@@ -53,6 +53,7 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
             "(KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"
         )
         self.user_id: str | None = None
+        self.stats: dict[str, Any] = {}
         self._xsrf_token: str | None = None
         self.base_url = "https://foodsharing.de"
         self._update_base_url()
@@ -277,12 +278,14 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
 
     async def _fetch_all_data(self) -> dict[str, Any]:
         """Fetch all data for all locations."""
-        task_keys = ["messages", "bells", "pickups", "own_baskets"]
+        task_keys = ["messages", "bells", "pickups", "own_baskets", "global_stats", "user_stats"]
         account_results = await asyncio.gather(
             self.fetch_unread_messages(),
             self.fetch_bells(),
             self.fetch_pickups(),
             self.fetch_own_baskets(),
+            self.fetch_global_statistics(),
+            self.fetch_user_statistics(),
             return_exceptions=True,
         )
 
@@ -292,7 +295,7 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
             if isinstance(res, AuthenticationFailed):
                 raise res
 
-        messages, bells, pickups, own_baskets = self._normalize_account_results(
+        messages, bells, pickups, own_baskets, g_stats, u_stats = self._normalize_account_results(
             keyed_results
         )
 
@@ -336,6 +339,8 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
                 "bells": bells,
                 "pickups": pickups,
                 "own_baskets": own_baskets,
+                "global_stats": g_stats,
+                "user_stats": u_stats,
             },
             "locations": location_data,
         }
@@ -607,6 +612,24 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
             _LOGGER.debug("Error fetching bells: %s", e)
             return 0
         return 0
+
+    async def fetch_global_statistics(self) -> dict[str, Any]:
+        """Fetch overall Foodsharing statistics."""
+        url = f"{self.base_url}/api/statistics"
+        try:
+            async with (
+                asyncio.timeout(10),
+                self.session.get(url, headers=self.authenticated_headers) as response,
+            ):
+                if response.status == 200:
+                    data = await response.json()
+                    if isinstance(data, dict):
+                        # Extract the generalStatistics part if it exists
+                        return data.get("generalStatistic", data)
+                return {}
+        except Exception as e:
+            _LOGGER.debug("Error fetching global statistics: %s", e)
+            return {}
 
     async def fetch_baskets_for_location(
         self, entry_id: str, lat: float, lon: float, dist: float
@@ -1003,24 +1026,65 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
             _LOGGER.debug("Error fetching own baskets: %s", e)
         return []
 
+    async def fetch_user_statistics(self) -> dict[str, Any]:
+        """Fetch user-specific statistics."""
+        user_id = self.user_id or "current"
+        url = f"{self.base_url}/api/users/{user_id}/stats"
+        try:
+            async with (
+                asyncio.timeout(10),
+                self.session.get(url, headers=self.authenticated_headers) as response,
+            ):
+                if response.status == 200:
+                    data = await response.json()
+                    return data if isinstance(data, dict) else {}
+                elif response.status == 401:
+                    raise AuthenticationFailed(
+                        "Unauthorized access while fetching statistics."
+                    )
+        except AuthenticationFailed:
+            raise
+        except Exception as e:
+            _LOGGER.debug("Error fetching statistics: %s", e)
+        return {}
+
     def _normalize_account_results(
         self, results: dict[str, Any]
-    ) -> tuple[int, int, list[dict[str, Any]], list[dict[str, Any]]]:
+    ) -> tuple[int, int, list[dict[str, Any]], list[dict[str, Any]], dict[str, Any], dict[str, Any]]:
         """Normalize account results, using defaults for failures."""
         messages_val = results.get("messages", 0)
         messages = int(messages_val) if isinstance(messages_val, (int, float)) else 0
-
         bells_val = results.get("bells", 0)
         bells = int(bells_val) if isinstance(bells_val, (int, float)) else 0
+        pickups = results.get("pickups", [])
+        own_baskets = results.get("own_baskets", [])
+        g_stats = results.get("global_stats", {})
+        u_stats = results.get("user_stats", {})
 
-        pickups_val = results.get("pickups", [])
-        pickups: list[dict[str, Any]] = (
-            pickups_val if isinstance(pickups_val, list) else []
+        if isinstance(messages, Exception):
+            _LOGGER.debug("Error in messages task: %s", messages)
+            messages = 0
+        if isinstance(bells, Exception):
+            _LOGGER.debug("Error in bells task: %s", bells)
+            bells = 0
+        if isinstance(pickups, Exception):
+            _LOGGER.debug("Error in pickups task: %s", pickups)
+            pickups = []
+        if isinstance(own_baskets, Exception):
+            _LOGGER.debug("Error in own_baskets task: %s", own_baskets)
+            own_baskets = []
+        if isinstance(g_stats, Exception):
+            _LOGGER.debug("Error in global stats task: %s", g_stats)
+            g_stats = {}
+        if isinstance(u_stats, Exception):
+            _LOGGER.debug("Error in user stats task: %s", u_stats)
+            u_stats = {}
+
+        return (
+            messages,
+            bells,
+            pickups if isinstance(pickups, list) else [],
+            own_baskets if isinstance(own_baskets, list) else [],
+            g_stats if isinstance(g_stats, dict) else {},
+            u_stats if isinstance(u_stats, dict) else {},
         )
-
-        own_baskets_val = results.get("own_baskets", [])
-        own_baskets: list[dict[str, Any]] = (
-            own_baskets_val if isinstance(own_baskets_val, list) else []
-        )
-
-        return messages, bells, pickups, own_baskets

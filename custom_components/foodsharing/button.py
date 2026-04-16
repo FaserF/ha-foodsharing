@@ -128,6 +128,8 @@ class FoodsharingRequestSlotButton(CoordinatorEntity[FoodsharingCoordinator], Bu
 
     _attr_has_entity_name = True
 
+    _attr_entity_registry_enabled_default = False
+
     def __init__(
         self,
         coordinator: FoodsharingCoordinator,
@@ -189,8 +191,9 @@ class FoodsharingRequestSlotButton(CoordinatorEntity[FoodsharingCoordinator], Bu
         """Return the static name of the button."""
         basket = self._get_basket()
         if basket:
-            return f"Request Basket {self._slot_idx + 1}: {basket.get('description', 'No description')[:20]}..."
-        return f"Request Basket {self._slot_idx + 1} (Empty Slot)"
+            desc = basket.get("description", "No description")
+            return f"{self._slot_idx + 1}: {desc[:20]}..."
+        return f"{self._slot_idx + 1} (Empty)"
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
@@ -252,6 +255,7 @@ class FoodsharingCloseSlotButton(CoordinatorEntity[FoodsharingCoordinator], Butt
         """Initialize the button."""
         super().__init__(coordinator)
         self.email = email
+        self.account_email = email
         self._slot_idx = slot_idx
 
         self._attr_unique_id = f"foodsharing_{email}_close_basket_{slot_idx}"
@@ -289,8 +293,9 @@ class FoodsharingCloseSlotButton(CoordinatorEntity[FoodsharingCoordinator], Butt
         """Return the static name of the button."""
         basket = self._get_basket()
         if basket:
-            return f"Close Own Basket {self._slot_idx + 1}: {basket.get('description', 'No description')[:20]}..."
-        return f"Close Own Basket {self._slot_idx + 1} (Empty Slot)"
+            desc = basket.get("description", "No description")
+            return f"{self._slot_idx + 1}: {desc[:20]}..."
+        return f"{self._slot_idx + 1} (Empty)"
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
