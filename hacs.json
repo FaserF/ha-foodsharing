@@ -1,9 +1,11 @@
 {
-    "name": "Foodsharing",
-    "render_readme": true,
-    "country": [
-        "DE",
-        "AT",
-        "CH"
-    ]
+  "name": "Foodsharing",
+  "render_readme": true,
+  "country": [
+    "DE",
+    "AT",
+    "CH"
+  ],
+  "zip_release": true,
+  "filename": "foodsharing.zip"
 }
