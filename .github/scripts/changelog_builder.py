@@ -1,6 +1,6 @@
-import argparse
-import re
 import subprocess
+import re
+import argparse
 
 
 def get_commits(tag=None):
@@ -25,7 +25,9 @@ def build_changelog(commits, url):
             continue
         fh, sh, sub = line.split("|", 2)
         sl = sub.lower()
-        if any(x in sl for x in ["chore: release", "chore: bump", "merge ", "[skip ci]"]):
+        if any(
+            x in sl for x in ["chore: release", "chore: bump", "merge ", "[skip ci]"]
+        ):
             continue
         sub = re.sub(r"\(#(\d+)\)", rf"([#\1]({url}/pull/\1))", sub)
         entry = f"- {sub} ([{sh}]({url}/commit/{fh}))"
