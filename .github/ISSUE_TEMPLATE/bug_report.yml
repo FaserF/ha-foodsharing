@@ -18,7 +18,7 @@ body:
     attributes:
       label: Integration Version
       description: Which version of the Foodsharing integration are you using?
-      placeholder: e.g. 1.2.0
+      placeholder: e.g. v2026.6.0
     validations:
       required: true
 
@@ -27,7 +27,7 @@ body:
     attributes:
       label: Home Assistant Version
       description: Which version of Home Assistant are you running? [![Open HA Info](https://my.home-assistant.io/badges/info.svg)](https://my.home-assistant.io/redirect/info/)
-      placeholder: 2025.6.0
+      placeholder: 2026.6.4
     validations:
       required: true
 
