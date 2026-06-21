@@ -9,11 +9,7 @@ from datetime import datetime
 
 def run_git(args):
     try:
-        return (
-            subprocess.check_output(["git"] + args, stderr=subprocess.DEVNULL)
-            .decode("utf-8")
-            .strip()
-        )
+        return subprocess.check_output(["git"] + args, stderr=subprocess.DEVNULL).decode("utf-8").strip()
     except subprocess.CalledProcessError:
         return ""
 
@@ -64,11 +60,7 @@ def main():
     if version_override and version_override.strip():
         bump_args += ["--override", version_override.strip()]
 
-    version = (
-        subprocess.check_output(bump_args)
-        .decode("utf-8")
-        .strip()
-    )
+    version = subprocess.check_output(bump_args).decode("utf-8").strip()
 
     # Revert version bump change in manifest file (since versioning job only calculates it, sync-version actually writes it)
     run_git(["checkout", "--", manifest_path])
@@ -150,9 +142,7 @@ def main():
                 .strip()
             )
         except Exception:
-            changelog_md = (
-                "_Changelog could not be generated automatically. See commit history._"
-            )
+            changelog_md = "_Changelog could not be generated automatically. See commit history._"
     else:
         changelog_md = "_Changelog script not found._"
 
@@ -214,7 +204,9 @@ def main():
     elif integration_count > 2 or translation_count > 5:
         severity = "Medium"
         alert_type = "TIP"
-        preamble = "This release contains standard updates and feature enhancements to the integration logic or translations."
+        preamble = (
+            "This release contains standard updates and feature enhancements to the integration logic or translations."
+        )
 
     if rtype != "stable":
         preamble = f"ℹ️ **This is a {rtype} build.** It contains preview features for testing.<br><br>{preamble}"
@@ -226,9 +218,7 @@ def main():
             impact_summary.append(f"⚙️ Core ({integration_count} files · {pct}%)")
         if translation_count > 0:
             pct = round((translation_count / total_files) * 100)
-            impact_summary.append(
-                f"🗣️ Translations ({translation_count} files · {pct}%)"
-            )
+            impact_summary.append(f"🗣️ Translations ({translation_count} files · {pct}%)")
         if test_count > 0:
             pct = round((test_count / total_files) * 100)
             impact_summary.append(f"🧪 Tests ({test_count} files · {pct}%)")
@@ -239,18 +229,10 @@ def main():
             pct = round((docs_count / total_files) * 100)
             impact_summary.append(f"📖 Docs ({docs_count} files · {pct}%)")
 
-    impact_str = (
-        " · ".join(impact_summary)
-        if impact_summary
-        else "No codebase changes detected."
-    )
+    impact_str = " · ".join(impact_summary) if impact_summary else "No codebase changes detected."
 
     prerelease_note = (
-        f"\n> [!{alert_type}]\n"
-        f"> **Release Risk: {severity}**\n"
-        f"> {preamble}\n"
-        f">\n"
-        f"> **Affected areas:** {impact_str}\n"
+        f"\n> [!{alert_type}]\n> **Release Risk: {severity}**\n> {preamble}\n>\n> **Affected areas:** {impact_str}\n"
     )
 
     released_at = datetime.utcnow().strftime("%Y-%m-%d %H:%M") + " UTC"
