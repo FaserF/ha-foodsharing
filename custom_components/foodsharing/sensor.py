@@ -25,13 +25,9 @@ from .helpers import get_locations_from_entry
 _LOGGER = logging.getLogger(__name__)
 
 
-async def async_setup_entry(
-    hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
-) -> None:
+async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
     """Setup sensors from a config entry created in the integrations UI."""
-    coordinator: FoodsharingCoordinator = hass.data[DOMAIN][entry.entry_id][
-        "coordinator"
-    ]
+    coordinator: FoodsharingCoordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
     email = hass.data[DOMAIN][entry.entry_id]["email"]
 
     # Device and Entity Registry Cleanup
@@ -47,27 +43,18 @@ async def async_setup_entry(
 
     # 2. Cleanup orphaned location devices
     locations = get_locations_from_entry(entry)
-    current_loc_idents = {
-        f"{email}_{loc['latitude']}_{loc['longitude']}" for loc in locations
-    }
+    current_loc_idents = {f"{email}_{loc['latitude']}_{loc['longitude']}" for loc in locations}
     devices = dr.async_entries_for_config_entry(device_reg, entry.entry_id)
     for device in devices:
         for ident in device.identifiers:
-            if (
-                ident[0] == DOMAIN
-                and ident[1].startswith(f"{email}_")
-                and ident[1] not in current_loc_idents
-            ):
+            if ident[0] == DOMAIN and ident[1].startswith(f"{email}_") and ident[1] not in current_loc_idents:
                 _LOGGER.debug("Removing orphaned location device: %s", ident[1])
                 device_reg.async_remove_device(device.id)
                 break
 
     # 3. Cleanup orphaned entities (old indexes or old unique_ids)
-    current_prefixes = [
-        f"Foodsharing-Baskets-{entry.entry_id}-{idx}" for idx in range(len(locations))
-    ] + [
-        f"Foodsharing-Fairteiler-{entry.entry_id}-{idx}"
-        for idx in range(len(locations))
+    current_prefixes = [f"Foodsharing-Baskets-{entry.entry_id}-{idx}" for idx in range(len(locations))] + [
+        f"Foodsharing-Fairteiler-{entry.entry_id}-{idx}" for idx in range(len(locations))
     ]
     old_orphans = ["foodsharing_global_statistics"]
 
@@ -158,9 +145,7 @@ class FoodsharingSensor(CoordinatorEntity[FoodsharingCoordinator], SensorEntity)
     def _get_loc_data(self) -> dict[str, Any]:
         """Return coordinator location data for this sensor's location slot."""
         if self.coordinator.data:
-            entry_locs: list[dict[str, Any]] = self.coordinator.data.get(
-                "locations", {}
-            ).get(self.entry_id, [])
+            entry_locs: list[dict[str, Any]] = self.coordinator.data.get("locations", {}).get(self.entry_id, [])
             if self.loc_idx < len(entry_locs):
                 return entry_locs[self.loc_idx]
         return {}
@@ -224,9 +209,7 @@ class FoodsharingFairteilerSensor(CoordinatorEntity[FoodsharingCoordinator], Sen
     def _get_loc_data(self) -> dict[str, Any]:
         """Return coordinator location data for this sensor's location slot."""
         if self.coordinator.data:
-            entry_locs: list[dict[str, Any]] = self.coordinator.data.get(
-                "locations", {}
-            ).get(self.entry_id, [])
+            entry_locs: list[dict[str, Any]] = self.coordinator.data.get("locations", {}).get(self.entry_id, [])
             if self.loc_idx < len(entry_locs):
                 return entry_locs[self.loc_idx]
         return {}

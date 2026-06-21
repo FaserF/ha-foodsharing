@@ -17,13 +17,9 @@ from .coordinator import FoodsharingCoordinator
 _LOGGER = logging.getLogger(__name__)
 
 
-async def async_setup_entry(
-    hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
-) -> None:
+async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
     """Set up the calendar platform."""
-    coordinator: FoodsharingCoordinator = hass.data[DOMAIN][entry.entry_id][
-        "coordinator"
-    ]
+    coordinator: FoodsharingCoordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
     email = hass.data[DOMAIN][entry.entry_id]["email"]
 
     account_key = f"calendars_{email}"
@@ -112,8 +108,4 @@ class FoodsharingCalendar(CoordinatorEntity[FoodsharingCoordinator], CalendarEnt
         self, hass: HomeAssistant, start_date: datetime, end_date: datetime
     ) -> list[CalendarEvent]:
         """Return calendar events within a datetime range."""
-        return [
-            event
-            for event in self._events
-            if event.end > start_date and event.start < end_date
-        ]
+        return [event for event in self._events if event.end > start_date and event.start < end_date]

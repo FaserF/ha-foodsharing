@@ -54,9 +54,7 @@ async def test_coordinator_fetch_pickups(mock_session):
         )
 
         # 2. Test successful dictionary return ("pickups" key)
-        mock_response.json.return_value = {
-            "pickups": [{"id": 2, "store_name": "Store 2"}]
-        }
+        mock_response.json.return_value = {"pickups": [{"id": 2, "store_name": "Store 2"}]}
         pickups = await coordinator.fetch_pickups()
         assert len(pickups) == 1
         assert pickups[0]["id"] == 2
@@ -170,9 +168,7 @@ async def test_coordinator_fetch_bells_fires_event(mock_session):
 
         mock_response = AsyncMock()
         mock_response.status = 200
-        mock_response.json.return_value = [
-            {"is_read": 0, "id": 101, "title": "New Bell"}
-        ]
+        mock_response.json.return_value = [{"is_read": 0, "id": 101, "title": "New Bell"}]
         mock_session.get.return_value.__aenter__.return_value = mock_response
 
         # Mock bus.async_fire

@@ -57,9 +57,7 @@ async def test_config_flow_user_step_success(mock_session):
         assert result["data"][CONF_LATITUDE_FS] == 52.52
         assert result["data"][CONF_EMAIL] == "test@example.com"
         # Locations list is built correctly
-        assert result["data"]["locations"] == [
-            {"latitude": 52.52, "longitude": 13.405, "distance": 7}
-        ]
+        assert result["data"]["locations"] == [{"latitude": 52.52, "longitude": 13.405, "distance": 7}]
 
 
 @pytest.mark.asyncio

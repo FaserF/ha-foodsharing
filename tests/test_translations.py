@@ -90,9 +90,7 @@ def test_no_missing_translations_in_code():
                                 found = True
                                 break
 
-                        if not found and match not in [
-                            "domain"
-                        ]:  # domain is a special case in selector
+                        if not found and match not in ["domain"]:  # domain is a special case in selector
                             missing_in_json.append(f"{file}: {match}")
 
     # Special check for "domain" translation key in selector
@@ -103,6 +101,4 @@ def test_no_missing_translations_in_code():
     # Verify that aborted reasons are in config.abort or options.abort
     # Verify that errors are in config.error or options.error
 
-    assert (
-        not missing_in_json
-    ), f"Potential missing translations found in code: {missing_in_json}"
+    assert not missing_in_json, f"Potential missing translations found in code: {missing_in_json}"

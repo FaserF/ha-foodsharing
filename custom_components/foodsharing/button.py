@@ -22,13 +22,9 @@ _LOGGER = logging.getLogger(__name__)
 ACTIVE_BUTTONS: dict[str, dict[str, ButtonEntity]] = {}
 
 
-async def async_setup_entry(
-    hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
-) -> None:
+async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
     """Set up the foodsharing button platform."""
-    coordinator: FoodsharingCoordinator = hass.data[DOMAIN][entry.entry_id][
-        "coordinator"
-    ]
+    coordinator: FoodsharingCoordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
     email = coordinator.email
 
     # Get or create the account-wide button registry for this email
@@ -47,9 +43,7 @@ async def async_setup_entry(
 
         # 1. Request Basket Buttons (per location)
         locations = get_locations_from_entry(entry)
-        entry_locs: list[dict[str, Any]] = coordinator.data.get("locations", {}).get(
-            entry.entry_id, []
-        )
+        entry_locs: list[dict[str, Any]] = coordinator.data.get("locations", {}).get(entry.entry_id, [])
 
         for loc_idx, loc in enumerate(locations):
             if loc_idx >= len(entry_locs):
@@ -64,9 +58,7 @@ async def async_setup_entry(
                 current_unique_ids.add(unique_id)
 
                 if unique_id not in active_buttons:
-                    button = FoodsharingRequestSlotButton(
-                        coordinator, entry, loc_idx, lat, lon, slot_idx
-                    )
+                    button = FoodsharingRequestSlotButton(coordinator, entry, loc_idx, lat, lon, slot_idx)
                     active_buttons[unique_id] = button
                     new_entities.append(button)
 
@@ -90,10 +82,7 @@ async def async_setup_entry(
         stale_ids = {
             uid
             for uid, btn in active_buttons.items()
-            if (
-                getattr(btn, "config_entry_id", None) == entry.entry_id
-                or getattr(btn, "account_email", None) == email
-            )
+            if (getattr(btn, "config_entry_id", None) == entry.entry_id or getattr(btn, "account_email", None) == email)
             and uid not in current_unique_ids
         }
         if stale_ids:
@@ -147,9 +136,7 @@ class FoodsharingRequestSlotButton(CoordinatorEntity[FoodsharingCoordinator], Bu
         self._lon = lon
         self._slot_idx = slot_idx
 
-        self._attr_unique_id = (
-            f"foodsharing_{entry.entry_id}_loc_{loc_idx}_request_basket_{slot_idx}"
-        )
+        self._attr_unique_id = f"foodsharing_{entry.entry_id}_loc_{loc_idx}_request_basket_{slot_idx}"
         self.translation_key = "request_basket"
         self._attr_translation_placeholders = {"slot": str(slot_idx + 1)}
         self.config_entry_id = entry.entry_id
@@ -170,9 +157,7 @@ class FoodsharingRequestSlotButton(CoordinatorEntity[FoodsharingCoordinator], Bu
         if not self.coordinator.data:
             return None
 
-        entry_locs: list[dict[str, Any]] = self.coordinator.data.get(
-            "locations", {}
-        ).get(self.entry.entry_id, [])
+        entry_locs: list[dict[str, Any]] = self.coordinator.data.get("locations", {}).get(self.entry.entry_id, [])
         if self._loc_idx >= len(entry_locs):
             return None
 
@@ -212,15 +197,11 @@ class FoodsharingRequestSlotButton(CoordinatorEntity[FoodsharingCoordinator], Bu
             return
 
         basket_id = str(basket["id"])
-        _LOGGER.info(
-            "Button pressed to request basket %s (Slot %s)", basket_id, self._slot_idx
-        )
+        _LOGGER.info("Button pressed to request basket %s (Slot %s)", basket_id, self._slot_idx)
 
         url = f"{self.coordinator.base_url}/api/baskets/{basket_id}/request"
         try:
-            async with self.coordinator.session.post(
-                url, headers=self.coordinator.authenticated_headers
-            ) as response:
+            async with self.coordinator.session.post(url, headers=self.coordinator.authenticated_headers) as response:
                 if response.status == 200:
                     _LOGGER.info("Successfully requested basket %s", basket_id)
                     await self.coordinator.async_request_refresh()
@@ -299,21 +280,15 @@ class FoodsharingCloseSlotButton(CoordinatorEntity[FoodsharingCoordinator], Butt
         """Handle the button press."""
         basket = self._get_basket()
         if not basket:
-            _LOGGER.warning(
-                "Slot %s has no active own basket to close.", self._slot_idx
-            )
+            _LOGGER.warning("Slot %s has no active own basket to close.", self._slot_idx)
             return
 
         basket_id = str(basket["id"])
-        _LOGGER.info(
-            "Button pressed to close own basket %s (Slot %s)", basket_id, self._slot_idx
-        )
+        _LOGGER.info("Button pressed to close own basket %s (Slot %s)", basket_id, self._slot_idx)
 
         url = f"{self.coordinator.base_url}/api/baskets/{basket_id}/close"
         try:
-            async with self.coordinator.session.post(
-                url, headers=self.coordinator.authenticated_headers
-            ) as response:
+            async with self.coordinator.session.post(url, headers=self.coordinator.authenticated_headers) as response:
                 if response.status == 200:
                     _LOGGER.info("Successfully closed own basket %s", basket_id)
                     await self.coordinator.async_request_refresh()

@@ -109,9 +109,7 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
                 with open(self._session_file, encoding="utf-8") as f:
                     return json.load(f)
             except Exception as e:
-                _LOGGER.warning(
-                    "Could not load session file %s: %s", self._session_file, e
-                )
+                _LOGGER.warning("Could not load session file %s: %s", self._session_file, e)
                 return None
 
         data = await self.hass.async_add_executor_job(load)
@@ -128,9 +126,7 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
                     try:
                         from yarl import URL
 
-                        self.session.cookie_jar.update_cookies(
-                            cookies_data, URL(self.base_url)
-                        )
+                        self.session.cookie_jar.update_cookies(cookies_data, URL(self.base_url))
                     except Exception:
                         self.session.cookie_jar.update_cookies(cookies_data)
                 _LOGGER.debug(
@@ -176,9 +172,7 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
         """Fetch the CSRF token from the login page."""
         try:
             # Hit /login to ensure we get the right cookies
-            async with self.session.get(
-                f"{self.base_url}/login", headers={"User-Agent": self._user_agent}
-            ) as response:
+            async with self.session.get(f"{self.base_url}/login", headers={"User-Agent": self._user_agent}) as response:
                 await response.text()
                 token = self._get_xsrf_token_from_jar()
                 if token:
@@ -206,15 +200,11 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
         use_beta = False
         domain = "foodsharing_de"
         for entry in self.entries.values():
-            if entry.options.get(
-                CONF_USE_BETA_API, entry.data.get(CONF_USE_BETA_API, False)
-            ):
+            if entry.options.get(CONF_USE_BETA_API, entry.data.get(CONF_USE_BETA_API, False)):
                 use_beta = True
 
             # Get domain from entry, default to de
-            entry_domain = entry.options.get(
-                CONF_DOMAIN, entry.data.get(CONF_DOMAIN, "foodsharing_de")
-            )
+            entry_domain = entry.options.get(CONF_DOMAIN, entry.data.get(CONF_DOMAIN, "foodsharing_de"))
             if entry_domain != "foodsharing_de":
                 domain = entry_domain
 
@@ -224,9 +214,7 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
         elif domain == "foodsharing_ch":
             base_domain = "foodsharing.ch"
 
-        self.base_url = (
-            f"https://beta.{base_domain}" if use_beta else f"https://{base_domain}"
-        )
+        self.base_url = f"https://beta.{base_domain}" if use_beta else f"https://{base_domain}"
         _LOGGER.debug("Foodsharing base URL set to %s", self.base_url)
 
     def _update_refresh_interval(self) -> None:
@@ -236,9 +224,7 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
 
         min_interval = 60
         for entry in self.entries.values():
-            interval = entry.options.get(
-                CONF_SCAN_INTERVAL, entry.data.get(CONF_SCAN_INTERVAL, 2)
-            )
+            interval = entry.options.get(CONF_SCAN_INTERVAL, entry.data.get(CONF_SCAN_INTERVAL, 2))
             min_interval = min(min_interval, interval)
 
         self.update_interval = timedelta(minutes=min_interval)
@@ -258,9 +244,7 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
                     "2FA required for %s, starting re-auth flow.",
                     mask_email(self.email),
                 )
-                raise ConfigEntryAuthFailed(
-                    "2FA required for Foodsharing account"
-                ) from err
+                raise ConfigEntryAuthFailed("2FA required for Foodsharing account") from err
 
             async_create_issue(
                 self.hass,
@@ -275,9 +259,7 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
         except UpdateFailed:
             raise
         except Exception as err:
-            raise UpdateFailed(
-                f"Unexpected error communicating with API: {err}"
-            ) from err
+            raise UpdateFailed(f"Unexpected error communicating with API: {err}") from err
 
     async def _fetch_all_data(self) -> dict[str, Any]:
         """Fetch all data for all locations."""
@@ -340,9 +322,7 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
                 self._cached_stats["region_stats"] = r_stats
                 keyed_results["region_stats"] = r_stats
             else:
-                keyed_results["region_stats"] = self._cached_stats.get(
-                    "region_stats", {}
-                )
+                keyed_results["region_stats"] = self._cached_stats.get("region_stats", {})
         else:
             keyed_results["region_stats"] = {}
 
@@ -413,9 +393,7 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
             "locations": location_data,
         }
 
-    async def fetch_location_data(
-        self, entry_id: str, lat: float, lon: float, dist: float
-    ) -> dict[str, Any]:
+    async def fetch_location_data(self, entry_id: str, lat: float, lon: float, dist: float) -> dict[str, Any]:
         """Fetch baskets and fairteiler for a specific location."""
         results = await asyncio.gather(
             self.fetch_baskets_for_location(entry_id, lat, lon, dist),
@@ -427,9 +405,7 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
             if isinstance(res, AuthenticationFailed):
                 raise res
 
-        baskets, fairteiler = [
-            (r if not isinstance(r, Exception) else []) for r in results
-        ]
+        baskets, fairteiler = [(r if not isinstance(r, Exception) else []) for r in results]
         return {"baskets": baskets, "fairteiler": fairteiler}
 
     async def login(self, totp: str | None = None) -> bool | str:
@@ -453,9 +429,7 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
                             headers=auth_headers,
                             timeout=aiohttp.ClientTimeout(total=10),
                         ) as current_resp:
-                            _LOGGER.debug(
-                                "Session check status: %s", current_resp.status
-                            )
+                            _LOGGER.debug("Session check status: %s", current_resp.status)
                             if current_resp.status == 200:
                                 current_data = await current_resp.json()
                                 if current_data and "id" in current_data:
@@ -478,9 +452,7 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
                                     await asyncio.sleep(wait_time)
                                     continue
                     except Exception as err:
-                        _LOGGER.debug(
-                            "Session check exception (attempt %d): %s", attempt + 1, err
-                        )
+                        _LOGGER.debug("Session check exception (attempt %d): %s", attempt + 1, err)
                         if attempt < 2:
                             await asyncio.sleep((attempt + 1) * 3)
                             continue
@@ -489,9 +461,7 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
                 # Clear them and try fresh login instead of aborting to prevent loops.
                 # Loops are prevented by the fact that if this fresh login requires 2FA,
                 # we return '2fa_required' which triggers the HA UI flow.
-                has_session_cookie = any(
-                    c.key == "PHPSESSID" for c in self.session.cookie_jar
-                )
+                has_session_cookie = any(c.key == "PHPSESSID" for c in self.session.cookie_jar)
                 if has_session_cookie:
                     _LOGGER.debug(
                         "Session cookie (PHPSESSID) present but validation failed. "
@@ -560,9 +530,7 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
                         _LOGGER.debug("Login successful (200 OK)")
                         user_id = None
                         if isinstance(body, dict):
-                            user_id = body.get("id") or (body.get("user") or {}).get(
-                                "id"
-                            )
+                            user_id = body.get("id") or (body.get("user") or {}).get("id")
 
                         if not user_id:
                             # Fallback: get ID from current user endpoint
@@ -606,24 +574,18 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
         try:
             async with (
                 asyncio.timeout(10),
-                self.session.get(
-                    url_count, headers=self.authenticated_headers
-                ) as response,
+                self.session.get(url_count, headers=self.authenticated_headers) as response,
             ):
                 if response.status == 200:
                     data = await response.json()
                     unread = data.get("unread", 0) if isinstance(data, dict) else 0
                 elif response.status == 401:
-                    raise AuthenticationFailed(
-                        "Unauthorized access while fetching message count."
-                    )
+                    raise AuthenticationFailed("Unauthorized access while fetching message count.")
 
             if unread > 0:
                 async with (
                     asyncio.timeout(10),
-                    self.session.get(
-                        url_conv, headers=self.authenticated_headers
-                    ) as response,
+                    self.session.get(url_conv, headers=self.authenticated_headers) as response,
                 ):
                     if response.status == 200:
                         data = await response.json()
@@ -638,9 +600,7 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
                                                 f"{DOMAIN}_new_message",
                                                 {
                                                     "conversation_id": conv.get("id"),
-                                                    "message": conv.get(
-                                                        "last_message", {}
-                                                    ),
+                                                    "message": conv.get("last_message", {}),
                                                 },
                                             )
         except AuthenticationFailed, UpdateFailed:
@@ -660,11 +620,7 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
                 if response.status == 200:
                     data = await response.json()
                     if isinstance(data, list):
-                        unread_bells = [
-                            b
-                            for b in data
-                            if isinstance(b, dict) and b.get("is_read") == 0
-                        ]
+                        unread_bells = [b for b in data if isinstance(b, dict) and b.get("is_read") == 0]
                         for bell in unread_bells:
                             bell_id = bell.get("id")
                             if bell_id and bell_id not in self._seen_bells:
@@ -673,9 +629,7 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
                                     self.hass.bus.async_fire(f"{DOMAIN}_new_bell", bell)
                         return len(unread_bells)
                 elif response.status == 401:
-                    raise AuthenticationFailed(
-                        "Unauthorized access while fetching notifications."
-                    )
+                    raise AuthenticationFailed("Unauthorized access while fetching notifications.")
         except AuthenticationFailed, UpdateFailed:
             raise
         except Exception as e:
@@ -717,9 +671,7 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
             baskets = await self._fetch_baskets_raw(entry_id, lat, lon, dist * 1000)
         return baskets
 
-    async def _fetch_baskets_raw(
-        self, entry_id: str, lat: float, lon: float, dist: float
-    ) -> list[dict[str, Any]]:
+    async def _fetch_baskets_raw(self, entry_id: str, lat: float, lon: float, dist: float) -> list[dict[str, Any]]:
         """Fetch baskets for a specific location using raw parameters."""
         # Ensure parameters are correctly typed and formatted
         f_lat = f"{float(lat):.6f}"
@@ -732,9 +684,7 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
                 asyncio.timeout(15),
                 self.session.get(url, headers=self.authenticated_headers) as response,
             ):
-                _LOGGER.debug(
-                    "Baskets API %s returned status: %s", url, response.status
-                )
+                _LOGGER.debug("Baskets API %s returned status: %s", url, response.status)
                 if response.status == 200:
                     json_data = await response.json()
                     if not json_data:
@@ -742,14 +692,10 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
                     return self._process_baskets_for_location(entry_id, json_data)
 
                 if response.status == 401:
-                    raise AuthenticationFailed(
-                        "Unauthorized access, token might be expired."
-                    )
+                    raise AuthenticationFailed("Unauthorized access, token might be expired.")
 
                 body = await response.text()
-                _LOGGER.warning(
-                    "Baskets API failed with status %s: %s", response.status, body[:200]
-                )
+                _LOGGER.warning("Baskets API failed with status %s: %s", response.status, body[:200])
                 return []
         except AuthenticationFailed:
             raise
@@ -757,20 +703,14 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
             _LOGGER.debug("Error in _fetch_baskets_raw: %s", e)
             return []
 
-    def _process_baskets_for_location(
-        self, entry_id: str, json_data: Any
-    ) -> list[dict[str, Any]]:
+    def _process_baskets_for_location(self, entry_id: str, json_data: Any) -> list[dict[str, Any]]:
         """Process basket data for a specific location context."""
         entry = self.entries.get(entry_id)
         if not entry:
             return []
 
-        keywords_raw = (
-            entry.options.get(CONF_KEYWORDS, entry.data.get(CONF_KEYWORDS, "")) or ""
-        )
-        keywords = [
-            k.strip().lower() for k in str(keywords_raw).split(",") if k.strip()
-        ]
+        keywords_raw = entry.options.get(CONF_KEYWORDS, entry.data.get(CONF_KEYWORDS, "")) or ""
+        keywords = [k.strip().lower() for k in str(keywords_raw).split(",") if k.strip()]
 
         baskets: list[dict[str, Any]] = []
 
@@ -789,19 +729,13 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
                 )
 
         if not baskets_data and json_data:
-            _LOGGER.debug(
-                "Baskets API returned data but no list was found or it is empty. Status: 200"
-            )
+            _LOGGER.debug("Baskets API returned data but no list was found or it is empty. Status: 200")
 
-        _LOGGER.debug(
-            "Found %d baskets in raw data for location %s", len(baskets_data), entry_id
-        )
+        _LOGGER.debug("Found %d baskets in raw data for location %s", len(baskets_data), entry_id)
 
         # Ensure all elements are dicts and have an ID
         baskets_data = [b for b in baskets_data if isinstance(b, dict) and b.get("id")]
-        baskets_data = sorted(
-            baskets_data, key=lambda x: str(x.get("id", "")), reverse=True
-        )
+        baskets_data = sorted(baskets_data, key=lambda x: str(x.get("id", "")), reverse=True)
 
         for basket in baskets_data:
             basket_id = basket.get("id")
@@ -813,13 +747,9 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
             if until_raw:
                 try:
                     if isinstance(until_raw, (int, float)):
-                        until_str = datetime.fromtimestamp(until_raw, tz=UTC).strftime(
-                            "%c"
-                        )
+                        until_str = datetime.fromtimestamp(until_raw, tz=UTC).strftime("%c")
                     else:
-                        dt = datetime.fromisoformat(
-                            str(until_raw).replace("Z", "+00:00")
-                        )
+                        dt = datetime.fromisoformat(str(until_raw).replace("Z", "+00:00"))
                         until_str = dt.strftime("%c")
                 except Exception:
                     until_str = str(until_raw)
@@ -881,9 +811,7 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
 
         return baskets
 
-    async def fetch_food_share_points_for_location(
-        self, lat: float, lon: float, dist: float
-    ) -> list[dict[str, Any]]:
+    async def fetch_food_share_points_for_location(self, lat: float, lon: float, dist: float) -> list[dict[str, Any]]:
         """Fetch nearby Fairteiler for a specific location."""
         points = await self._fetch_fairteiler_raw(lat, lon, dist)
         if not points and dist < 100:
@@ -895,9 +823,7 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
             points = await self._fetch_fairteiler_raw(lat, lon, dist * 1000)
         return points
 
-    async def _fetch_fairteiler_raw(
-        self, lat: float, lon: float, dist: float
-    ) -> list[dict[str, Any]]:
+    async def _fetch_fairteiler_raw(self, lat: float, lon: float, dist: float) -> list[dict[str, Any]]:
         """Fetch nearby Fairteiler for a specific location using raw parameters."""
         url = f"{self.base_url}/api/foodSharePoints/nearby?lat={lat}&lon={lon}&distance={dist}"
         points: list[dict[str, Any]] = []
@@ -906,17 +832,13 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
         try:
             semaphore = asyncio.Semaphore(5)
 
-            async def fetch_wall(
-                fp_id: int, fp_name: str, fp_entry: dict[str, Any]
-            ) -> None:
+            async def fetch_wall(fp_id: int, fp_name: str, fp_entry: dict[str, Any]) -> None:
                 async with semaphore:
                     wall_url = f"{self.base_url}/api/fairteiler/{fp_id}/wall"
                     try:
                         async with (
                             asyncio.timeout(5),
-                            self.session.get(
-                                wall_url, headers=self.authenticated_headers
-                            ) as wall_res,
+                            self.session.get(wall_url, headers=self.authenticated_headers) as wall_res,
                         ):
                             if wall_res.status == 200:
                                 wall_data = await wall_res.json()
@@ -925,10 +847,7 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
                                     fp_entry["latest_post"] = latest_post
 
                                     post_id = latest_post.get("id")
-                                    if (
-                                        post_id
-                                        and post_id not in self._seen_fairteiler_posts
-                                    ):
+                                    if post_id and post_id not in self._seen_fairteiler_posts:
                                         self._seen_fairteiler_posts.add(post_id)
                                         if not self._is_first_update:
                                             self.hass.bus.async_fire(
@@ -940,9 +859,7 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
                                                 },
                                             )
                             elif wall_res.status == 401:
-                                raise AuthenticationFailed(
-                                    "Unauthorized access while fetching fairteiler wall."
-                                )
+                                raise AuthenticationFailed("Unauthorized access while fetching fairteiler wall.")
                     except AuthenticationFailed:
                         raise
                     except Exception as e:
@@ -968,9 +885,7 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
                                 break
 
                     if not fairteiler_data and json_data:
-                        _LOGGER.debug(
-                            "Fairteiler API returned data but no list found or empty."
-                        )
+                        _LOGGER.debug("Fairteiler API returned data but no list found or empty.")
 
                     for fp in fairteiler_data:
                         if not isinstance(fp, dict):
@@ -1001,13 +916,9 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
                         if fp_id:
                             wall_tasks.append(fetch_wall(fp_id, fp_name, fp_entry))
                 elif response.status == 401:
-                    raise AuthenticationFailed(
-                        "Unauthorized access while fetching fairteiler."
-                    )
+                    raise AuthenticationFailed("Unauthorized access while fetching fairteiler.")
                 else:
-                    _LOGGER.debug(
-                        "Food Share Points fetch returned %s", response.status
-                    )
+                    _LOGGER.debug("Food Share Points fetch returned %s", response.status)
                     return []
 
             if wall_tasks:
@@ -1039,9 +950,7 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
                         result = data.get("pickups", data.get("data", []))
                         return result if isinstance(result, list) else []
                 elif response.status == 401:
-                    raise AuthenticationFailed(
-                        "Unauthorized access while fetching pickups."
-                    )
+                    raise AuthenticationFailed("Unauthorized access while fetching pickups.")
                 elif response.status in (403, 404):
                     _LOGGER.debug(
                         "Pickups not accessible (status %s). User might not be a Foodsaver.",
@@ -1050,9 +959,7 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
                     return []
                 else:
                     body = await response.text()
-                    _LOGGER.error(
-                        "Error fetching pickups: HTTP %s - %s", response.status, body
-                    )
+                    _LOGGER.error("Error fetching pickups: HTTP %s - %s", response.status, body)
         except AuthenticationFailed, UpdateFailed:
             raise
         except Exception as e:
@@ -1077,13 +984,9 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
                                 return [r for r in data[key] if isinstance(r, dict)]
                         return []
                 elif response.status == 401:
-                    raise AuthenticationFailed(
-                        "Unauthorized access while fetching own baskets."
-                    )
+                    raise AuthenticationFailed("Unauthorized access while fetching own baskets.")
                 elif response.status in (403, 404):
-                    _LOGGER.debug(
-                        "Own baskets not accessible (status %s).", response.status
-                    )
+                    _LOGGER.debug("Own baskets not accessible (status %s).", response.status)
                     return []
         except AuthenticationFailed:
             raise
@@ -1104,9 +1007,7 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
                     data = await response.json()
                     return data if isinstance(data, dict) else {}
                 elif response.status == 401:
-                    raise AuthenticationFailed(
-                        "Unauthorized access while fetching statistics."
-                    )
+                    raise AuthenticationFailed("Unauthorized access while fetching statistics.")
         except AuthenticationFailed:
             raise
         except Exception as e:
@@ -1174,7 +1075,9 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
             _LOGGER.debug("Error fetching region stats: %s", e)
         return {}
 
-    def _normalize_account_results(self, results: dict[str, Any]) -> tuple[
+    def _normalize_account_results(
+        self, results: dict[str, Any]
+    ) -> tuple[
         int,
         int,
         list[dict[str, Any]],

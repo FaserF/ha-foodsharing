@@ -15,9 +15,7 @@ async def test_full_authentication_flow():
     password = "password123"
     totp = "123456"
 
-    with patch(
-        "custom_components.foodsharing.config_flow.async_get_clientsession"
-    ) as mock_session_getter:
+    with patch("custom_components.foodsharing.config_flow.async_get_clientsession") as mock_session_getter:
         mock_session = MagicMock(spec=aiohttp.ClientSession)
         mock_session_getter.return_value = mock_session
         hass = MagicMock()

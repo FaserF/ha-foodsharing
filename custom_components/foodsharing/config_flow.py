@@ -61,9 +61,7 @@ async def validate_credentials(
 
     try:
         # Get CSRF token by hitting /login first
-        async with session.get(
-            f"{base_url}/login", headers={"User-Agent": user_agent}, timeout=timeout
-        ) as login_page:
+        async with session.get(f"{base_url}/login", headers={"User-Agent": user_agent}, timeout=timeout) as login_page:
             await login_page.text()
             # Check cookies for XSRF token
             xsrf_token_val = None
@@ -78,15 +76,11 @@ async def validate_credentials(
         if not totp:
             # Check if we accidentally already have a session
             current_url = f"{base_url}/api/users/current"
-            async with session.get(
-                current_url, headers=headers, timeout=timeout
-            ) as current_resp:
+            async with session.get(current_url, headers=headers, timeout=timeout) as current_resp:
                 if current_resp.status == 200:
                     current_data = await current_resp.json()
                     if isinstance(current_data, dict) and "id" in current_data:
-                        _LOGGER.debug(
-                            "Found existing session for user %s", current_data["id"]
-                        )
+                        _LOGGER.debug("Found existing session for user %s", current_data["id"])
                         return str(current_data["id"])
     except Exception as err:
         _LOGGER.debug("Initial setup check failed or timed out: %s", err)
@@ -109,9 +103,7 @@ async def validate_credentials(
             "Yes" if totp else "No",
             use_beta,
         )
-        async with session.post(
-            login_url, json=login_payload, timeout=timeout, headers=headers
-        ) as response:
+        async with session.post(login_url, json=login_payload, timeout=timeout, headers=headers) as response:
             if response.status == 200:
                 body = None
                 try:
@@ -126,9 +118,7 @@ async def validate_credentials(
                 if not user_id:
                     try:
                         current_url = f"{base_url}/api/users/current"
-                        async with session.get(
-                            current_url, headers=headers, timeout=timeout
-                        ) as current_resp:
+                        async with session.get(current_url, headers=headers, timeout=timeout) as current_resp:
                             if current_resp.status == 200:
                                 current_data = await current_resp.json()
                                 user_id = current_data.get("id")
@@ -218,9 +208,7 @@ class FoodsharingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # type: 
         self._user_input: dict[str, Any] = {}
         self._locations: list[dict[str, Any]] = []
 
-    async def async_step_user(
-        self, user_input: dict[str, Any] | None = None
-    ) -> config_entries.ConfigFlowResult:
+    async def async_step_user(self, user_input: dict[str, Any] | None = None) -> config_entries.ConfigFlowResult:
         """Handle the initial step: credentials + first location."""
         errors = {}
 
@@ -231,9 +219,7 @@ class FoodsharingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # type: 
                 use_beta = user_input.get(CONF_USE_BETA_API, False)
                 domain = user_input.get(CONF_DOMAIN, "foodsharing_de")
 
-                res = await validate_credentials(
-                    self.hass, email, password, use_beta=use_beta, domain=domain
-                )
+                res = await validate_credentials(self.hass, email, password, use_beta=use_beta, domain=domain)
                 if res == "cannot_connect":
                     errors["base"] = "cannot_connect"
                 elif isinstance(res, dict) and res.get("2fa_required"):
@@ -263,25 +249,15 @@ class FoodsharingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # type: 
                         "longitude": self.hass.config.longitude,
                         "radius": 7000,
                     },
-                ): selector.LocationSelector(
-                    selector.LocationSelectorConfig(radius=True)
-                ),
+                ): selector.LocationSelector(selector.LocationSelectorConfig(radius=True)),
                 vol.Optional(CONF_KEYWORDS, default=""): str,
                 vol.Required(CONF_SCAN_INTERVAL, default=2): cv.positive_int,
-                vol.Required(
-                    CONF_DOMAIN, default="foodsharing_de"
-                ): selector.SelectSelector(
+                vol.Required(CONF_DOMAIN, default="foodsharing_de"): selector.SelectSelector(
                     selector.SelectSelectorConfig(
                         options=[
-                            selector.SelectOptionDict(
-                                value="foodsharing_de", label="foodsharing.de"
-                            ),
-                            selector.SelectOptionDict(
-                                value="foodsharing_at", label="foodsharing.at"
-                            ),
-                            selector.SelectOptionDict(
-                                value="foodsharing_ch", label="foodsharing.ch"
-                            ),
+                            selector.SelectOptionDict(value="foodsharing_de", label="foodsharing.de"),
+                            selector.SelectOptionDict(value="foodsharing_at", label="foodsharing.at"),
+                            selector.SelectOptionDict(value="foodsharing_ch", label="foodsharing.ch"),
                         ],
                         translation_key="domain",
                         mode=selector.SelectSelectorMode.DROPDOWN,
@@ -291,13 +267,9 @@ class FoodsharingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # type: 
             },
         )
 
-        return self.async_show_form(
-            step_id="user", data_schema=data_schema, errors=errors
-        )
+        return self.async_show_form(step_id="user", data_schema=data_schema, errors=errors)
 
-    async def async_step_reauth(
-        self, entry_data: dict[str, Any]
-    ) -> config_entries.ConfigFlowResult:
+    async def async_step_reauth(self, entry_data: dict[str, Any]) -> config_entries.ConfigFlowResult:
         """Handle re-authentication."""
         self._user_input = dict(entry_data)
         return await self.async_step_reauth_confirm()
@@ -312,9 +284,7 @@ class FoodsharingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # type: 
             password = user_input[CONF_PASSWORD]
             use_beta = self._user_input.get(CONF_USE_BETA_API, False)
 
-            res = await validate_credentials(
-                self.hass, email, password, use_beta=use_beta
-            )
+            res = await validate_credentials(self.hass, email, password, use_beta=use_beta)
             if res == "cannot_connect":
                 errors["base"] = "cannot_connect"
             elif isinstance(res, dict) and res.get("2fa_required"):
@@ -324,18 +294,14 @@ class FoodsharingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # type: 
                 errors["base"] = "invalid_auth"
             else:
                 new_data = {**self._user_input, CONF_PASSWORD: password}
-                return self.async_update_reload_and_abort(
-                    self._get_reauth_entry(), data=new_data
-                )
+                return self.async_update_reload_and_abort(self._get_reauth_entry(), data=new_data)
 
         return self.async_show_form(
             step_id="reauth_confirm",
             data_schema=vol.Schema(
                 {
                     vol.Required(CONF_PASSWORD): selector.TextSelector(
-                        selector.TextSelectorConfig(
-                            type=selector.TextSelectorType.PASSWORD
-                        )
+                        selector.TextSelectorConfig(type=selector.TextSelectorType.PASSWORD)
                     ),
                 }
             ),
@@ -343,9 +309,7 @@ class FoodsharingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # type: 
             errors=errors,
         )
 
-    async def async_step_totp(
-        self, user_input: dict[str, Any] | None = None
-    ) -> config_entries.ConfigFlowResult:
+    async def async_step_totp(self, user_input: dict[str, Any] | None = None) -> config_entries.ConfigFlowResult:
         """Handle 2FA (TOTP) step."""
         errors = {}
         if user_input is not None:
@@ -370,9 +334,7 @@ class FoodsharingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # type: 
                         return self.async_update_reload_and_abort(entry, data=new_data)
 
                     if CONF_LOCATION in self._user_input:
-                        self._locations = [
-                            _location_to_dict(self._user_input[CONF_LOCATION])
-                        ]
+                        self._locations = [_location_to_dict(self._user_input[CONF_LOCATION])]
                     return await self.async_step_add_location()
             except Exception as err:
                 _LOGGER.exception("Unexpected error in async_step_totp: %s", err)
@@ -391,11 +353,7 @@ class FoodsharingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # type: 
         if user_input is not None:
             removals = user_input.get("remove_locations", [])
             if removals:
-                self._locations = [
-                    loc
-                    for i, loc in enumerate(self._locations)
-                    if str(i) not in removals
-                ]
+                self._locations = [loc for i, loc in enumerate(self._locations) if str(i) not in removals]
 
             if user_input.get("add_another"):
                 return await self.async_step_extra_location()
@@ -408,11 +366,7 @@ class FoodsharingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # type: 
                 loc.get("longitude"),
                 loc.get("distance"),
             )
-            remove_options.append(
-                selector.SelectOptionDict(
-                    value=str(i), label=f"#{i + 1}: {lat}, {lon} ({dist}km)"
-                )
-            )
+            remove_options.append(selector.SelectOptionDict(value=str(i), label=f"#{i + 1}: {lat}, {lon} ({dist}km)"))
 
         schema_dict: dict[Any, Any] = {vol.Required("add_another", default=False): bool}
         if remove_options:
@@ -449,9 +403,7 @@ class FoodsharingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # type: 
                             "longitude": self.hass.config.longitude,
                             "radius": 7000,
                         },
-                    ): selector.LocationSelector(
-                        selector.LocationSelectorConfig(radius=True)
-                    ),
+                    ): selector.LocationSelector(selector.LocationSelectorConfig(radius=True)),
                 }
             ),
         )
@@ -503,9 +455,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow):  # type: ignore[misc]
         self._locations: list[dict[str, Any]] = []
         self._user_input: dict[str, Any] = {}
 
-    async def async_step_init(
-        self, user_input: dict[str, Any] | None = None
-    ) -> config_entries.ConfigFlowResult:
+    async def async_step_init(self, user_input: dict[str, Any] | None = None) -> config_entries.ConfigFlowResult:
         """Handle options flow — credentials + primary location."""
         errors = {}
         if user_input is not None:
@@ -575,9 +525,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow):  # type: ignore[misc]
         options_schema = vol.Schema(
             {
                 vol.Required(CONF_EMAIL, default=options.get(CONF_EMAIL, "")): str,
-                vol.Required(
-                    CONF_PASSWORD, default=options.get(CONF_PASSWORD, "")
-                ): selector.TextSelector(
+                vol.Required(CONF_PASSWORD, default=options.get(CONF_PASSWORD, "")): selector.TextSelector(
                     selector.TextSelectorConfig(type=selector.TextSelectorType.PASSWORD)
                 ),
                 vol.Required(
@@ -591,50 +539,29 @@ class OptionsFlowHandler(config_entries.OptionsFlow):  # type: ignore[misc]
                             "longitude",
                             options.get(CONF_LONGITUDE_FS, self.hass.config.longitude),
                         ),
-                        "radius": primary.get("distance", options.get(CONF_DISTANCE, 7))
-                        * 1000,
+                        "radius": primary.get("distance", options.get(CONF_DISTANCE, 7)) * 1000,
                     },
-                ): selector.LocationSelector(
-                    selector.LocationSelectorConfig(radius=True)
-                ),
-                vol.Optional(
-                    CONF_KEYWORDS, default=options.get(CONF_KEYWORDS, "")
-                ): str,
-                vol.Required(
-                    CONF_SCAN_INTERVAL, default=options.get(CONF_SCAN_INTERVAL, 2)
-                ): cv.positive_int,
-                vol.Required(
-                    CONF_DOMAIN, default=options.get(CONF_DOMAIN, "foodsharing_de")
-                ): selector.SelectSelector(
+                ): selector.LocationSelector(selector.LocationSelectorConfig(radius=True)),
+                vol.Optional(CONF_KEYWORDS, default=options.get(CONF_KEYWORDS, "")): str,
+                vol.Required(CONF_SCAN_INTERVAL, default=options.get(CONF_SCAN_INTERVAL, 2)): cv.positive_int,
+                vol.Required(CONF_DOMAIN, default=options.get(CONF_DOMAIN, "foodsharing_de")): selector.SelectSelector(
                     selector.SelectSelectorConfig(
                         options=[
-                            selector.SelectOptionDict(
-                                value="foodsharing_de", label="foodsharing.de"
-                            ),
-                            selector.SelectOptionDict(
-                                value="foodsharing_at", label="foodsharing.at"
-                            ),
-                            selector.SelectOptionDict(
-                                value="foodsharing_ch", label="foodsharing.ch"
-                            ),
+                            selector.SelectOptionDict(value="foodsharing_de", label="foodsharing.de"),
+                            selector.SelectOptionDict(value="foodsharing_at", label="foodsharing.at"),
+                            selector.SelectOptionDict(value="foodsharing_ch", label="foodsharing.ch"),
                         ],
                         translation_key="domain",
                         mode=selector.SelectSelectorMode.DROPDOWN,
                     )
                 ),
-                vol.Optional(
-                    CONF_USE_BETA_API, default=options.get(CONF_USE_BETA_API, False)
-                ): bool,
+                vol.Optional(CONF_USE_BETA_API, default=options.get(CONF_USE_BETA_API, False)): bool,
             }
         )
 
-        return self.async_show_form(
-            step_id="init", data_schema=options_schema, errors=errors
-        )
+        return self.async_show_form(step_id="init", data_schema=options_schema, errors=errors)
 
-    async def async_step_totp(
-        self, user_input: dict[str, Any] | None = None
-    ) -> config_entries.ConfigFlowResult:
+    async def async_step_totp(self, user_input: dict[str, Any] | None = None) -> config_entries.ConfigFlowResult:
         """Handle 2FA (TOTP) step for options."""
         errors = {}
         if user_input is not None:
@@ -655,9 +582,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow):  # type: ignore[misc]
                 else:
                     return await self.async_step_manage_locations()
             except Exception as err:
-                _LOGGER.exception(
-                    "Unexpected error in options async_step_totp: %s", err
-                )
+                _LOGGER.exception("Unexpected error in options async_step_totp: %s", err)
                 errors["base"] = "unknown"
 
         return self.async_show_form(
@@ -677,11 +602,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow):  # type: ignore[misc]
         if user_input is not None:
             removals = user_input.get("remove_locations", [])
             if removals:
-                self._locations = [
-                    loc
-                    for i, loc in enumerate(self._locations)
-                    if str(i) not in removals
-                ]
+                self._locations = [loc for i, loc in enumerate(self._locations) if str(i) not in removals]
 
             if user_input.get("add_another"):
                 return await self.async_step_extra_location_option()
@@ -694,11 +615,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow):  # type: ignore[misc]
                 loc.get("longitude"),
                 loc.get("distance"),
             )
-            remove_options.append(
-                selector.SelectOptionDict(
-                    value=str(i), label=f"#{i + 1}: {lat}, {lon} ({dist}km)"
-                )
-            )
+            remove_options.append(selector.SelectOptionDict(value=str(i), label=f"#{i + 1}: {lat}, {lon} ({dist}km)"))
 
         schema_dict: dict[Any, Any] = {vol.Required("add_another", default=False): bool}
         if remove_options:
@@ -738,9 +655,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow):  # type: ignore[misc]
                             "longitude": self.hass.config.longitude,
                             "radius": 7000,
                         },
-                    ): selector.LocationSelector(
-                        selector.LocationSelectorConfig(radius=True)
-                    ),
+                    ): selector.LocationSelector(selector.LocationSelectorConfig(radius=True)),
                 }
             ),
         )
@@ -769,8 +684,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow):  # type: ignore[misc]
                 (
                     e
                     for e in self.hass.config_entries.async_entries(DOMAIN)
-                    if e.unique_id == new_unique_id
-                    and e.entry_id != self.config_entry.entry_id
+                    if e.unique_id == new_unique_id and e.entry_id != self.config_entry.entry_id
                 ),
                 None,
             )

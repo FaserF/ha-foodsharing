@@ -22,9 +22,7 @@ def test_sensor_init():
     mock_entry.options = {}
     mock_coordinator.email = "test@example.com"
 
-    sensor = FoodsharingSensor(
-        mock_coordinator, mock_entry, loc_idx=0, lat=50.0, lon=10.0
-    )
+    sensor = FoodsharingSensor(mock_coordinator, mock_entry, loc_idx=0, lat=50.0, lon=10.0)
     assert sensor.translation_key == "baskets"
     assert sensor._attr_unique_id == f"Foodsharing-Baskets-{mock_entry.entry_id}-0"
 
@@ -81,9 +79,7 @@ def test_fairteiler_sensor():
         }
     }
 
-    sensor = FoodsharingFairteilerSensor(
-        mock_coordinator, mock_entry, loc_idx=0, lat=50.0, lon=10.0
-    )
+    sensor = FoodsharingFairteilerSensor(mock_coordinator, mock_entry, loc_idx=0, lat=50.0, lon=10.0)
     assert sensor.translation_key == "fairteiler"
     assert sensor.native_value == 2
     assert len(sensor.extra_state_attributes["fairteiler"]) == 2
@@ -140,9 +136,7 @@ def test_buddies_sensor():
 def test_bananas_sensor():
     """Test bananas sensor."""
     mock_coordinator = MagicMock()
-    mock_coordinator.data = {
-        "account": {"bananas": {"receivedCount": 5, "givenCount": 3}}
-    }
+    mock_coordinator.data = {"account": {"bananas": {"receivedCount": 5, "givenCount": 3}}}
 
     sensor = FoodsharingBananasSensor(mock_coordinator, "test@example.com")
     assert sensor.translation_key == "bananas"

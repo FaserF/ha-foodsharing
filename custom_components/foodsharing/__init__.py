@@ -110,9 +110,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
             url = f"{coordinator.base_url}/api/baskets/{basket_id}/request"
             try:
-                async with coordinator.session.post(
-                    url, headers=coordinator.authenticated_headers
-                ) as response:
+                async with coordinator.session.post(url, headers=coordinator.authenticated_headers) as response:
                     if response.status == 200:
                         _LOGGER.info(
                             "Successfully requested basket %s using account %s",
@@ -167,9 +165,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
             url = f"{coordinator.base_url}/api/baskets/{basket_id}/close"
             try:
-                async with coordinator.session.post(
-                    url, headers=coordinator.authenticated_headers
-                ) as response:
+                async with coordinator.session.post(url, headers=coordinator.authenticated_headers) as response:
                     if response.status == 200:
                         _LOGGER.info(
                             "Successfully closed own basket %s using account %s",
@@ -190,9 +186,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     # Registers update listener to update config entry when options are updated.
     unsub_options_update_listener = entry.add_update_listener(options_update_listener)
-    hass.data[DOMAIN][entry.entry_id][
-        "unsub_options_update_listener"
-    ] = unsub_options_update_listener
+    hass.data[DOMAIN][entry.entry_id]["unsub_options_update_listener"] = unsub_options_update_listener
 
     # Forward the setup to the specific platforms.
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
@@ -200,9 +194,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     return True
 
 
-async def options_update_listener(
-    hass: HomeAssistant, config_entry: ConfigEntry
-) -> None:
+async def options_update_listener(hass: HomeAssistant, config_entry: ConfigEntry) -> None:
     """Handle options update."""
     await hass.config_entries.async_reload(config_entry.entry_id)
 
@@ -252,16 +244,12 @@ async def async_migrate_entry(hass: HomeAssistant, config_entry: ConfigEntry) ->
             new_unique_id = f"{email}_{lat}_{lon}"
 
             # Apply migration to version 2
-            hass.config_entries.async_update_entry(
-                config_entry, data=new, version=2, unique_id=new_unique_id
-            )
+            hass.config_entries.async_update_entry(config_entry, data=new, version=2, unique_id=new_unique_id)
 
         if "keywords" not in new_options:
             new_options["keywords"] = ""
 
-        hass.config_entries.async_update_entry(
-            config_entry, options=new_options, version=3
-        )
+        hass.config_entries.async_update_entry(config_entry, options=new_options, version=3)
 
     if config_entry.version in [3, 4]:
         new = dict(config_entry.data)
@@ -272,9 +260,7 @@ async def async_migrate_entry(hass: HomeAssistant, config_entry: ConfigEntry) ->
         lon = new_options.get(CONF_LONGITUDE_FS, new.get(CONF_LONGITUDE_FS))
         dist = new_options.get(CONF_DISTANCE, new.get(CONF_DISTANCE, 7))
         if lat is not None and lon is not None and CONF_LOCATIONS not in new:
-            new[CONF_LOCATIONS] = [
-                {"latitude": lat, "longitude": lon, "distance": dist}
-            ]
+            new[CONF_LOCATIONS] = [{"latitude": lat, "longitude": lon, "distance": dist}]
 
         # Remove obsolete flat keys
         for key in (CONF_LATITUDE_FS, CONF_LONGITUDE_FS, CONF_DISTANCE):
@@ -284,9 +270,7 @@ async def async_migrate_entry(hass: HomeAssistant, config_entry: ConfigEntry) ->
         # Normalise unique_id to just the email address
         email = new.get(CONF_EMAIL, "").lower()
 
-        hass.config_entries.async_update_entry(
-            config_entry, data=new, options=new_options, version=5, unique_id=email
-        )
+        hass.config_entries.async_update_entry(config_entry, data=new, options=new_options, version=5, unique_id=email)
 
     _LOGGER.info(
         "Successfully migrated foodsharing config entry to version %s",
