@@ -135,16 +135,16 @@ def get_formatted_item(display: str, hashes: list, repo: str, commit_authors: di
             if author:
                 author_lower = author.lower()
                 is_ignored = (
-                    "faserf" in author_lower or
-                    "action" in author_lower or
-                    "bot" in author_lower or
-                    "dependabot" in author_lower or
-                    "fabian" in author_lower or
-                    "seitz" in author_lower
+                    "faserf" in author_lower
+                    or "action" in author_lower
+                    or "bot" in author_lower
+                    or "dependabot" in author_lower
+                    or "fabian" in author_lower
+                    or "seitz" in author_lower
                 )
                 if not is_ignored:
                     attributions.append(f"thanks to @{author} for this contribution!")
-        
+
         hash_str = ", ".join(links)
         attr_str = f" — {', '.join(attributions)}" if attributions else ""
         return f"{display} ({hash_str}){attr_str}"
@@ -352,9 +352,7 @@ def main():
 
         if collapse:
             for i in range(MAX_PER_SECTION):
-                formatted = get_formatted_item(
-                    bucket[i]["display"], bucket[i]["hashes"], repo, commit_authors
-                )
+                formatted = get_formatted_item(bucket[i]["display"], bucket[i]["hashes"], repo, commit_authors)
                 out.append(f"- {formatted}")
             remaining = len(bucket) - MAX_PER_SECTION
             out.append("")
@@ -362,9 +360,7 @@ def main():
             out.append(f"<summary>Show {remaining} more changes…</summary>")
             out.append("")
             for i in range(MAX_PER_SECTION, len(bucket)):
-                formatted = get_formatted_item(
-                    bucket[i]["display"], bucket[i]["hashes"], repo, commit_authors
-                )
+                formatted = get_formatted_item(bucket[i]["display"], bucket[i]["hashes"], repo, commit_authors)
                 out.append(f"- {formatted}")
             out.append("")
             out.append("</details>")
