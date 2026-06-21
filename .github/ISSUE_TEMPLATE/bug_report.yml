@@ -18,7 +18,7 @@ body:
     attributes:
       label: Integration Version
       description: Which version of the Foodsharing integration are you using?
-      placeholder: e.g. v2026.6.0
+      placeholder: e.g. vv2026.6.0
     validations:
       required: true
 
@@ -84,7 +84,7 @@ body:
         2. Click on '...'
         3. See error
     validations:
-      required: true
+      required: false
 
   - type: textarea
     id: expected_behavior
@@ -92,7 +92,7 @@ body:
       label: Expected Behavior
       description: A clear and concise description of what you expected to happen.
     validations:
-      required: true
+      required: false
 
   - type: textarea
     id: diagnostics
