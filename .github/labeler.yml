@@ -1,33 +1,22 @@
-# Add 'core' label to any changes in the main integration code
-core:
-  - changed-files:
-      - any-glob-to-any-file: 'custom_components/foodsharing/**/*.py'
+# Add "enhancement" label to PRs modifying feat/* branches
+enhancement:
+  - head-branch: ['^feat/', '^feature/']
 
-# Add 'docs' label to any changes in documentation
-docs:
-  - changed-files:
-      - any-glob-to-any-file: 'README.md'
-      - any-glob-to-any-file: 'images/**/*'
+# Add "bug" label to PRs modifying fix/* branches
+bug:
+  - head-branch: ['^fix/', '^bugfix/']
 
-# Add 'translation' label to any translation updates
-translation:
+# Add "documentation" label
+documentation:
   - changed-files:
-      - any-glob-to-any-file: 'custom_components/foodsharing/translations/**/*'
+    - any-glob-to-any-file: ['**/*.md']
 
-# Add 'tests' label to any changes in the test suite
+# Add "ci" label
+ci:
+  - changed-files:
+    - any-glob-to-any-file: ['.github/**']
+
+# Add "tests" label
 tests:
   - changed-files:
-      - any-glob-to-any-file: 'tests/**/*'
-      - any-glob-to-any-file: 'pytest.ini'
-      - any-glob-to-any-file: 'requirements_test.txt'
-
-# Add 'dependencies' label if requirement files change
-dependencies:
-  - changed-files:
-      - any-glob-to-any-file: 'requirements.txt'
-      - any-glob-to-any-file: 'hacs.json'
-
-# Add 'workflows' label if GitHub actions change
-workflows:
-  - changed-files:
-      - any-glob-to-any-file: '.github/workflows/**/*'
+    - any-glob-to-any-file: ['tests/**']
