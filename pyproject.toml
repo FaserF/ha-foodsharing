@@ -1,6 +1,6 @@
 [project]
 name = "ha-foodsharing"
-version = "2026.2.0"
+version = "2026.6.0-dev0"
 description = "Foodsharing Custom Component for Home Assistant"
 readme = "README.md"
 requires-python = ">=3.14"
