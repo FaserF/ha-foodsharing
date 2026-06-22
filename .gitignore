@@ -26,3 +26,8 @@ test_api_signature.py
 *ruff*.txt
 test_login.py
 live_test_user.py
+
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+*.pyc
