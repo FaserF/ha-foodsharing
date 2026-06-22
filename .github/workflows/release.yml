@@ -214,7 +214,8 @@ jobs:
 
       - name: 📦 Zip Component
         run: |
-          zip -r foodsharing.zip custom_components/foodsharing
+          cd custom_components/foodsharing
+          zip -r ../../foodsharing.zip .
 
       - name: Download Release Body Artifact
         uses: actions/download-artifact@v8
