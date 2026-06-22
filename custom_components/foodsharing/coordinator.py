@@ -603,7 +603,7 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
                                                     "message": conv.get("last_message", {}),
                                                 },
                                             )
-        except (AuthenticationFailed, UpdateFailed):
+        except AuthenticationFailed, UpdateFailed:
             raise
         except Exception as e:
             _LOGGER.debug("Error fetching conversations: %s", e)
@@ -630,7 +630,7 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
                         return len(unread_bells)
                 elif response.status == 401:
                     raise AuthenticationFailed("Unauthorized access while fetching notifications.")
-        except (AuthenticationFailed, UpdateFailed):
+        except AuthenticationFailed, UpdateFailed:
             raise
         except Exception as e:
             _LOGGER.debug("Error fetching bells: %s", e)
@@ -960,7 +960,7 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
                 else:
                     body = await response.text()
                     _LOGGER.error("Error fetching pickups: HTTP %s - %s", response.status, body)
-        except (AuthenticationFailed, UpdateFailed):
+        except AuthenticationFailed, UpdateFailed:
             raise
         except Exception as e:
             _LOGGER.error("Error fetching pickups: %s", e)
