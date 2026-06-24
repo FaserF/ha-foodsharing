@@ -1,4 +1,5 @@
 [![hacs_badge](https://img.shields.io/badge/HACS-Default-41BDF5.svg?style=for-the-badge)](https://github.com/hacs/integration)
+[![Downloads (Current release)](https://img.shields.io/github/downloads/FaserF/ha-foodsharing/latest/foodsharing.zip?label=Downloads%20(Current%20release)&style=for-the-badge)](https://github.com/FaserF/ha-foodsharing/releases)
 [![GitHub Release](https://img.shields.io/github/v/release/FaserF/ha-foodsharing?style=for-the-badge)](https://github.com/FaserF/ha-foodsharing/releases)
 
 # Foodsharing.de Home Assistant Integration 🧺
