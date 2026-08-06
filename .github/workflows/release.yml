@@ -13,17 +13,6 @@ on:
           - stable
           - beta
           - nightly
-
-      bump_level:
-        description: "Bump Level (SemVer only: major, minor, patch)"
-        required: false
-        default: "patch"
-        type: choice
-        options:
-          - patch
-          - minor
-          - major
-
       version_override:
         description: "Manually override new version (e.g. 1.2.3 or 2026.6.2b1). Leave empty to use automatic calculation."
         required: false
@@ -119,23 +108,11 @@ jobs:
           fi
 
       - name: Upload Updated Components
-
-
         uses: actions/upload-artifact@v7
-
-
         with:
-
-
           name: updated-components
-
-
           path: custom_components/
-
-
           retention-days: 1
-
-
 
       - name: Commit and Push
         run: |
@@ -150,7 +127,7 @@ jobs:
         with:
           name: release-body
 
-      - name: Update Draft Status (Zipping Integration)
+      - name: Update Draft Status
         shell: bash
         run: |
           cp release_body.md updated_draft_body.md
@@ -201,20 +178,10 @@ jobs:
           git pull --rebase origin ${{ github.ref_name }}
 
       - name: Download Updated Components
-
-
         uses: actions/download-artifact@v8
-
-
         with:
-
-
           name: updated-components
-
-
           path: custom_components/
-
-
 
       - name: 📦 Zip Component
         run: |
@@ -302,8 +269,6 @@ jobs:
             gh release delete "$TAG" --yes --cleanup-tag 2>/dev/null || true
           fi
 
-
- 
       - name: Delete Component Artifact
         uses: actions/github-script@v9
         with:

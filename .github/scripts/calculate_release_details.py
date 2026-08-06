@@ -1,15 +1,18 @@
-#!/usr/bin/env python3
 import glob
 import json
 import os
 import re
 import subprocess
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 def run_git(args):
     try:
-        return subprocess.check_output(["git"] + args, stderr=subprocess.DEVNULL).decode("utf-8").strip()
+        return (
+            subprocess.check_output(["git"] + args, stderr=subprocess.DEVNULL)
+            .decode("utf-8")
+            .strip()
+        )
     except subprocess.CalledProcessError:
         return ""
 
@@ -45,7 +48,11 @@ def main():
         if os.path.exists("docs"):
             docs_url = f"https://{owner}.github.io/{repo_name}/"
         else:
-            docs_url = f"https://github.com/{repo}" if repo else f"https://github.com/faserf/{repo_name}"
+            docs_url = (
+                f"https://github.com/{repo}"
+                if repo
+                else f"https://github.com/faserf/{repo_name}"
+            )
 
     # Calculate version via version_manager
     bump_args = [
@@ -141,8 +148,10 @@ def main():
                 .decode("utf-8")
                 .strip()
             )
-        except Exception:
-            changelog_md = "_Changelog could not be generated automatically. See commit history._"
+        except Exception:  # noqa: BLE001
+            changelog_md = (
+                "_Changelog could not be generated automatically. See commit history._"
+            )
     else:
         changelog_md = "_Changelog script not found._"
 
@@ -177,7 +186,7 @@ def main():
             integration_count += 1
         elif f.startswith("tests/"):
             test_count += 1
-        elif f.startswith(".github/") or f.startswith("scripts/"):
+        elif f.startswith((".github/", "scripts/")):
             ci_count += 1
         elif f.startswith("docs/") or f.endswith(".md"):
             docs_count += 1
@@ -204,9 +213,7 @@ def main():
     elif integration_count > 2 or translation_count > 5:
         severity = "Medium"
         alert_type = "TIP"
-        preamble = (
-            "This release contains standard updates and feature enhancements to the integration logic or translations."
-        )
+        preamble = "This release contains standard updates and feature enhancements to the integration logic or translations."
 
     if rtype != "stable":
         preamble = f"ℹ️ **This is a {rtype} build.** It contains preview features for testing.<br><br>{preamble}"
@@ -218,7 +225,9 @@ def main():
             impact_summary.append(f"⚙️ Core ({integration_count} files · {pct}%)")
         if translation_count > 0:
             pct = round((translation_count / total_files) * 100)
-            impact_summary.append(f"🗣️ Translations ({translation_count} files · {pct}%)")
+            impact_summary.append(
+                f"🗣️ Translations ({translation_count} files · {pct}%)"
+            )
         if test_count > 0:
             pct = round((test_count / total_files) * 100)
             impact_summary.append(f"🧪 Tests ({test_count} files · {pct}%)")
@@ -229,13 +238,21 @@ def main():
             pct = round((docs_count / total_files) * 100)
             impact_summary.append(f"📖 Docs ({docs_count} files · {pct}%)")
 
-    impact_str = " · ".join(impact_summary) if impact_summary else "No codebase changes detected."
-
-    prerelease_note = (
-        f"\n> [!{alert_type}]\n> **Release Risk: {severity}**\n> {preamble}\n>\n> **Affected areas:** {impact_str}\n"
+    impact_str = (
+        " · ".join(impact_summary)
+        if impact_summary
+        else "No codebase changes detected."
     )
 
-    released_at = datetime.utcnow().strftime("%Y-%m-%d %H:%M") + " UTC"
+    prerelease_note = (
+        f"\n> [!{alert_type}]\n"
+        f"> **Release Risk: {severity}**\n"
+        f"> {preamble}\n"
+        f">\n"
+        f"> **Affected areas:** {impact_str}\n"
+    )
+
+    released_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M") + " UTC"
     body_parts = [
         f"# {friendly_name} {version}  {channel_badge}",
         "",
