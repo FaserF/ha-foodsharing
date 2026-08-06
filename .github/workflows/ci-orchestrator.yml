@@ -63,8 +63,8 @@ jobs:
 
       - name: Format and Fix with Ruff
         run: |
-          ruff check --fix --unsafe-fixes .
-          ruff format .
+          ruff check --fix --unsafe-fixes custom_components tests
+          ruff format custom_components tests
 
       - name: Commit and push changes
         uses: stefanzweifel/git-auto-commit-action@v7.2.0
