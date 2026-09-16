@@ -617,47 +617,52 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
         return False
 
     async def fetch_unread_messages(self) -> int:
-        """Fetch unread mailbox message count and detailed conversations."""
-        url_count = f"{self.base_url}/api/mailbox/unread-count"
-        url_conv = f"{self.base_url}/api/conversations"
-        unread = 0
+        """Fetch the number of conversations with unread messages."""
+        # /api/mailbox/unread-count no longer exists (404); the conversation list
+        # carries the unread counter per conversation.
+        url = f"{self.base_url}/api/conversations"
         try:
             async with (
                 asyncio.timeout(10),
-                self.session.get(url_count, headers=self.authenticated_headers) as response,
+                self.session.get(url, headers=self.authenticated_headers) as response,
             ):
-                if response.status == 200:
-                    data = await response.json()
-                    unread = data.get("unread", 0) if isinstance(data, dict) else 0
-                elif response.status == 401:
+                if response.status == 401:
                     raise AuthenticationFailed("Unauthorized access while fetching message count.")
+                if response.status != 200:
+                    _LOGGER.debug("Conversations API returned status %s", response.status)
+                    return 0
+                data = await response.json()
 
-            if unread > 0:
-                async with (
-                    asyncio.timeout(10),
-                    self.session.get(url_conv, headers=self.authenticated_headers) as response,
-                ):
-                    if response.status == 200:
-                        data = await response.json()
-                        if isinstance(data, list):
-                            for conv in data:
-                                if isinstance(conv, dict) and conv.get("unread", 0) > 0:
-                                    msg_id = conv.get("last_message", {}).get("id")
-                                    if msg_id and msg_id not in self._seen_messages:
-                                        self._seen_messages.add(msg_id)
-                                        if not self._is_first_update:
-                                            self.hass.bus.async_fire(
-                                                f"{DOMAIN}_new_message",
-                                                {
-                                                    "conversation_id": conv.get("id"),
-                                                    "message": conv.get("last_message", {}),
-                                                },
-                                            )
+            conversations = data.get("conversations") if isinstance(data, dict) else data
+            if not isinstance(conversations, list):
+                return 0
+
+            unread_conversations = [
+                c for c in conversations if isinstance(c, dict) and (c.get("unreadMessages") or 0) > 0
+            ]
+            for conv in unread_conversations:
+                last_message = conv.get("lastMessage") or {}
+                msg_id = last_message.get("id")
+                if msg_id and msg_id not in self._seen_messages:
+                    self._seen_messages.add(msg_id)
+                    if not self._is_first_update:
+                        self.hass.bus.async_fire(
+                            f"{DOMAIN}_new_message",
+                            {
+                                "conversation_id": conv.get("id"),
+                                "title": conv.get("title"),
+                                "unread": conv.get("unreadMessages"),
+                                "body": last_message.get("body"),
+                                "author_id": last_message.get("authorId"),
+                                "sent_at": last_message.get("sentAt"),
+                            },
+                        )
+            return len(unread_conversations)
         except AuthenticationFailed, UpdateFailed:
             raise
         except Exception as e:
-            _LOGGER.debug("Error fetching conversations: %s", e)
-        return unread
+            _LOGGER.debug("Error fetching messages: %s", e)
+        return 0
 
     async def fetch_bells(self) -> int:
         """Fetch unread bell notifications count and trigger events."""
@@ -670,7 +675,8 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
                 if response.status == 200:
                     data = await response.json()
                     if isinstance(data, list):
-                        unread_bells = [b for b in data if isinstance(b, dict) and b.get("is_read") == 0]
+                        # The API returns isRead as a boolean, not is_read as 0/1.
+                        unread_bells = [b for b in data if isinstance(b, dict) and not b.get("isRead", True)]
                         for bell in unread_bells:
                             bell_id = bell.get("id")
                             if bell_id and bell_id not in self._seen_bells:
@@ -710,16 +716,9 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
         self, entry_id: str, lat: float, lon: float, dist: float
     ) -> list[dict[str, Any]]:
         """Fetch baskets for a specific location."""
-        # Try with KM first, then fallback to Meters if 0 results but was successful
-        baskets = await self._fetch_baskets_raw(entry_id, lat, lon, dist)
-        if not baskets and dist < 100:  # Heuristic: if dist is small (km) and 0 results
-            _LOGGER.debug(
-                "0 baskets found with dist %s (km), retrying with %s (m)",
-                dist,
-                dist * 1000,
-            )
-            baskets = await self._fetch_baskets_raw(entry_id, lat, lon, dist * 1000)
-        return baskets
+        # The API expects kilometres; retrying with metres only yields
+        # 404 "Invalid query parameter distance".
+        return await self._fetch_baskets_raw(entry_id, lat, lon, dist)
 
     async def _fetch_baskets_raw(self, entry_id: str, lat: float, lon: float, dist: float) -> list[dict[str, Any]]:
         """Fetch baskets for a specific location using raw parameters."""
@@ -1018,7 +1017,7 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
 
     async def fetch_own_baskets(self) -> list[dict[str, Any]]:
         """Fetch active baskets created by the user."""
-        url = f"{self.base_url}/api/baskets/own"
+        url = f"{self.base_url}/api/users/current/baskets"
         try:
             async with (
                 asyncio.timeout(10),
@@ -1028,45 +1027,60 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
                     data = await response.json()
                     if isinstance(data, list):
                         return [d for d in data if isinstance(d, dict)]
-                    elif isinstance(data, dict):
-                        for key in ("baskets", "data", "items"):
-                            if key in data and isinstance(data[key], list):
-                                return [r for r in data[key] if isinstance(r, dict)]
-                        return []
+                    if isinstance(data, dict):
+                        result = data.get("baskets", [])
+                        return result if isinstance(result, list) else []
                 elif response.status == 401:
                     raise AuthenticationFailed("Unauthorized access while fetching own baskets.")
-                elif response.status in (403, 404):
+                else:
                     _LOGGER.debug("Own baskets not accessible (status %s).", response.status)
-                    return []
-        except AuthenticationFailed:
+        except AuthenticationFailed, UpdateFailed:
             raise
         except Exception as e:
             _LOGGER.debug("Error fetching own baskets: %s", e)
         return []
 
-    async def fetch_user_statistics(self) -> dict[str, Any]:
-        """Fetch user-specific statistics."""
-        user_id = self.user_id or "current"
-        url = f"{self.base_url}/api/users/{user_id}/stats"
+    async def _ensure_user_id(self) -> str | None:
+        """Return the numeric user id, resolving it once via /api/users/current."""
+        if self.user_id:
+            return self.user_id
         try:
             async with (
                 asyncio.timeout(10),
-                self.session.get(url, headers=self.authenticated_headers) as response,
+                self.session.get(
+                    f"{self.base_url}/api/users/current", headers=self.authenticated_headers
+                ) as response,
             ):
                 if response.status == 200:
                     data = await response.json()
-                    return data if isinstance(data, dict) else {}
-                elif response.status == 401:
-                    raise AuthenticationFailed("Unauthorized access while fetching statistics.")
-        except AuthenticationFailed:
-            raise
+                    if isinstance(data, dict) and data.get("id"):
+                        self.user_id = str(data["id"])
         except Exception as e:
-            _LOGGER.debug("Error fetching statistics: %s", e)
-        return {}
+            _LOGGER.debug("Could not resolve user id: %s", e)
+        return self.user_id
+
+    async def fetch_user_statistics(self) -> dict[str, Any]:
+        """Fetch user-specific statistics.
+
+        There is no dedicated stats endpoint anymore; the numbers live in the
+        profile details as {"stats": {"count": ..., "weight": ...}}.
+        """
+        profile = await self.fetch_user_profile()
+        stats = profile.get("stats") if isinstance(profile, dict) else None
+        if not isinstance(stats, dict):
+            return {}
+        return {
+            "fetchCount": stats.get("count", 0),
+            "fetchWeight": stats.get("weight", 0),
+        }
 
     async def fetch_user_profile(self) -> dict[str, Any]:
-        """Fetch current user profile."""
-        url = f"{self.base_url}/api/users/current"
+        """Fetch the current user profile.
+
+        /api/users/current only returns id/name/avatar; the details endpoint also
+        carries regionId, regionName and the user's own pickup statistics.
+        """
+        url = f"{self.base_url}/api/users/current/details"
         try:
             async with (
                 asyncio.timeout(10),
@@ -1074,14 +1088,20 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
             ):
                 if response.status == 200:
                     data = await response.json()
-                    return data if isinstance(data, dict) else {}
+                    if isinstance(data, dict):
+                        if data.get("id") and not self.user_id:
+                            self.user_id = str(data["id"])
+                        return data
         except Exception as e:
             _LOGGER.debug("Error fetching profile: %s", e)
         return {}
 
     async def fetch_bananas(self) -> dict[str, Any]:
         """Fetch user banana metadata (thanks ratings)."""
-        user_id = self.user_id or "current"
+        user_id = await self._ensure_user_id()
+        if not user_id:
+            return {}
+        # This endpoint does not accept the "current" alias.
         url = f"{self.base_url}/api/users/{user_id}/bananas/meta"
         try:
             async with (
@@ -1105,6 +1125,9 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
             ):
                 if response.status == 200:
                     data = await response.json()
+                    # The API wraps the list: {"buddies": [...], "myRequests": [...]}
+                    if isinstance(data, dict):
+                        data = data.get("buddies", [])
                     return data if isinstance(data, list) else []
         except Exception as e:
             _LOGGER.debug("Error fetching buddies: %s", e)
