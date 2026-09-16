@@ -112,14 +112,18 @@ All options can be changed later via **Settings → Devices & Services → Foods
 |--------|------|-------|------------|
 | `sensor.foodsharing_baskets_*` | Sensor | Number of nearby baskets | `baskets` (list), `fairteiler` (list), `basket_count`, `fairteiler_count`, `latitude`, `longitude` |
 | `sensor.foodsharing_fairteiler_*` | Sensor | Number of nearby Fairteiler | `fairteiler` (list), `fairteiler_count`, `latitude`, `longitude` |
-| `sensor.foodsharing_unread_messages` | Sensor | Number of unread messages | — |
-| `sensor.foodsharing_notifications` | Sensor | Number of unread bell notifications | — |
+| `sensor.foodsharing_unread_messages` | Sensor | Number of unread messages | `conversations` |
+| `sensor.foodsharing_notifications` | Sensor | Number of unread bell notifications | `notifications` |
 | `sensor.foodsharing_upcoming_pickups` | Sensor | Number of upcoming pickups | `pickups` (list) |
 | `sensor.foodsharing_global_statistics` | Sensor | Total weight saved globally (kg) | `recue_missions`, `foodsavers`, `active_fairteiler`, etc. |
 | `sensor.foodsharing_user_stats_*` | Sensor | Total rescues by user | `weight_saved_kg`, `rating`, `member_since` |
-| `sensor.foodsharing_region_stats_*` | Sensor | Total weight saved in user's region (kg) | `foodsavers`, `corporations`, `fairteiler`, etc. |
+| `sensor.foodsharing_region_stats_*` | Sensor | Pickups in the user's region this month | `month`, `pickups`, `stores`, `slots`, `foodsavers`, `region_id`, `region_name` |
 | `sensor.foodsharing_buddies_*` | Sensor | Number of buddies | `buddies` (list) |
 | `sensor.foodsharing_bananas_*` | Sensor | Number of received bananas (thanks) | `given` |
+
+> [!TIP]
+> The message sensor exposes the latest message of every unread conversation (`conversations` attribute) and the notification sensor the raw payload of every unread bell (`notifications` attribute). Both end up in the recorder database — add them to `recorder: exclude:` if you would rather not store message texts.
+> Bell `key` and `title` are translation keys, the readable parts are in `payload`.
 
 ### Binary Sensors
 
@@ -180,7 +184,7 @@ The integration fires custom events that you can use as automation triggers:
 | Event | Description | Data |
 |-------|-------------|------|
 | `foodsharing_keyword_match` | A new basket matches your keywords | Full basket data |
-| `foodsharing_new_message` | A new unread message arrived | `conversation_id`, `message` |
+| `foodsharing_new_message` | A new unread message arrived | `id`, `title`, `unread`, `author`, `author_id`, `sent_at`, `body` |
 | `foodsharing_new_bell` | A new bell notification | Bell data |
 | `foodsharing_fairteiler_post` | New post on a fairteiler wall | `fairteiler_id`, `fairteiler_name`, `post` |
 

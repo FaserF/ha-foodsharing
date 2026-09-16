@@ -164,3 +164,24 @@ def test_region_stats_sensor():
     assert sensor.extra_state_attributes["region_name"] == "Muenster"
     assert sensor.extra_state_attributes["foodsavers"] == 500
     assert sensor.entity_registry_enabled_default is False
+
+
+def test_messages_and_bells_expose_content():
+    """Both sensors expose the content the coordinator collected."""
+    from custom_components.foodsharing.sensor import (
+        FoodsharingBellsSensor,
+        FoodsharingMessagesSensor,
+    )
+
+    coordinator = MagicMock()
+    coordinator.data = {"account": {"messages": 1, "bells": 1}}
+    coordinator.unread_conversations = [{"id": 1, "title": "Team", "body": "hi"}]
+    coordinator.unread_bells = [{"id": 2, "key": "store_wall_post.many"}]
+
+    messages = FoodsharingMessagesSensor(coordinator, "test@example.com")
+    bells = FoodsharingBellsSensor(coordinator, "test@example.com")
+
+    assert messages.native_value == 1
+    assert messages.extra_state_attributes["conversations"][0]["title"] == "Team"
+    assert bells.native_value == 1
+    assert bells.extra_state_attributes["notifications"][0]["key"] == "store_wall_post.many"

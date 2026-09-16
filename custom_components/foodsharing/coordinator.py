@@ -35,6 +35,17 @@ _LOGGER = logging.getLogger(__name__)
 # Upper bound for per-update Fairteiler detail lookups.
 MAX_FAIRTEILER_DETAILS = 25
 
+# Message bodies are exposed as state attributes and therefore end up in the
+# recorder database, so they are truncated.
+MAX_MESSAGE_PREVIEW = 500
+
+
+def _shorten(text: Any) -> Any:
+    """Truncate a message body for use in state attributes."""
+    if not isinstance(text, str) or len(text) <= MAX_MESSAGE_PREVIEW:
+        return text
+    return text[:MAX_MESSAGE_PREVIEW] + "…"
+
 
 class AuthenticationFailed(UpdateFailed):
     """Exception to indicate authentication failure."""
@@ -55,6 +66,8 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
         self._seen_bells: set[int] = set()
         self._seen_fairteiler_posts: set[int] = set()
         self._marker_cache: dict[str, tuple[datetime, list[dict[str, Any]]]] = {}
+        self.unread_conversations: list[dict[str, Any]] = []
+        self.unread_bells: list[dict[str, Any]] = []
         self._seen_baskets: set[int] = set()
         self._is_first_update = True
         self._user_agent = (
@@ -621,7 +634,12 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
         return False
 
     async def fetch_unread_messages(self) -> int:
-        """Fetch the number of conversations with unread messages."""
+        """Fetch the number of conversations with unread messages.
+
+        The conversation list already carries the latest message and the profiles
+        of everyone involved, so the details are kept for the sensor attributes
+        without issuing another request.
+        """
         # /api/mailbox/unread-count no longer exists (404); the conversation list
         # carries the unread counter per conversation.
         url = f"{self.base_url}/api/conversations"
@@ -641,26 +659,39 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
             if not isinstance(conversations, list):
                 return 0
 
+            names = {
+                profile["id"]: profile.get("name")
+                for profile in (data.get("profiles") or [])
+                if isinstance(profile, dict) and profile.get("id")
+            }
+
             unread_conversations = [
                 c for c in conversations if isinstance(c, dict) and (c.get("unreadMessages") or 0) > 0
             ]
+
+            details: list[dict[str, Any]] = []
             for conv in unread_conversations:
                 last_message = conv.get("lastMessage") or {}
+                author_id = last_message.get("authorId")
+                body = last_message.get("body")
+                detail = {
+                    "id": conv.get("id"),
+                    "title": conv.get("title"),
+                    "unread": conv.get("unreadMessages"),
+                    "author": names.get(author_id),
+                    "author_id": author_id,
+                    "sent_at": last_message.get("sentAt"),
+                    "body": _shorten(body),
+                }
+                details.append(detail)
+
                 msg_id = last_message.get("id")
                 if msg_id and msg_id not in self._seen_messages:
                     self._seen_messages.add(msg_id)
                     if not self._is_first_update:
-                        self.hass.bus.async_fire(
-                            f"{DOMAIN}_new_message",
-                            {
-                                "conversation_id": conv.get("id"),
-                                "title": conv.get("title"),
-                                "unread": conv.get("unreadMessages"),
-                                "body": last_message.get("body"),
-                                "author_id": last_message.get("authorId"),
-                                "sent_at": last_message.get("sentAt"),
-                            },
-                        )
+                        self.hass.bus.async_fire(f"{DOMAIN}_new_message", detail)
+
+            self.unread_conversations = details
             return len(unread_conversations)
         except AuthenticationFailed, UpdateFailed:
             raise
@@ -669,7 +700,7 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
         return 0
 
     async def fetch_bells(self) -> int:
-        """Fetch unread bell notifications count and trigger events."""
+        """Fetch unread bell notifications and keep their content for the sensor."""
         url = f"{self.base_url}/api/bells"
         try:
             async with (
@@ -681,12 +712,29 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
                     if isinstance(data, list):
                         # The API returns isRead as a boolean, not is_read as 0/1.
                         unread_bells = [b for b in data if isinstance(b, dict) and not b.get("isRead", True)]
+
+                        details: list[dict[str, Any]] = []
                         for bell in unread_bells:
+                            href = bell.get("href") or ""
+                            detail = {
+                                "id": bell.get("id"),
+                                # "key" and "title" are translation keys; the readable
+                                # parts live in "payload".
+                                "key": bell.get("key"),
+                                "payload": bell.get("payload"),
+                                "url": f"{self.base_url}{href}" if href.startswith("/") else href,
+                                "created_at": bell.get("createdAt"),
+                                "icon": bell.get("icon"),
+                            }
+                            details.append(detail)
+
                             bell_id = bell.get("id")
                             if bell_id and bell_id not in self._seen_bells:
                                 self._seen_bells.add(bell_id)
                                 if not self._is_first_update:
                                     self.hass.bus.async_fire(f"{DOMAIN}_new_bell", bell)
+
+                        self.unread_bells = details
                         return len(unread_bells)
                 elif response.status == 401:
                     raise AuthenticationFailed("Unauthorized access while fetching notifications.")

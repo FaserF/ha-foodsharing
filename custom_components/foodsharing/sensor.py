@@ -261,6 +261,18 @@ class FoodsharingMessagesSensor(CoordinatorEntity[FoodsharingCoordinator], Senso
             return int(val)
         return 0
 
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return the unread conversations including their latest message.
+
+        Message bodies are stored in the recorder database; exclude this entity
+        there if that is not wanted.
+        """
+        return {
+            "conversations": self.coordinator.unread_conversations,
+            ATTR_ATTRIBUTION: ATTRIBUTION,
+        }
+
 
 class FoodsharingBellsSensor(CoordinatorEntity[FoodsharingCoordinator], SensorEntity):  # type: ignore[misc]
     """Represents unread bell notifications on Foodsharing."""
@@ -289,6 +301,19 @@ class FoodsharingBellsSensor(CoordinatorEntity[FoodsharingCoordinator], SensorEn
             val = self.coordinator.data.get("account", {}).get("bells", 0)
             return int(val)
         return 0
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return the unread notifications.
+
+        "key" and the payload fields are the raw API values; the backend only
+        ships translation keys, so the readable text has to be composed from the
+        payload in a template or automation.
+        """
+        return {
+            "notifications": self.coordinator.unread_bells,
+            ATTR_ATTRIBUTION: ATTRIBUTION,
+        }
 
 
 class FoodsharingPickupsSensor(CoordinatorEntity[FoodsharingCoordinator], SensorEntity):  # type: ignore[misc]
