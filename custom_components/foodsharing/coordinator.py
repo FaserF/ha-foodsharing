@@ -3,6 +3,7 @@ import json
 import logging
 import os
 from datetime import UTC, datetime, timedelta
+from http.cookies import SimpleCookie
 from typing import Any
 
 import aiohttp
@@ -16,13 +17,16 @@ from homeassistant.helpers.issue_registry import (
     async_delete_issue,
 )
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+from yarl import URL
 
 from .const import (
     CONF_DOMAIN,
     CONF_KEYWORDS,
     CONF_SCAN_INTERVAL,
     CONF_USE_BETA_API,
+    CSRF_COOKIE,
     DOMAIN,
+    SESSION_COOKIE,
 )
 from .helpers import get_locations_from_entry, mask_email
 
@@ -73,10 +77,10 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
             f"foodsharing_session_{email.replace('@', '_').replace('.', '_')}.json",
         )
 
-    def _get_xsrf_token_from_jar(self) -> str | None:
-        """Extract XSRF-TOKEN from cookie jar manually to avoid yarl dependency."""
+    def _get_csrf_token_from_jar(self) -> str | None:
+        """Extract the CSRF token from the cookie jar (backend cookie: FS_CSRF_TOKEN)."""
         for cookie in self.session.cookie_jar:
-            if cookie.key.lower() == "xsrf-token":
+            if cookie.key == CSRF_COOKIE:
                 return str(cookie.value)
         return None
 
@@ -91,12 +95,11 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
             "Referer": f"{self.base_url}/",
             "Origin": self.base_url,
         }
-        token = self._get_xsrf_token_from_jar()
+        token = self._get_csrf_token_from_jar()
         if token:
-            headers["XSRF-TOKEN"] = token
-            headers["X-XSRF-TOKEN"] = token
-            headers["X-Csrf-Token"] = token
-            headers["X-CSRF-TOKEN"] = token
+            # Backend requires this header on every non-GET request while logged in
+            # (src/EventSubscriber/CsrfEventSubscriber.php).
+            headers["X-CSRF-Token"] = token
         return headers
 
     async def async_load_session(self) -> None:
@@ -123,12 +126,7 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
                 self._xsrf_token = data.get("xsrf_token")
 
                 if cookies_data:
-                    try:
-                        from yarl import URL
-
-                        self.session.cookie_jar.update_cookies(cookies_data, URL(self.base_url))
-                    except Exception:
-                        self.session.cookie_jar.update_cookies(cookies_data)
+                    self._restore_cookies(cookies_data)
                 _LOGGER.debug(
                     "Loaded persisted session for %s (User ID: %s)",
                     self.email,
@@ -168,18 +166,47 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
         except Exception as e:
             _LOGGER.warning("Could not save session file: %s", e)
 
+    def _cookie_domain(self) -> str:
+        """Return the cookie domain the backend uses (e.g. '.foodsharing.de').
+
+        The session cookies are set with Domain=.foodsharing.de, so they are valid
+        for the beta host as well. Restoring them host-only would make aiohttp keep
+        the host-only flag forever and never send them to beta.foodsharing.de.
+        """
+        host = URL(self.base_url).host or "foodsharing.de"
+        return "." + host.removeprefix("beta.").removeprefix("www.")
+
+    def _restore_cookies(self, cookies_data: dict[str, str]) -> None:
+        """Put persisted cookies back into the jar with the backend's domain.
+
+        Only the current cookie names are restored; session files written by older
+        versions (PHPSESSID/XSRF-TOKEN) are ignored instead of migrated.
+        """
+        jar_cookies: SimpleCookie = SimpleCookie()
+        domain = self._cookie_domain()
+        for key, value in cookies_data.items():
+            if key not in (SESSION_COOKIE, CSRF_COOKIE):
+                continue
+            jar_cookies[key] = value
+            jar_cookies[key]["domain"] = domain
+            jar_cookies[key]["path"] = "/"
+        if not jar_cookies:
+            _LOGGER.debug("No usable cookies in persisted session, a fresh login is required")
+            return
+        self.session.cookie_jar.update_cookies(jar_cookies, URL(self.base_url))
+
     async def fetch_csrf(self):
         """Fetch the CSRF token from the login page."""
         try:
             # Hit /login to ensure we get the right cookies
             async with self.session.get(f"{self.base_url}/login", headers={"User-Agent": self._user_agent}) as response:
                 await response.text()
-                token = self._get_xsrf_token_from_jar()
+                token = self._get_csrf_token_from_jar()
                 if token:
                     self._xsrf_token = token
-                    _LOGGER.debug("Fetched CSRF token: %s", self._xsrf_token)
+                    _LOGGER.debug("Fetched CSRF token from %s cookie", CSRF_COOKIE)
                 else:
-                    _LOGGER.debug("No XSRF-TOKEN cookie found on /login")
+                    _LOGGER.debug("No %s cookie found on /login", CSRF_COOKIE)
         except Exception as e:
             _LOGGER.error("Failed to fetch CSRF token: %s", e)
 
@@ -422,7 +449,7 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
                             "Attempt %d: Checking session at %s (Token detected: %s)",
                             attempt + 1,
                             current_url,
-                            "Yes" if "XSRF-TOKEN" in auth_headers else "No",
+                            "Yes" if "X-CSRF-Token" in auth_headers else "No",
                         )
                         async with self.session.get(
                             current_url,
@@ -461,11 +488,12 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
                 # Clear them and try fresh login instead of aborting to prevent loops.
                 # Loops are prevented by the fact that if this fresh login requires 2FA,
                 # we return '2fa_required' which triggers the HA UI flow.
-                has_session_cookie = any(c.key == "PHPSESSID" for c in self.session.cookie_jar)
+                has_session_cookie = any(c.key == SESSION_COOKIE for c in self.session.cookie_jar)
                 if has_session_cookie:
                     _LOGGER.debug(
-                        "Session cookie (PHPSESSID) present but validation failed. "
-                        "Clearing stale cookies and attempting fresh login."
+                        "Session cookie (%s) present but validation failed. "
+                        "Clearing stale cookies and attempting fresh login.",
+                        SESSION_COOKIE,
                     )
                     # Clear for all common foodsharing domains
                     for d in [
@@ -533,7 +561,8 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
                             user_id = body.get("id") or (body.get("user") or {}).get("id")
 
                         if not user_id:
-                            # Fallback: get ID from current user endpoint
+                            # /api/login answers with an empty body (respondOK()), so the
+                            # user id has to be resolved separately.
                             try:
                                 async with self.session.get(
                                     f"{self.base_url}/api/users/current",
@@ -542,20 +571,41 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
                                     if current_resp.status == 200:
                                         current_data = await current_resp.json()
                                         user_id = current_data.get("id")
-                            except Exception:
-                                pass
+                                    else:
+                                        _LOGGER.warning(
+                                            "Login returned 200 but %s/api/users/current answered %s: %s",
+                                            self.base_url,
+                                            current_resp.status,
+                                            (await current_resp.text())[:200],
+                                        )
+                            except Exception as err:
+                                _LOGGER.warning(
+                                    "Login returned 200 but resolving the user id failed: %s",
+                                    err,
+                                )
 
                         if user_id:
                             self.user_id = str(user_id)
                             await self.async_save_session()
                             return True
 
-                    _LOGGER.warning(
-                        "Login failed for %s: %s %s",
-                        mask_email(self.email),
-                        response.status,
-                        body,
-                    )
+                    if response.status == 409:
+                        _LOGGER.error(
+                            "Login failed for %s: account is not activated yet",
+                            mask_email(self.email),
+                        )
+                    elif response.status == 429:
+                        _LOGGER.warning(
+                            "Login failed for %s: rate limited by the backend, will retry later",
+                            mask_email(self.email),
+                        )
+                    else:
+                        _LOGGER.warning(
+                            "Login failed for %s: %s %s",
+                            mask_email(self.email),
+                            response.status,
+                            body,
+                        )
                     return False
         except Exception as e:
             _LOGGER.error(

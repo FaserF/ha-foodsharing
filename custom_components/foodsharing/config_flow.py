@@ -7,7 +7,7 @@ from homeassistant import config_entries
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import selector
-from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.aiohttp_client import async_create_clientsession
 
 from .const import (
     CONF_DISTANCE,
@@ -22,11 +22,15 @@ from .const import (
     CONF_SCAN_INTERVAL,
     CONF_TOTP,
     CONF_USE_BETA_API,
+    CSRF_COOKIE,
     DOMAIN,
 )
 from .helpers import mask_email
 
 _LOGGER = logging.getLogger(__name__)
+
+# Results of validate_credentials() that map directly onto a form error key.
+LOGIN_ERRORS = {"cannot_connect", "account_not_activated", "rate_limited"}
 
 
 async def validate_credentials(
@@ -37,8 +41,28 @@ async def validate_credentials(
     use_beta: bool = False,
     domain: str = "foodsharing_de",
 ) -> str | bool | dict[str, Any]:
-    """Validate the user credentials against the foodsharing API."""
-    session = async_get_clientsession(hass)
+    """Validate the user credentials against the foodsharing API.
+
+    Uses an isolated session with its own cookie jar: the shared HA session is
+    used by the running coordinator, and clearing cookies there would drop its
+    live login.
+    """
+    session = async_create_clientsession(hass, auto_cleanup=False)
+    try:
+        return await _validate_credentials(session, email, password, totp, use_beta, domain)
+    finally:
+        session.detach()
+
+
+async def _validate_credentials(
+    session: aiohttp.ClientSession,
+    email: str,
+    password: str,
+    totp: str | None = None,
+    use_beta: bool = False,
+    domain: str = "foodsharing_de",
+) -> str | bool | dict[str, Any]:
+    """Run the login flow against the foodsharing API."""
     base_domain = "foodsharing.de"
     if domain == "foodsharing_at":
         base_domain = "foodsharing.at"
@@ -55,23 +79,19 @@ async def validate_credentials(
     }
     timeout = aiohttp.ClientTimeout(total=15)
 
-    # Clear existing session cookies to ensure a fresh flow for this domain
-    session.cookie_jar.clear_domain("foodsharing.de")
-    session.cookie_jar.clear_domain("www.foodsharing.de")
-
     try:
         # Get CSRF token by hitting /login first
         async with session.get(f"{base_url}/login", headers={"User-Agent": user_agent}, timeout=timeout) as login_page:
             await login_page.text()
-            # Check cookies for XSRF token
-            xsrf_token_val = None
+            # The backend hands out the CSRF token as a (non-HttpOnly) cookie
+            csrf_token_val = None
             for cookie in session.cookie_jar:
-                if cookie.key.lower() == "xsrf-token":
-                    xsrf_token_val = cookie.value
+                if cookie.key == CSRF_COOKIE:
+                    csrf_token_val = cookie.value
                     break
 
-            if xsrf_token_val:
-                headers["X-Csrf-Token"] = xsrf_token_val
+            if csrf_token_val:
+                headers["X-CSRF-Token"] = csrf_token_val
 
         if not totp:
             # Check if we accidentally already have a session
@@ -84,13 +104,6 @@ async def validate_credentials(
                         return str(current_data["id"])
     except Exception as err:
         _LOGGER.debug("Initial setup check failed or timed out: %s", err)
-
-    # Get CSRF token from cookies (often set by Symfony via XSRF-TOKEN cookie)
-    for cookie in session.cookie_jar:
-        if cookie.key.upper() == "XSRF-TOKEN":
-            headers["X-Csrf-Token"] = cookie.value
-            _LOGGER.debug("Using CSRF token from cookie for login in config flow")
-            break
 
     try:
         login_payload = {"email": email, "password": password, "rememberMe": True}
@@ -131,6 +144,24 @@ async def validate_credentials(
                     user_id,
                 )
                 return str(user_id) if user_id else "unknown_user"
+
+            elif response.status == 409:
+                _LOGGER.warning("Login failed for %s: account is not activated", mask_email(email))
+                return "account_not_activated"
+
+            elif response.status == 429:
+                _LOGGER.warning("Login failed for %s: rate limited by the backend", mask_email(email))
+                return "rate_limited"
+
+            elif response.status >= 500:
+                body = await response.text()
+                _LOGGER.warning(
+                    "Login failed for %s: backend error %s: %s",
+                    mask_email(email),
+                    response.status,
+                    body[:200],
+                )
+                return "cannot_connect"
 
             elif response.status in (400, 401, 403):
                 try:
@@ -220,8 +251,8 @@ class FoodsharingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # type: 
                 domain = user_input.get(CONF_DOMAIN, "foodsharing_de")
 
                 res = await validate_credentials(self.hass, email, password, use_beta=use_beta, domain=domain)
-                if res == "cannot_connect":
-                    errors["base"] = "cannot_connect"
+                if isinstance(res, str) and res in LOGIN_ERRORS:
+                    errors["base"] = res
                 elif isinstance(res, dict) and res.get("2fa_required"):
                     self._user_input = user_input
                     return await self.async_step_totp()
@@ -285,8 +316,8 @@ class FoodsharingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # type: 
             use_beta = self._user_input.get(CONF_USE_BETA_API, False)
 
             res = await validate_credentials(self.hass, email, password, use_beta=use_beta)
-            if res == "cannot_connect":
-                errors["base"] = "cannot_connect"
+            if isinstance(res, str) and res in LOGIN_ERRORS:
+                errors["base"] = res
             elif isinstance(res, dict) and res.get("2fa_required"):
                 self._user_input[CONF_PASSWORD] = password
                 return await self.async_step_totp()
@@ -322,8 +353,8 @@ class FoodsharingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # type: 
                     code,
                     self._user_input.get(CONF_USE_BETA_API, False),
                 )
-                if res == "cannot_connect":
-                    errors["base"] = "cannot_connect"
+                if isinstance(res, str) and res in LOGIN_ERRORS:
+                    errors["base"] = res
                 elif not res or (isinstance(res, dict) and res.get("2fa_required")):
                     errors["base"] = "invalid_totp"
                 else:
@@ -575,8 +606,8 @@ class OptionsFlowHandler(config_entries.OptionsFlow):  # type: ignore[misc]
                     self._user_input.get(CONF_USE_BETA_API, False),
                     self._user_input.get(CONF_DOMAIN, "foodsharing_de"),
                 )
-                if res == "cannot_connect":
-                    errors["base"] = "cannot_connect"
+                if isinstance(res, str) and res in LOGIN_ERRORS:
+                    errors["base"] = res
                 elif not res or (isinstance(res, dict) and res.get("2fa_required")):
                     errors["base"] = "invalid_totp"
                 else:

@@ -14,3 +14,9 @@ CONF_KEYWORDS = "keywords"
 CONF_USE_BETA_API = "use_beta_api"
 CONF_LOCATIONS = "locations"
 CONF_DOMAIN = "domain"
+
+# Backend session cookies (src/Lib/Session.php). The CSRF token cookie is not
+# HttpOnly and must be echoed back as the X-CSRF-Token header on non-GET calls
+# (src/EventSubscriber/CsrfEventSubscriber.php).
+SESSION_COOKIE = "FS_SESSID"
+CSRF_COOKIE = "FS_CSRF_TOKEN"

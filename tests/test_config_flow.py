@@ -29,7 +29,7 @@ async def test_config_flow_user_step_success(mock_session):
     flow.hass.config_entries.async_entry_for_domain_unique_id.return_value = None
 
     with patch(
-        "custom_components.foodsharing.config_flow.async_get_clientsession",
+        "custom_components.foodsharing.config_flow.async_create_clientsession",
         return_value=mock_session,
     ):
         # Mock successful login
@@ -72,7 +72,7 @@ async def test_config_flow_2fa_required(mock_session):
     flow.hass.config_entries.async_entry_for_domain_unique_id.return_value = None
 
     with patch(
-        "custom_components.foodsharing.config_flow.async_get_clientsession",
+        "custom_components.foodsharing.config_flow.async_create_clientsession",
         return_value=mock_session,
     ):
         # Mock 2FA required response
@@ -127,7 +127,7 @@ async def test_config_flow_user_step_beta_success(mock_session):
     flow.hass.config_entries.async_entry_for_domain_unique_id.return_value = None
 
     with patch(
-        "custom_components.foodsharing.config_flow.async_get_clientsession",
+        "custom_components.foodsharing.config_flow.async_create_clientsession",
         return_value=mock_session,
     ):
         # Mock GET calls (CSRF fetch and session check)
