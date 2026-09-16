@@ -152,8 +152,8 @@ def test_region_stats_sensor():
         "account": {
             "profile": {"regionName": "Muenster"},
             "region_stats": {
-                "savedFoodKgLastMonth": 1000,
-                "activeHomeRegionFoodsavers": 500,
+                "numberOfPickups": 1000,
+                "numberOfFoodsavers": 500,
             },
         }
     }

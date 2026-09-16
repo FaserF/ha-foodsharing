@@ -28,9 +28,12 @@ from .const import (
     DOMAIN,
     SESSION_COOKIE,
 )
-from .helpers import get_locations_from_entry, mask_email
+from .helpers import get_locations_from_entry, haversine_km, mask_email
 
 _LOGGER = logging.getLogger(__name__)
+
+# Upper bound for per-update Fairteiler detail lookups.
+MAX_FAIRTEILER_DETAILS = 25
 
 
 class AuthenticationFailed(UpdateFailed):
@@ -51,6 +54,7 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
         self._seen_messages: set[int] = set()
         self._seen_bells: set[int] = set()
         self._seen_fairteiler_posts: set[int] = set()
+        self._marker_cache: dict[str, tuple[datetime, list[dict[str, Any]]]] = {}
         self._seen_baskets: set[int] = set()
         self._is_first_update = True
         self._user_agent = (
@@ -738,6 +742,7 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
                     json_data = await response.json()
                     if not json_data:
                         _LOGGER.debug("Baskets API returned an empty 200 OK response")
+                    json_data = await self._add_basket_coordinates(json_data)
                     return self._process_baskets_for_location(entry_id, json_data)
 
                 if response.status == 401:
@@ -751,6 +756,25 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
         except Exception as e:
             _LOGGER.debug("Error in _fetch_baskets_raw: %s", e)
             return []
+
+    async def _add_basket_coordinates(self, json_data: Any) -> Any:
+        """Enrich baskets with coordinates.
+
+        /api/baskets/nearby only reports distanceInKm; the map markers carry the
+        actual position that the geo_location platform needs.
+        """
+        if not isinstance(json_data, list) or not json_data:
+            return json_data
+        markers = await self._fetch_markers("baskets", timedelta(minutes=10))
+        by_id = {m.get("id"): m for m in markers if isinstance(m, dict)}
+        for basket in json_data:
+            if not isinstance(basket, dict) or basket.get("latitude") is not None:
+                continue
+            marker = by_id.get(basket.get("id"))
+            if marker:
+                basket["latitude"] = marker.get("lat")
+                basket["longitude"] = marker.get("lon")
+        return json_data
 
     def _process_baskets_for_location(self, entry_id: str, json_data: Any) -> list[dict[str, Any]]:
         """Process basket data for a specific location context."""
@@ -861,125 +885,162 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
         return baskets
 
     async def fetch_food_share_points_for_location(self, lat: float, lon: float, dist: float) -> list[dict[str, Any]]:
-        """Fetch nearby Fairteiler for a specific location."""
-        points = await self._fetch_fairteiler_raw(lat, lon, dist)
-        if not points and dist < 100:
-            _LOGGER.debug(
-                "0 fairteiler found with dist %s (km), retrying with %s (m)",
-                dist,
-                dist * 1000,
-            )
-            points = await self._fetch_fairteiler_raw(lat, lon, dist * 1000)
+        """Fetch Fairteiler around a location.
+
+        /api/foodSharePoints/nearby no longer exists. The map marker endpoint
+        returns every food share point with coordinates, so the radius is applied
+        locally and only nearby entries are resolved in detail.
+        """
+        markers = await self._fetch_markers("food-share-points", timedelta(hours=6))
+        nearby = []
+        for marker in markers:
+            m_lat, m_lon = marker.get("lat"), marker.get("lon")
+            if m_lat is None or m_lon is None:
+                continue
+            try:
+                if haversine_km(lat, lon, float(m_lat), float(m_lon)) <= dist:
+                    nearby.append(marker)
+            except (TypeError, ValueError):
+                continue
+
+        # ponytail: cap the detail fan-out, a huge radius would otherwise issue
+        # hundreds of requests per update. Raise it if someone needs more.
+        nearby = nearby[:MAX_FAIRTEILER_DETAILS]
+
+        semaphore = asyncio.Semaphore(5)
+
+        async def build(marker: dict[str, Any]) -> dict[str, Any] | None:
+            async with semaphore:
+                return await self._build_food_share_point(marker)
+
+        results = await asyncio.gather(*(build(m) for m in nearby), return_exceptions=True)
+        points: list[dict[str, Any]] = []
+        for res in results:
+            if isinstance(res, AuthenticationFailed):
+                raise res
+            if isinstance(res, dict):
+                points.append(res)
         return points
 
-    async def _fetch_fairteiler_raw(self, lat: float, lon: float, dist: float) -> list[dict[str, Any]]:
-        """Fetch nearby Fairteiler for a specific location using raw parameters."""
-        url = f"{self.base_url}/api/foodSharePoints/nearby?lat={lat}&lon={lon}&distance={dist}"
-        points: list[dict[str, Any]] = []
-        wall_tasks: list[Any] = []
+    async def _build_food_share_point(self, marker: dict[str, Any]) -> dict[str, Any] | None:
+        """Turn a map marker into a Fairteiler entry including its latest wall post."""
+        fp_id = marker.get("id")
+        if not fp_id:
+            return None
+
+        entry: dict[str, Any] = {
+            "id": fp_id,
+            "name": marker.get("name", "Unknown Fairteiler"),
+            "latitude": marker.get("lat"),
+            "longitude": marker.get("lon"),
+            "description": None,
+            "address": None,
+            "picture": None,
+            "latest_post": None,
+        }
 
         try:
-            semaphore = asyncio.Semaphore(5)
-
-            async def fetch_wall(fp_id: int, fp_name: str, fp_entry: dict[str, Any]) -> None:
-                async with semaphore:
-                    wall_url = f"{self.base_url}/api/fairteiler/{fp_id}/wall"
-                    try:
-                        async with (
-                            asyncio.timeout(5),
-                            self.session.get(wall_url, headers=self.authenticated_headers) as wall_res,
-                        ):
-                            if wall_res.status == 200:
-                                wall_data = await wall_res.json()
-                                if isinstance(wall_data, list) and len(wall_data) > 0:
-                                    latest_post = wall_data[0]
-                                    fp_entry["latest_post"] = latest_post
-
-                                    post_id = latest_post.get("id")
-                                    if post_id and post_id not in self._seen_fairteiler_posts:
-                                        self._seen_fairteiler_posts.add(post_id)
-                                        if not self._is_first_update:
-                                            self.hass.bus.async_fire(
-                                                f"{DOMAIN}_fairteiler_post",
-                                                {
-                                                    "fairteiler_id": fp_id,
-                                                    "fairteiler_name": fp_name,
-                                                    "post": latest_post,
-                                                },
-                                            )
-                            elif wall_res.status == 401:
-                                raise AuthenticationFailed("Unauthorized access while fetching fairteiler wall.")
-                    except AuthenticationFailed:
-                        raise
-                    except Exception as e:
-                        _LOGGER.debug(
-                            "Error fetching wall for fairteiler %s: %s",
-                            fp_id,
-                            e,
-                        )
-
             async with (
                 asyncio.timeout(10),
-                self.session.get(url, headers=self.authenticated_headers) as response,
+                self.session.get(
+                    f"{self.base_url}/api/food-share-points/{fp_id}",
+                    headers=self.authenticated_headers,
+                ) as response,
             ):
-                if response.status == 200:
-                    json_data = await response.json()
-                    fairteiler_data = []
-                    if isinstance(json_data, list):
-                        fairteiler_data = json_data
-                    elif isinstance(json_data, dict):
-                        for key in ("foodSharePoints", "data", "items", "points"):
-                            if key in json_data and isinstance(json_data[key], list):
-                                fairteiler_data = json_data[key]
-                                break
-
-                    if not fairteiler_data and json_data:
-                        _LOGGER.debug("Fairteiler API returned data but no list found or empty.")
-
-                    for fp in fairteiler_data:
-                        if not isinstance(fp, dict):
-                            continue
-                        fp_id = fp.get("id")
-                        fp_name = fp.get("name", "Unknown Fairteiler")
-
-                        picture = fp.get("picture")
-                        if picture and not picture.startswith("http"):
-                            picture = f"{self.base_url}{picture}"
-
-                        desc = fp.get("desc")
-                        if not desc or desc == "Unknown":
-                            desc = fp.get("description", desc)
-
-                        fp_entry = {
-                            "id": fp_id,
-                            "name": fp_name,
-                            "latitude": fp.get("lat"),
-                            "longitude": fp.get("lon"),
-                            "description": desc,
-                            "address": fp.get("address"),
-                            "picture": picture,
-                            "latest_post": None,
-                        }
-                        points.append(fp_entry)
-
-                        if fp_id:
-                            wall_tasks.append(fetch_wall(fp_id, fp_name, fp_entry))
-                elif response.status == 401:
+                if response.status == 401:
                     raise AuthenticationFailed("Unauthorized access while fetching fairteiler.")
-                else:
-                    _LOGGER.debug("Food Share Points fetch returned %s", response.status)
-                    return []
-
-            if wall_tasks:
-                await asyncio.gather(*wall_tasks)
-
-        except AuthenticationFailed, asyncio.CancelledError:
+                if response.status == 200:
+                    detail = await response.json()
+                    if isinstance(detail, dict):
+                        entry["description"] = detail.get("description")
+                        address = detail.get("address")
+                        if isinstance(address, dict):
+                            entry["address"] = ", ".join(
+                                str(address[k])
+                                for k in ("street", "postalCode", "city")
+                                if address.get(k)
+                            )
+                        picture = detail.get("picture")
+                        if picture and not str(picture).startswith("http"):
+                            picture = f"{self.base_url}/images/{picture}"
+                        entry["picture"] = picture
+                        location = detail.get("location")
+                        if isinstance(location, dict):
+                            entry["latitude"] = location.get("lat", entry["latitude"])
+                            entry["longitude"] = location.get("lon", entry["longitude"])
+        except AuthenticationFailed, UpdateFailed:
             raise
         except Exception as e:
-            _LOGGER.error("Error fetching fairteiler for location: %s", e)
-            return []
+            _LOGGER.debug("Error fetching fairteiler %s: %s", fp_id, e)
 
-        return points
+        await self._attach_latest_wall_post(fp_id, entry)
+        return entry
+
+    async def _attach_latest_wall_post(self, fp_id: int, entry: dict[str, Any]) -> None:
+        """Fetch the newest wall post of a Fairteiler and fire an event for it."""
+        # The wall moved to the generic /api/walls/{target}/{targetId} endpoint,
+        # which answers with {"posts": [...]} instead of a bare list.
+        url = f"{self.base_url}/api/walls/fairteiler/{fp_id}"
+        try:
+            async with (
+                asyncio.timeout(5),
+                self.session.get(url, headers=self.authenticated_headers) as response,
+            ):
+                if response.status == 401:
+                    raise AuthenticationFailed("Unauthorized access while fetching fairteiler wall.")
+                if response.status != 200:
+                    return
+                data = await response.json()
+
+            posts = data.get("posts") if isinstance(data, dict) else data
+            if not isinstance(posts, list) or not posts:
+                return
+
+            latest_post = posts[0]
+            entry["latest_post"] = latest_post
+            post_id = latest_post.get("id") if isinstance(latest_post, dict) else None
+            if post_id and post_id not in self._seen_fairteiler_posts:
+                self._seen_fairteiler_posts.add(post_id)
+                if not self._is_first_update:
+                    self.hass.bus.async_fire(
+                        f"{DOMAIN}_fairteiler_post",
+                        {
+                            "fairteiler_id": fp_id,
+                            "fairteiler_name": entry.get("name"),
+                            "post": latest_post,
+                        },
+                    )
+        except AuthenticationFailed, UpdateFailed:
+            raise
+        except Exception as e:
+            _LOGGER.debug("Error fetching wall for fairteiler %s: %s", fp_id, e)
+
+    async def _fetch_markers(self, kind: str, ttl: timedelta) -> list[dict[str, Any]]:
+        """Fetch and cache /api/map/markers/{kind} (the only source with coordinates)."""
+        cached = self._marker_cache.get(kind)
+        now = datetime.now()
+        if cached and now - cached[0] < ttl:
+            return cached[1]
+
+        url = f"{self.base_url}/api/map/markers/{kind}"
+        try:
+            async with (
+                asyncio.timeout(20),
+                self.session.get(url, headers=self.authenticated_headers) as response,
+            ):
+                if response.status == 401:
+                    raise AuthenticationFailed("Unauthorized access while fetching map markers.")
+                if response.status == 200:
+                    data = await response.json()
+                    if isinstance(data, list):
+                        self._marker_cache[kind] = (now, data)
+                        return data
+                _LOGGER.debug("Map markers %s returned status %s", kind, response.status)
+        except AuthenticationFailed, UpdateFailed:
+            raise
+        except Exception as e:
+            _LOGGER.debug("Error fetching %s markers: %s", kind, e)
+        return cached[1] if cached else []
 
     async def fetch_pickups(self) -> list[dict[str, Any]]:
         """Fetch upcoming pickups for the user."""
@@ -1134,8 +1195,12 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
         return []
 
     async def fetch_region_statistics(self, region_id: int) -> dict[str, Any]:
-        """Fetch statistics for a specific region."""
-        url = f"{self.base_url}/api/regions/{region_id}/statistics"
+        """Fetch pickup statistics for a region.
+
+        The old /api/regions/{id}/statistics endpoint is gone; only the pickup
+        statistics remain, newest entry first.
+        """
+        url = f"{self.base_url}/api/regions/{region_id}/statistics/pickups"
         try:
             async with (
                 asyncio.timeout(10),
@@ -1143,7 +1208,17 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
             ):
                 if response.status == 200:
                     data = await response.json()
-                    return data if isinstance(data, dict) else {}
+                    if not isinstance(data, dict):
+                        return {}
+                    monthly = data.get("monthly") or []
+                    current = monthly[0] if monthly and isinstance(monthly[0], dict) else {}
+                    return {
+                        "month": current.get("date"),
+                        "numberOfPickups": current.get("numberOfPickups"),
+                        "numberOfStores": current.get("numberOfStores"),
+                        "numberOfSlots": current.get("numberOfSlots"),
+                        "numberOfFoodsavers": current.get("numberOfFoodsavers"),
+                    }
         except Exception as e:
             _LOGGER.debug("Error fetching region stats: %s", e)
         return {}
