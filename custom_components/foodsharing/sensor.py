@@ -261,6 +261,18 @@ class FoodsharingMessagesSensor(CoordinatorEntity[FoodsharingCoordinator], Senso
             return int(val)
         return 0
 
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return the unread conversations including their latest message.
+
+        Message bodies are stored in the recorder database; exclude this entity
+        there if that is not wanted.
+        """
+        return {
+            "conversations": self.coordinator.unread_conversations,
+            ATTR_ATTRIBUTION: ATTRIBUTION,
+        }
+
 
 class FoodsharingBellsSensor(CoordinatorEntity[FoodsharingCoordinator], SensorEntity):  # type: ignore[misc]
     """Represents unread bell notifications on Foodsharing."""
@@ -289,6 +301,19 @@ class FoodsharingBellsSensor(CoordinatorEntity[FoodsharingCoordinator], SensorEn
             val = self.coordinator.data.get("account", {}).get("bells", 0)
             return int(val)
         return 0
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return the unread notifications.
+
+        "key" and the payload fields are the raw API values; the backend only
+        ships translation keys, so the readable text has to be composed from the
+        payload in a template or automation.
+        """
+        return {
+            "notifications": self.coordinator.unread_bells,
+            ATTR_ATTRIBUTION: ATTRIBUTION,
+        }
 
 
 class FoodsharingPickupsSensor(CoordinatorEntity[FoodsharingCoordinator], SensorEntity):  # type: ignore[misc]
@@ -500,7 +525,7 @@ class FoodsharingRegionStatsSensor(CoordinatorEntity[FoodsharingCoordinator], Se
         self._unique_id_base = f"Foodsharing-Region-Stats-{email}"
         self._attr_unique_id = self._unique_id_base
         self._attr_icon = "mdi:map-outline"
-        self._attr_native_unit_of_measurement = "kg"
+        self._attr_native_unit_of_measurement = "pickups"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, email)},
             name=f"Foodsharing Account ({email})",
@@ -511,9 +536,12 @@ class FoodsharingRegionStatsSensor(CoordinatorEntity[FoodsharingCoordinator], Se
 
     @property
     def native_value(self) -> Any:
-        """Return the weight of saved food in the last month."""
+        """Return the number of pickups in the region this month.
+
+        The API no longer exposes saved weight per region, only pickup statistics.
+        """
         data = self.coordinator.data.get("account", {}).get("region_stats", {})
-        return data.get("savedFoodKgLastMonth")
+        return data.get("numberOfPickups")
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
@@ -526,11 +554,10 @@ class FoodsharingRegionStatsSensor(CoordinatorEntity[FoodsharingCoordinator], Se
         return {
             "region_id": region_id,
             "region_name": region_name,
-            "foodsavers": data.get("activeHomeRegionFoodsavers"),
-            "corporations": data.get("activeCoorporations"),
-            "pickups_last_month": data.get("pickupsLastMonth"),
-            "fairteiler": data.get("activeFoodSharePoints"),
-            "baskets_last_month": data.get("foodBasketsLastMonth"),
-            "last_updated": data.get("lastUpdated"),
+            "month": data.get("month"),
+            "pickups": data.get("numberOfPickups"),
+            "stores": data.get("numberOfStores"),
+            "slots": data.get("numberOfSlots"),
+            "foodsavers": data.get("numberOfFoodsavers"),
             ATTR_ATTRIBUTION: ATTRIBUTION,
         }

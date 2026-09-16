@@ -1,7 +1,6 @@
 """Geo-location platform for Foodsharing."""
 
 import logging
-import math
 from typing import Any
 
 from homeassistant.components.geo_location import GeolocationEvent
@@ -14,18 +13,9 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
 from .coordinator import FoodsharingCoordinator
-from .helpers import get_locations_from_entry
+from .helpers import get_locations_from_entry, haversine_km
 
 _LOGGER = logging.getLogger(__name__)
-
-
-def _haversine(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    """Calculate the great-circle distance between two points in km."""
-    r = 6371.0  # Earth radius in km
-    dlat = math.radians(lat2 - lat1)
-    dlon = math.radians(lon2 - lon1)
-    a = math.sin(dlat / 2) ** 2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon / 2) ** 2
-    return r * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
@@ -197,7 +187,7 @@ class FoodsharingBasketGeoLocation(CoordinatorEntity[FoodsharingCoordinator], Ge
         """Return distance from configured search center in km."""
         if self._attr_latitude is not None and self._attr_longitude is not None:
             return round(
-                _haversine(
+                haversine_km(
                     self._home_lat,
                     self._home_lon,
                     self._attr_latitude,
@@ -308,7 +298,7 @@ class FoodsharingFairteilerGeoLocation(CoordinatorEntity[FoodsharingCoordinator]
         """Return distance from configured search center in km."""
         if self._attr_latitude is not None and self._attr_longitude is not None:
             return round(
-                _haversine(
+                haversine_km(
                     self._home_lat,
                     self._home_lon,
                     self._attr_latitude,

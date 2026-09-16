@@ -75,23 +75,22 @@ async def test_coordinator_fetch_conversations(mock_session):
     ):
         coordinator = FoodsharingCoordinator(MagicMock(), "test@test.com", "pass")
 
-        # Test conversation list json
+        # The API wraps the list and counts unread messages per conversation
         mock_response = AsyncMock()
         mock_response.status = 200
-        mock_response.json.return_value = [{"unread": 1, "last_message": {"id": 10}}]
+        mock_response.json.return_value = {
+            "conversations": [
+                {"id": 1, "unreadMessages": 1, "lastMessage": {"id": 10}},
+                {"id": 2, "unreadMessages": 3, "lastMessage": {"id": 11}},
+                {"id": 3, "unreadMessages": 0, "lastMessage": {"id": 12}},
+            ],
+            "profiles": [],
+        }
+        mock_session.get.return_value.__aenter__.return_value = mock_response
 
-        mock_count = AsyncMock()
-        mock_count.status = 200
-        mock_count.json.return_value = {"unread": 1}
-
-        # Need to handle consecutive get calls
-        mock_session.get.return_value.__aenter__.side_effect = [
-            mock_count,
-            mock_response,
-        ]
-
+        # Two conversations carry unread messages, not four messages
         unread = await coordinator.fetch_unread_messages()
-        assert unread == 1
+        assert unread == 2
 
 
 @pytest.mark.asyncio
@@ -105,7 +104,7 @@ async def test_coordinator_fetch_bells(mock_session):
 
         mock_response = AsyncMock()
         mock_response.status = 200
-        mock_response.json.return_value = [{"is_read": 0, "id": 55}]
+        mock_response.json.return_value = [{"isRead": False, "id": 55}, {"isRead": True, "id": 56}]
 
         mock_session.get.return_value.__aenter__.return_value = mock_response
 
@@ -168,7 +167,7 @@ async def test_coordinator_fetch_bells_fires_event(mock_session):
 
         mock_response = AsyncMock()
         mock_response.status = 200
-        mock_response.json.return_value = [{"is_read": 0, "id": 101, "title": "New Bell"}]
+        mock_response.json.return_value = [{"isRead": False, "id": 101, "title": "New Bell"}]
         mock_session.get.return_value.__aenter__.return_value = mock_response
 
         # Mock bus.async_fire
