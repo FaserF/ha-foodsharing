@@ -677,7 +677,7 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
         f_lat = f"{float(lat):.6f}"
         f_lon = f"{float(lon):.6f}"
         i_dist = int(float(dist))
-        url = f"{self.base_url}/api/baskets/nearby?lat={f_lat}&lon={f_lon}&distance={i_dist}"
+        url = f"{self.base_url}/api/baskets/nearby?lat={f_lat}&lon={f_lon}"
 
         try:
             async with (
