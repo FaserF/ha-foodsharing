@@ -51,7 +51,9 @@
       "invalid_totp": "Der eingegebene TOTP-Code ist falsch oder abgelaufen. Bitte versuche es erneut.",
       "cannot_connect": "Verbindung zum Server fehlgeschlagen, bitte überprüfe dein Netzwerk und versuche es erneut.",
       "2fa_required": "Authentifizierung erfordert einen zweiten Faktor (2FA)",
-      "unknown": "Ein unerwarteter Fehler ist aufgetreten."
+      "unknown": "Ein unerwarteter Fehler ist aufgetreten.",
+      "account_not_activated": "Dieses Foodsharing-Konto ist noch nicht aktiviert. Bitte zuerst die Aktivierungs-E-Mail bestätigen.",
+      "rate_limited": "Zu viele Anmeldeversuche. Bitte einige Minuten warten und erneut versuchen."
     },
     "abort": {
       "already_configured": "Dieser Foodsharing-Account-Standort ist bereits eingerichtet.",
@@ -112,7 +114,9 @@
       "invalid_totp": "Der eingegebene TOTP-Code ist falsch oder abgelaufen.",
       "cannot_connect": "Verbindung fehlgeschlagen.",
       "2fa_required": "Zwei-Faktor-Authentisierung erforderlich.",
-      "unknown": "Ein unerwarteter Fehler ist aufgetreten."
+      "unknown": "Ein unerwarteter Fehler ist aufgetreten.",
+      "account_not_activated": "Dieses Foodsharing-Konto ist noch nicht aktiviert. Bitte zuerst die Aktivierungs-E-Mail bestätigen.",
+      "rate_limited": "Zu viele Anmeldeversuche. Bitte einige Minuten warten und erneut versuchen."
     },
     "abort": {
       "already_configured": "Dieser Foodsharing-Account-Standort ist bereits eingerichtet."

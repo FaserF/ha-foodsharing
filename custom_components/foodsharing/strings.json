@@ -55,7 +55,9 @@
       "invalid_auth": "Invalid authentication credentials",
       "invalid_totp": "Invalid TOTP code",
       "2fa_required": "Authentication requires a second factor (2FA)",
-      "unknown": "Unknown error"
+      "unknown": "Unknown error",
+      "account_not_activated": "This Foodsharing account is not activated yet. Please confirm the activation email first.",
+      "rate_limited": "Too many login attempts. Please wait a few minutes and try again."
     }
   },
   "selector": {
@@ -112,7 +114,9 @@
       "invalid_auth": "Invalid authentication credentials",
       "invalid_totp": "Invalid TOTP code",
       "2fa_required": "Two-factor authentication required",
-      "unknown": "Unknown error"
+      "unknown": "Unknown error",
+      "account_not_activated": "This Foodsharing account is not activated yet. Please confirm the activation email first.",
+      "rate_limited": "Too many login attempts. Please wait a few minutes and try again."
     },
     "abort": {
       "already_configured": "This Foodsharing account location is already configured"
