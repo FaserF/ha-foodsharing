@@ -42,14 +42,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     is_new_coordinator = email not in hass.data[DOMAIN]["accounts"]
     if is_new_coordinator:
         coordinator = FoodsharingCoordinator(hass, email, password)
-        await coordinator.async_load_session()
         hass.data[DOMAIN]["accounts"][email] = coordinator
     else:
         coordinator = hass.data[DOMAIN]["accounts"][email]
         # Always update credentials to ensure they are current
         coordinator.password = password
 
+    # add_entry() resolves the base URL (beta/at/ch) from the entry. It must run
+    # before the session is restored, otherwise the cookies are stored for the
+    # wrong host and are never sent.
     coordinator.add_entry(entry)
+
+    if is_new_coordinator:
+        await coordinator.async_load_session()
 
     # Initial data fetch. We use a standard refresh to avoid overly strict state checks
     try:
