@@ -50,9 +50,7 @@ async def test_food_share_points_filtered_by_radius(mock_session):
 async def test_basket_coordinates_come_from_markers(mock_session):
     """/api/baskets/nearby has no coordinates, the map markers provide them."""
     coordinator = _coordinator(mock_session)
-    coordinator._fetch_markers = AsyncMock(
-        return_value=[{"id": 42, "lat": 53.5, "lon": 10.1}]
-    )
+    coordinator._fetch_markers = AsyncMock(return_value=[{"id": 42, "lat": 53.5, "lon": 10.1}])
 
     baskets = await coordinator._add_basket_coordinates(
         [{"id": 42, "description": "x"}, {"id": 99, "description": "unknown"}]
@@ -70,10 +68,20 @@ async def test_region_statistics_uses_newest_month(mock_session):
     mock_session.get.return_value.__aenter__.return_value = _response(
         json_data={
             "monthly": [
-                {"date": "2026-09", "numberOfPickups": 27, "numberOfStores": 3,
-                 "numberOfSlots": 35, "numberOfFoodsavers": 12},
-                {"date": "2026-08", "numberOfPickups": 1, "numberOfStores": 1,
-                 "numberOfSlots": 1, "numberOfFoodsavers": 1},
+                {
+                    "date": "2026-09",
+                    "numberOfPickups": 27,
+                    "numberOfStores": 3,
+                    "numberOfSlots": 35,
+                    "numberOfFoodsavers": 12,
+                },
+                {
+                    "date": "2026-08",
+                    "numberOfPickups": 1,
+                    "numberOfStores": 1,
+                    "numberOfSlots": 1,
+                    "numberOfFoodsavers": 1,
+                },
             ],
             "weekly": [],
             "daily": [],
@@ -169,9 +177,7 @@ async def test_long_message_bodies_are_truncated(mock_session):
     coordinator = _coordinator(mock_session)
     mock_session.get.return_value.__aenter__.return_value = _response(
         json_data={
-            "conversations": [
-                {"id": 1, "unreadMessages": 1, "lastMessage": {"id": 1, "body": "x" * 900}}
-            ],
+            "conversations": [{"id": 1, "unreadMessages": 1, "lastMessage": {"id": 1, "body": "x" * 900}}],
             "profiles": [],
         }
     )

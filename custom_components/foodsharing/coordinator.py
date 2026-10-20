@@ -948,7 +948,7 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
             try:
                 if haversine_km(lat, lon, float(m_lat), float(m_lon)) <= dist:
                     nearby.append(marker)
-            except (TypeError, ValueError):
+            except TypeError, ValueError:
                 continue
 
         # ponytail: cap the detail fan-out, a huge radius would otherwise issue
@@ -1004,9 +1004,7 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
                         address = detail.get("address")
                         if isinstance(address, dict):
                             entry["address"] = ", ".join(
-                                str(address[k])
-                                for k in ("street", "postalCode", "city")
-                                if address.get(k)
+                                str(address[k]) for k in ("street", "postalCode", "city") if address.get(k)
                             )
                         picture = detail.get("picture")
                         if picture and not str(picture).startswith("http"):
@@ -1156,9 +1154,7 @@ class FoodsharingCoordinator(DataUpdateCoordinator[dict[str, Any]]):  # type: ig
         try:
             async with (
                 asyncio.timeout(10),
-                self.session.get(
-                    f"{self.base_url}/api/users/current", headers=self.authenticated_headers
-                ) as response,
+                self.session.get(f"{self.base_url}/api/users/current", headers=self.authenticated_headers) as response,
             ):
                 if response.status == 200:
                     data = await response.json()
