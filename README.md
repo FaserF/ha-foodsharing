@@ -1,4 +1,4 @@
-[![hacs_badge](https://img.shields.io/badge/HACS-Default-41BDF5.svg?style=for-the-badge)](https://github.com/hacs/integration)
+﻿[![Home Assistant Marketplace](https://img.shields.io/badge/Home_Assistant-Marketplace-41BDF5.svg?style=for-the-badge&logo=homeassistant&logoColor=white)](https://www.home-assistant.io)
 [![Downloads (Current release)](https://img.shields.io/github/downloads/FaserF/ha-foodsharing/latest/foodsharing.zip?label=Downloads%20(Current%20release)&style=for-the-badge)](https://github.com/FaserF/ha-foodsharing/releases)
 [![GitHub Release](https://img.shields.io/github/v/release/FaserF/ha-foodsharing?style=for-the-badge)](https://github.com/FaserF/ha-foodsharing/releases)
 
@@ -58,8 +58,8 @@ A comprehensive [Home Assistant](https://www.home-assistant.io/) custom integrat
 
 | Device / Service | Integration Use Case | Link |
 | :--- | :--- | :--- |
-| **Home Assistant Green & Offizielle Smart-Home-Hardware** | Empfohlene Hardware-Basis für lokale Home Assistant Integrationen | [Offizielle Geräte-Seite →](https://fabiseitz.de/go/ha-hardware) |
-| **Home Assistant Connect ZBT-1 (Zigbee / Thread)** | Lokales Zigbee2MQTT, ZHA & Matter-over-Thread Funknetz | [Offizielle Geräte-Seite →](https://fabiseitz.de/go/ha-zigbee) |
+| **Home Assistant Green & Official Hardware** | Recommended hardware foundation for local Home Assistant integrations | [Official Device Page →](https://fabiseitz.de/go/ha-hardware) |
+| **Home Assistant Connect ZBT-1 (Zigbee / Thread)** | Local Zigbee2MQTT, ZHA & Matter-over-Thread wireless mesh | [Official Device Page →](https://fabiseitz.de/go/ha-zigbee) |
 
 
 ---
@@ -70,12 +70,12 @@ A comprehensive [Home Assistant](https://www.home-assistant.io/) custom integrat
 
 This integration is available in the **HACS Default Repository**.
 
-1. Open HACS.
+1. Open Marketplace.
 2. Search for **"Foodsharing"**.
 3. Click **Download**.
 4. Restart Home Assistant.
 
-[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=FaserF&repository=ha-foodsharing&category=integration)
+[![Open your Home Assistant instance and open the repository in the Marketplace.](https://my.home-assistant.io/badges/marketplace_repository.svg)](https://my.home-assistant.io/redirect/marketplace_repository/?owner=FaserF&repository=ha-foodsharing&category=integration)
 
 ### 2. Manual Installation
 
