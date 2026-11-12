@@ -1,8 +1,8 @@
 version = 1
-revision = 3
-requires-python = ">=3.14"
+revision = 5
+requires-python = "==3.15.2"
 
 [[package]]
 name = "ha-foodsharing"
-version = "2026.6.1.dev0"
+version = "2026.8.1.dev0"
 source = { virtual = "." }
