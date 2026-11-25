@@ -155,13 +155,9 @@ def main() -> int:
     # 3. Check rule order
     listed_rules = [r for r in rules if r in CANONICAL_RULES]
     expected_order = [r for r in CANONICAL_RULES if r in rules]
-    for i, (l_rule, e_rule) in enumerate(
-        zip(listed_rules, expected_order, strict=False)
-    ):
+    for i, (l_rule, e_rule) in enumerate(zip(listed_rules, expected_order, strict=False)):
         if l_rule != e_rule:
-            errors.append(
-                f"Rule out of order: {l_rule} found at index {i}, expected {e_rule}"
-            )
+            errors.append(f"Rule out of order: {l_rule} found at index {i}, expected {e_rule}")
             break
 
     # 4. Check statuses and comments
@@ -172,9 +168,7 @@ def main() -> int:
             status = val.get("status")
             comment = val.get("comment")
             if not comment or not str(comment).strip():
-                errors.append(
-                    f"Rule '{name}' is exempt but missing a valid comment justification"
-                )
+                errors.append(f"Rule '{name}' is exempt but missing a valid comment justification")
         elif isinstance(val, str):
             status = val
         else:
@@ -182,9 +176,7 @@ def main() -> int:
             continue
 
         if status == "todo":
-            errors.append(
-                f"Rule '{name}' is marked todo: must be done or exempt with comment"
-            )
+            errors.append(f"Rule '{name}' is marked todo: must be done or exempt with comment")
         elif status == "done":
             done_count += 1
         elif status == "exempt":
@@ -195,38 +187,24 @@ def main() -> int:
     # 5. Programmatic checks
     if rules.get("config-flow") == "done":
         if not manifest.get("config_flow"):
-            errors.append(
-                "config-flow is marked done but manifest.json has config_flow=false"
-            )
+            errors.append("config-flow is marked done but manifest.json has config_flow=false")
         if not (integration_dir / "config_flow.py").is_file():
-            errors.append(
-                "config-flow is marked done but config_flow.py does not exist"
-            )
+            errors.append("config-flow is marked done but config_flow.py does not exist")
 
     if rules.get("unique-config-entry") == "done":
         cf_file = integration_dir / "config_flow.py"
-        if cf_file.is_file() and "async_set_unique_id" not in cf_file.read_text(
-            encoding="utf-8", errors="ignore"
-        ):
-            errors.append(
-                "unique-config-entry is marked done but async_set_unique_id not found in config_flow.py"
-            )
+        if cf_file.is_file() and "async_set_unique_id" not in cf_file.read_text(encoding="utf-8", errors="ignore"):
+            errors.append("unique-config-entry is marked done but async_set_unique_id not found in config_flow.py")
 
     if rules.get("config-entry-unloading") == "done":
         init_file = integration_dir / "__init__.py"
-        if init_file.is_file() and "async_unload_entry" not in init_file.read_text(
-            encoding="utf-8", errors="ignore"
-        ):
-            errors.append(
-                "config-entry-unloading is marked done but async_unload_entry not found in __init__.py"
-            )
+        if init_file.is_file() and "async_unload_entry" not in init_file.read_text(encoding="utf-8", errors="ignore"):
+            errors.append("config-entry-unloading is marked done but async_unload_entry not found in __init__.py")
 
     # 6. Verify manifest tier
     declared_tier = manifest.get("quality_scale")
     if declared_tier != "platinum":
-        errors.append(
-            f"manifest.json must declare 'quality_scale': 'platinum', found: '{declared_tier}'"
-        )
+        errors.append(f"manifest.json must declare 'quality_scale': 'platinum', found: '{declared_tier}'")
 
     if errors:
         for err in errors:
@@ -234,8 +212,7 @@ def main() -> int:
         return 1
 
     print(
-        f"{qs_path.name} meets Home Assistant Quality Scale PLATINUM: "
-        f"{done_count} rules done, {exempt_count} exempt."
+        f"{qs_path.name} meets Home Assistant Quality Scale PLATINUM: {done_count} rules done, {exempt_count} exempt."
     )
     return 0
 

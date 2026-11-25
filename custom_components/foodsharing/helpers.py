@@ -7,8 +7,10 @@ import math
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers import device_registry as dr
 
-from .const import CONF_LOCATIONS
+from .const import CONF_LOCATIONS, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -66,6 +68,21 @@ def mask_email(email: str | None) -> str:
     first = e_str[:1]
     domain = e_str[at_pos + 1 :]
     return f"{first}***@{domain}"
+
+
+def get_account_device_id(hass: HomeAssistant | None, entry: ConfigEntry, email: str) -> str | None:
+    """Return the device registry ID of the parent Foodsharing account device."""
+    if hass is None:
+        return None
+    dev_reg = dr.async_get(hass)
+    device = dev_reg.async_get_or_create(
+        config_entry_id=entry.entry_id,
+        identifiers={(DOMAIN, email)},
+        name=f"Foodsharing Account ({email})",
+        manufacturer="Foodsharing",
+        model="Account",
+    )
+    return device.id
 
 
 def haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
