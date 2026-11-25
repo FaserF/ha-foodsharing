@@ -36,6 +36,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
 
         new_entities: list[GeolocationEvent] = []
         current_ids: set[str] = set()
+        seen_basket_ids: set[str] = set()
 
         for idx, loc in enumerate(locations):
             if idx >= len(entry_locs):
@@ -52,6 +53,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
                 basket_lon = basket.get("longitude")
                 if raw_id is None or basket_lat is None or basket_lon is None:
                     continue
+                basket_uid = str(raw_id)
+                if basket_uid in seen_basket_ids:
+                    continue
+                seen_basket_ids.add(basket_uid)
                 basket_key = f"{idx}_basket_{raw_id}"
                 current_ids.add(basket_key)
 
