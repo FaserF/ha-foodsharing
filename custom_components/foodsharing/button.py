@@ -13,7 +13,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
 from .coordinator import FoodsharingCoordinator
-from .helpers import get_locations_from_entry
+from .helpers import get_account_device_id, get_locations_from_entry
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -144,13 +144,15 @@ class FoodsharingRequestSlotButton(CoordinatorEntity[FoodsharingCoordinator], Bu
         self._attr_entity_registry_enabled_default = False
 
         email = coordinator.email
-        self._attr_device_info = DeviceInfo(
+        loc_info = DeviceInfo(
             identifiers={(DOMAIN, f"{email}_{lat}_{lon}")},
             name=f"Foodsharing Location ({lat}, {lon})",
             manufacturer="foodsharing.de",
             model="Location Tracker",
-            via_device=(DOMAIN, email),
         )
+        if (via_id := get_account_device_id(coordinator.hass, entry, email)) is not None:
+            loc_info["via_device_id"] = via_id
+        self._attr_device_info = loc_info
 
     def _get_basket(self) -> dict[str, Any] | None:
         """Get the basket currently occupying this slot."""

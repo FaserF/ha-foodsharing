@@ -20,7 +20,7 @@ from .const import (
     DOMAIN,
 )
 from .coordinator import FoodsharingCoordinator
-from .helpers import get_locations_from_entry
+from .helpers import get_account_device_id, get_locations_from_entry
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -36,7 +36,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
 
     # 1. Cleanup specific legacy devices (consolidated/moved)
     for old_id in ["global_stats", f"account_{email}"]:
-        old_device = device_reg.async_get_device(identifiers={(DOMAIN, old_id)})
+        if hasattr(device_reg, "async_get_device_by_identifier"):
+            old_device = device_reg.async_get_device_by_identifier(
+                (DOMAIN, old_id),
+                entry.entry_id,
+            )
+        else:
+            old_device = device_reg.async_get_device(identifiers={(DOMAIN, old_id)})
         if old_device:
             _LOGGER.debug("Removing legacy device: %s", old_id)
             device_reg.async_remove_device(old_device.id)
@@ -134,13 +140,15 @@ class FoodsharingSensor(CoordinatorEntity[FoodsharingCoordinator], SensorEntity)
         self._attr_native_unit_of_measurement = "baskets"
 
         email = coordinator.email
-        self._attr_device_info = DeviceInfo(
+        loc_info = DeviceInfo(
             identifiers={(DOMAIN, f"{email}_{lat}_{lon}")},
             name=f"Foodsharing Location ({lat}, {lon})",
             manufacturer="foodsharing.de",
             model="Location Tracker",
-            via_device=(DOMAIN, email),
         )
+        if (via_id := get_account_device_id(coordinator.hass, entry, email)) is not None:
+            loc_info["via_device_id"] = via_id
+        self._attr_device_info = loc_info
 
     def _get_loc_data(self) -> dict[str, Any]:
         """Return coordinator location data for this sensor's location slot."""
@@ -198,13 +206,15 @@ class FoodsharingFairteilerSensor(CoordinatorEntity[FoodsharingCoordinator], Sen
         self._attr_native_unit_of_measurement = "fairteiler"
 
         email = coordinator.email
-        self._attr_device_info = DeviceInfo(
+        loc_info = DeviceInfo(
             identifiers={(DOMAIN, f"{email}_{lat}_{lon}")},
             name=f"Foodsharing Location ({lat}, {lon})",
             manufacturer="foodsharing.de",
             model="Location Tracker",
-            via_device=(DOMAIN, email),
         )
+        if (via_id := get_account_device_id(coordinator.hass, entry, email)) is not None:
+            loc_info["via_device_id"] = via_id
+        self._attr_device_info = loc_info
 
     def _get_loc_data(self) -> dict[str, Any]:
         """Return coordinator location data for this sensor's location slot."""

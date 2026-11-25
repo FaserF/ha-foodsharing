@@ -13,7 +13,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
 from .coordinator import FoodsharingCoordinator
-from .helpers import get_locations_from_entry, haversine_km
+from .helpers import get_account_device_id, get_locations_from_entry, haversine_km
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -142,13 +142,15 @@ class FoodsharingBasketGeoLocation(CoordinatorEntity[FoodsharingCoordinator], Ge
         self._attr_source = DOMAIN
 
         # Location Device
-        self._attr_device_info = DeviceInfo(
+        loc_info = DeviceInfo(
             identifiers={(DOMAIN, f"{email}_{home_lat}_{home_lon}")},
             name=f"Foodsharing Location ({home_lat}, {home_lon})",
             manufacturer="foodsharing.de",
             model="Location Tracker",
-            via_device=(DOMAIN, email),
         )
+        if (via_id := get_account_device_id(coordinator.hass, entry, email)) is not None:
+            loc_info["via_device_id"] = via_id
+        self._attr_device_info = loc_info
 
         self._update_from_basket(basket)
 
@@ -239,13 +241,15 @@ class FoodsharingFairteilerGeoLocation(CoordinatorEntity[FoodsharingCoordinator]
         self._attr_source = DOMAIN
 
         # Location Device
-        self._attr_device_info = DeviceInfo(
+        loc_info = DeviceInfo(
             identifiers={(DOMAIN, f"{email}_{home_lat}_{home_lon}")},
             name=f"Foodsharing Location ({home_lat}, {home_lon})",
             manufacturer="foodsharing.de",
             model="Location Tracker",
-            via_device=(DOMAIN, email),
         )
+        if (via_id := get_account_device_id(coordinator.hass, entry, email)) is not None:
+            loc_info["via_device_id"] = via_id
+        self._attr_device_info = loc_info
 
         self._update_from_fp(fp)
 
